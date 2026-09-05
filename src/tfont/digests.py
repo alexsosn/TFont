@@ -344,6 +344,8 @@ def _normalize_record_set(
     *,
     id_field: str,
     path: tuple[str | int, ...],
+    allowed_fields: set[str] | None = None,
+    required_fields: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     if type(value) is not list:
         _fail("projection_error", "set-like record collection must be an exact list", path)
@@ -351,6 +353,13 @@ def _normalize_record_set(
     seen: set[str] = set()
     for index, record in enumerate(value):
         obj = _exact_dict(record, path=path + (index,))
+        if allowed_fields is not None:
+            _check_source_keys(
+                obj,
+                allowed=allowed_fields,
+                required=required_fields if required_fields is not None else allowed_fields,
+                path=path + (index,),
+            )
         identifier = obj.get(id_field)
         if type(identifier) is not str or not identifier:
             _fail("projection_error", f"record requires non-empty {id_field}", path + (index, id_field))
@@ -408,6 +417,8 @@ def profile_semantic_digest(projection: dict[str, Any]) -> str:
         "publication_semantics",
     }
     _check_source_keys(source, allowed=required, required=required)
+    lock_identity_fields = {"lock_id", "content_digest"}
+    mapping_identity_fields = {"mapping_id", "mapping_semantic_digest"}
     normalized = {
         "profile_id": source["profile_id"],
         "schema_version": source["schema_version"],
@@ -415,8 +426,20 @@ def profile_semantic_digest(projection: dict[str, Any]) -> str:
         "semantic_domains": _normalize_unique_strings(source["semantic_domains"], path=("semantic_domains",)),
         "expected_parent_manifest_digest": source["expected_parent_manifest_digest"],
         "dependencies": _normalize_record_set(source["dependencies"], id_field="dependency_id", path=("dependencies",)),
-        "ontology_locks": _normalize_record_set(source["ontology_locks"], id_field="lock_id", path=("ontology_locks",)),
-        "mappings": _normalize_record_set(source["mappings"], id_field="mapping_id", path=("mappings",)),
+        "ontology_locks": _normalize_record_set(
+            source["ontology_locks"],
+            id_field="lock_id",
+            path=("ontology_locks",),
+            allowed_fields=lock_identity_fields,
+            required_fields=lock_identity_fields,
+        ),
+        "mappings": _normalize_record_set(
+            source["mappings"],
+            id_field="mapping_id",
+            path=("mappings",),
+            allowed_fields=mapping_identity_fields,
+            required_fields=mapping_identity_fields,
+        ),
         "review_readiness": _normalize_review_readiness(source["review_readiness"]),
         "applicability": source["applicability"],
         "publication_semantics": source["publication_semantics"],
