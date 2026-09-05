@@ -15,7 +15,7 @@ The canonical source bundle contains:
 2. an expected **parent component manifest**;
 3. one or more **ontology lock** records;
 4. one or more **canonical mapping source** YAML files;
-5. stable evidence and review records referenced by ID.
+5. content-addressed evidence records and review records referenced by stable IDs.
 
 The one-way artifact flow is:
 
@@ -40,9 +40,9 @@ normalized semantic IR
       |                         |                    |
       v                         v                    v
 runtime sidecar          reference JSON      publication output
-                              |                RDF/OWL/SKOS
-                              v
-                        generated docs
+      |                       |                RDF/OWL/SKOS
+      v                       v
+compatibility report      generated docs
 ```
 
 Every artifact below normalized semantic IR is a **generated derivative**. The compiler must be deterministic and fail closed when source contracts cannot be proved.
@@ -70,16 +70,18 @@ schemas/
   profile.schema.json
   parent-component-manifest.schema.json
   ontology-lock.schema.json
+  evidence.schema.json
   mapping.schema.json
   semantic-ir.schema.json
+  compatibility-report.schema.json
 
 profiles/
   <profile-id>/
     profile.yaml
     parent/expected-components.json
     mappings/*.yaml
-    evidence/*
-    reviews/*
+    evidence/*.yaml
+    reviews/*.yaml
     tests/fixtures/*
 
 ontology/locks/<lock-id>.yaml
@@ -108,7 +110,7 @@ Canonical YAML is an authoring surface, not a hashing format. Parsing must:
 - preserve authored Unicode strings without hidden normalization;
 - convert to the JSON-compatible source model before cross-artifact validation.
 
-Structural JSON Schema validation is followed by semantic validation of IDs, references, compatibility dependencies, ontology targets, review bindings and native edge cases.
+Structural JSON Schema validation is followed by semantic validation of IDs, references, compatibility dependencies, ontology targets, review bindings, evidence bindings and native edge cases.
 
 ## 5. Profile manifest contract
 
@@ -222,7 +224,7 @@ The **complete dependency closure** is the union of profile-level dependencies p
 
 Every dependency names a `component_id` from the authoritative `required_components` set.
 
-## 8. Compatibility algorithm
+## 8. Compatibility algorithm and evidence
 
 The validator compares the expected and observed parent component manifests and, when they differ, validates the complete dependency closure.
 
@@ -234,6 +236,28 @@ The validator compares the expected and observed parent component manifests and,
 **Only `verified-exact` and `verified-compatible` are executable**.
 
 Known failure dominates incomplete evidence: a proven false dependency yields `incompatible`, not `unverified`.
+
+### 8.1 Compatibility report machine contract
+
+Each validation produces an immutable compatibility report whose minimum fields are:
+
+- `compatibility_report_id` — stable content-addressed report identifier;
+- `report_digest` — SHA-256 over canonical report semantics excluding volatile timestamps/locations;
+- `profile_id` / `profile_version`;
+- `profile_semantic_digest`;
+- `expected_parent_manifest_digest`;
+- `observed_parent_manifest_digest`;
+- `state` — exactly one of the four states above;
+- `changed_components` — sorted component IDs whose observed identities differ from expected;
+- `dependency_results` — complete sorted result set for every dependency in the required closure when closure evaluation is attempted;
+- `evaluator_version` — compatibility/dependency evaluator contract version;
+- `incomplete_reasons` — machine reason codes explaining `unverified`, otherwise empty;
+- `failure_reasons` — failed dependency/component reason codes explaining `incompatible`, otherwise empty;
+- optional non-semantic generated timestamp outside the report digest projection.
+
+Each dependency result records dependency ID, component ID, result (`pass | fail | unknown`), observed evidence digest/summary and evaluator rule version.
+
+Runtime provenance references the **immutable compatibility report** by `compatibility_report_id` and `report_digest`; it does not recreate an unexplained boolean compatibility claim.
 
 ## 9. Ontology lock contract
 
@@ -254,7 +278,23 @@ An ontology lock pins the exact external evidence used during review and compila
 
 Runtime query resolution never changes mappings from live ontology URLs. Existing profile semantics remain bound to their lock.
 
-## 10. Canonical mapping source contract
+## 10. Content-addressed evidence contract
+
+Evidence used to justify an executable mapping is not identified only by a mutable label. Each evidence record minimally contains:
+
+- `evidence_id` — stable logical evidence ID;
+- `kind` — e.g. native-doc, pinned-source, ontology-definition, corpus-inventory, scholarly-rationale;
+- `source_uri` or repository/source locator;
+- optional `source_revision` / release identifier;
+- `content_digest` — exact digest of the reviewed evidence payload or normalized evidence record;
+- `license_ref` where relevant;
+- optional human citation metadata.
+
+A mapping references normative evidence through normalized `(evidence_id, content_digest)` bindings. A source can retain the same `evidence_id` across revisions, but a changed payload has a new `content_digest`.
+
+Evidence content changes therefore change the mapping evidence binding and **invalidates review** until the mapping is reviewed against the new evidence digest. Pure display/citation formatting stored outside the content-addressed reviewed evidence projection may remain prose-only.
+
+## 11. Canonical mapping source contract
 
 Every mapping object minimally contains:
 
@@ -267,8 +307,8 @@ Every mapping object minimally contains:
 - `assessment` — runtime/query assessment;
 - `publication_relation` — optional separately justified formal relation;
 - `applicability` — object/domain/precondition constraints;
-- `ontology_lock` — lock for external semantics;
-- `evidence` — stable evidence references;
+- `ontology_lock` — approved lock for external semantics, or null for no-target/ambiguous states;
+- `evidence` — content-addressed `(evidence_id, content_digest)` bindings;
 - `review` — review status/provenance plus reviewed digest;
 - `mapping_semantic_digest` — machine identity of the reviewed mapping semantics;
 - `rationale` — non-executable explanation;
@@ -295,7 +335,9 @@ publication_relation: null
 applicability:
   node_type: word
 ontology_lock: olia-2026-02-04
-evidence: [bhsa-doc:gn]
+evidence:
+  - evidence_id: bhsa-doc:gn
+    content_digest: sha256:...
 mapping_semantic_digest: sha256:...
 review:
   status: reviewed
@@ -304,7 +346,7 @@ review:
 rationale: Reviewed native and ontology definitions support this projection.
 ```
 
-## 11. Native selector model
+## 12. Native selector model
 
 `native_selector` may represent `feature-value`, `node-kind`, directed `edge`, ordered `path`, `sidecar-field`, `zero-span-entity`, or `source-span`.
 
@@ -319,7 +361,7 @@ Edges and paths record direction explicitly. A shared feature/edge label never p
 
 This prevents technical TF anchors from masquerading as semantic extent.
 
-## 12. R-002 mapping assessment contract
+## 13. R-002 mapping assessment contract
 
 Assessment direction is always **native/source → external target**.
 
@@ -336,27 +378,30 @@ The **assessment and publication relation are independent**. `assessment: exact`
 
 Validation rules:
 
-- `exact | close | broader | narrower | related` require one `external_target` and a valid ontology lock;
-- `native-only` and `unsupported` have no external target and require `external_target: null`;
-- `ambiguous` requires `external_target: null`, is non-executable, and uses `candidate_projections` rather than a target-only list;
-- `publication_relation` is null unless independently reviewed for the target formalism;
+- `exact | close | broader | narrower | related` require one `external_target` and one valid top-level `ontology_lock`;
+- `native-only` and `unsupported` have no external target and require top-level `external_target: null`, `ontology_lock: null`, and `publication_relation: null`;
+- `ambiguous` is non-executable and requires top-level `external_target: null`, top-level `ontology_lock: null`, and top-level `publication_relation: null` until ambiguity is resolved;
+- `publication_relation` is null unless independently reviewed for the approved target formalism;
 - R-005 candidate codes never populate `assessment` automatically.
 
-### 12.1 Ambiguity representation
+### 13.1 Ambiguity representation
 
-Each `candidate_projections` entry contains at least:
+Each candidate projection contains at least:
 
 ```yaml
 external_target: <candidate URI or CURIE>
+ontology_lock: <lock for that candidate target>
 assessment_candidate: exact | close | broader | narrower | related
-evidence: [<evidence IDs>]
+evidence:
+  - evidence_id: <evidence ID>
+    content_digest: sha256:...
 ```
 
-This represents both target ambiguity and relation ambiguity. Two entries may use the **same external target** with **different candidate assessments**, for example the same ontology term with `exact` versus `close` unresolved. The approved mapping still has `external_target: null` until ambiguity is resolved.
+This represents both target ambiguity and relation ambiguity. Two entries may use the **same external target** with **different candidate assessments**. Candidate targets from different ontology locks are valid because each candidate owns its explicit `ontology_lock` binding rather than borrowing an unresolved top-level lock.
 
 Candidate ordering, labels, result counts and first-match behavior must not make `ambiguous` automatically executable.
 
-## 13. Review binding and readiness
+## 14. Review binding and readiness
 
 Review states are:
 
@@ -364,7 +409,7 @@ Review states are:
 - `provisional` — diagnostic/authoring only;
 - `disputed` — audit/research only.
 
-### 13.1 Per-mapping semantic digest
+### 14.1 Per-mapping semantic digest
 
 `mapping_semantic_digest` is SHA-256 of RFC 8785 canonical JSON over behavior/publication-affecting mapping fields, including:
 
@@ -375,16 +420,16 @@ Review states are:
 - `assessment`;
 - `publication_relation`;
 - `applicability`;
-- `ontology_lock`;
-- behavior-affecting evidence/provenance IDs when the mapping contract declares them normative.
+- approved `ontology_lock` or per-candidate locks;
+- the normalized `(evidence_id, content_digest)` evidence bindings.
 
 It excludes the **review record itself**, rationale prose, release-navigation fields and the digest field itself, avoiding self-reference.
 
-For `review.status: reviewed`, `review.reviewed_mapping_digest` **must match** the recomputed `mapping_semantic_digest`. A mismatch is a **stale review** and is non-executable/non-releasable. Changing selector, target, candidate projection, assessment, publication relation, applicability or ontology binding therefore invalidates review automatically.
+For `review.status: reviewed`, `review.reviewed_mapping_digest` **must match** the recomputed `mapping_semantic_digest`. A mismatch is a **stale review** and is non-executable/non-releasable. Changing selector, target, candidate projection, assessment, publication relation, applicability, ontology binding, or reviewed evidence content therefore invalidates review automatically.
 
-This rule is checked by the compiler; a contributor cannot preserve `status: reviewed` across a material mapping edit without a new review binding.
+This rule is checked by the compiler; a contributor cannot preserve `status: reviewed` across a material mapping or evidence edit without a new review binding.
 
-## 14. Normalized semantic IR
+## 15. Normalized semantic IR
 
 The **normalized semantic IR** is the only compiler input to generated runtime/reference/publication artifacts. It is deterministic and JSON-compatible.
 
@@ -394,6 +439,7 @@ It contains:
 - expected parent component manifest identity and component identities;
 - dependency definitions;
 - ontology locks/term pins;
+- content-addressed evidence bindings used by mappings;
 - normalized mappings including `mapping_semantic_digest` and review binding;
 - review readiness;
 - generated lookup indexes;
@@ -411,11 +457,11 @@ Normalization rules:
 - no generated timestamps in behavior identity;
 - authored Unicode strings are preserved.
 
-## 15. Canonicalization and digest rules
+## 16. Canonicalization and digest rules
 
 All semantic hashes use **SHA-256** with versioned algorithms.
 
-### 15.1 Source digest
+### 16.1 Source digest
 
 For each canonical UTF-8 source file:
 
@@ -427,11 +473,11 @@ For each canonical UTF-8 source file:
 
 The bundle `source_digest` hashes a **sorted** list of `{logical_path, file_sha256}` encoded as canonical JSON. Source formatting/comments can therefore change `source_digest` without changing runtime meaning.
 
-### 15.2 Canonical JSON
+### 16.2 Canonical JSON
 
 JSON-compatible normalized objects use RFC 8785 JSON Canonicalization Scheme semantics: deterministic property ordering, no insignificant whitespace, UTF-8 output and preserved JSON string values. The design calls this **canonical JSON**.
 
-### 15.3 Profile semantic digest
+### 16.3 Profile semantic digest
 
 `semantic_digest` is SHA-256 of canonical JSON over the behavior/publication-affecting **profile semantic projection**. It includes:
 
@@ -449,21 +495,25 @@ Exact bundle identity is the tuple **profile_id + profile_version + semantic_dig
 
 A separate `ir_digest` may cover non-volatile evidence/documentation metadata for exact build reproduction.
 
-## 16. Versioning and exact-parent rebase
+## 17. Versioning and exact-parent rebase
 
 SemVer is a release-navigation convention; `semantic_digest` is exact semantic identity.
 
+A changed `semantic_digest` can never be a patch.
+
 - **patch** — release/tooling/rationale correction with unchanged `semantic_digest` and unchanged supported runtime behavior;
-- **minor** — additive backward-compatible semantic capability;
-- **major** — removal or behavior-changing alteration of an existing released mapping/executable contract.
+- **minor** — additive/backward-compatible semantic or compatibility change that changes `semantic_digest` but does not remove previously supported behavior;
+- **major** — removes previously supported behavior or changes the meaning/execution contract of an existing released mapping in a backward-incompatible way.
 
-An **exact-parent rebase** means publishing a new exact tested parent component manifest while mappings and dependency semantics remain unchanged and the complete dependency closure validates on the new parent. The parent pin changes `semantic_digest` because parent compatibility evidence is behavior-affecting, but that change **does not by itself require a major version**. SemVer impact follows user-visible semantic compatibility: normally patch/minor according to release policy, unless the rebase removes or changes supported behavior.
+An **exact-parent rebase** publishes a new exact tested parent component manifest while mapping/dependency semantics remain unchanged and the complete dependency closure validates on the new parent. Because the expected parent identity is behavior-affecting, the rebase changes `semantic_digest`. If it adds/rebases exact support without removing previously supported behavior, the exact-parent rebase **is a minor release**. If it removes previously supported behavior or makes a previously supported parent/profile contract unavailable, it is major.
 
-An ontology-lock update likewise creates a new semantic digest; SemVer impact follows resulting behavior, not the existence of a changed lock alone.
+This deterministic rule eliminates patch/minor ambiguity while satisfying the accepted R-001 requirement that a changed exact parent need not automatically force major versioning.
+
+An ontology-lock update also changes semantic digest; it is minor if backward-compatible/additive and major if it changes/removes previously supported semantics.
 
 Stable `mapping_id` identifies mapping lineage; released meaning is reconstructed from the profile release plus semantic digest and mapping record.
 
-## 17. Compiler pipeline and failures
+## 18. Compiler pipeline and failures
 
 The deterministic compiler stages are:
 
@@ -479,8 +529,9 @@ Cross-artifact validation fails on at least:
 
 - duplicate IDs;
 - missing component/dependency/lock/evidence references;
+- evidence digest mismatch;
 - any active mapping dependency outside authoritative `required_components`;
-- illegal assessment/external-target or ambiguity combinations;
+- illegal assessment/external-target/ontology-lock or ambiguity combinations;
 - illegal publication relation for target formalism;
 - unknown ontology target;
 - explicit semantic use of dense storage empty without native evidence;
@@ -490,7 +541,7 @@ Cross-artifact validation fails on at least:
 
 Release validation recomputes the exact tested parent component manifest and requires `verified-exact` for the release target.
 
-## 18. Runtime sidecar and compatibility handoff
+## 19. Runtime sidecar and compatibility handoff
 
 The first POC runtime derivative is deterministic JSON `runtime-index.json`, containing indexes such as:
 
@@ -513,14 +564,15 @@ compute observed parent component manifest
        -> known fail: incompatible
 ```
 
-Runtime never rewrites canonical mappings from live ontology lookup.
+Every activation returns/references the immutable compatibility report from §8.1. Runtime never rewrites canonical mappings from live ontology lookup.
 
-## 19. Capability and resolution plan contracts
+## 20. Capability and resolution plan contracts
 
 A capability record includes:
 
 - `profile_id` / `profile_version` / `semantic_digest`;
 - compatibility state;
+- `compatibility_report_id` / `report_digest`;
 - expected and observed component-manifest identities;
 - semantic domains;
 - mapping assessment support;
@@ -532,7 +584,7 @@ A **resolution plan** contains:
 
 - normalized-request fingerprint;
 - profile identity and semantic digest;
-- compatibility state/evidence ID;
+- compatibility state and immutable compatibility report identity;
 - requested external concepts;
 - selected mapping IDs;
 - per-mapping `assessment`;
@@ -544,12 +596,12 @@ A **resolution plan** contains:
 
 The resolution fingerprint is **protocol-independent** and derives from semantic request + profile semantic identity + observed compatibility evidence + native plan. It never derives from **MCP session state**, negotiated protocol, connection ID or timestamp.
 
-## 20. Runtime execution gate
+## 21. Runtime execution gate
 
 Exact-mode execution requires:
 
 1. compatibility is `verified-exact` or `verified-compatible`;
-2. every required mapping is `reviewed` and its reviewed digest matches;
+2. every required mapping is `reviewed` and its reviewed digest matches current mapping/evidence content;
 3. every required assessment is `exact`;
 4. no requested constraint is ambiguous/native-only/unsupported/unavailable;
 5. generated native plan validates against the active adapter.
@@ -564,37 +616,37 @@ Approximate mode may explicitly allow `close`, `broader`, or `narrower` and must
 
 Stable error/result categories include `profile_not_found`, `parent_unverified`, `parent_incompatible`, `ontology_lock_missing`, `term_unknown`, `unsupported`, `ambiguous`, `approximation_required`, `unsafe_relaxation`, `native_query_invalid`, and `internal_inconsistency`.
 
-## 21. Native-data edge cases
+## 22. Native-data edge cases
 
-### 21.1 Zero-span/catalogue/native sidecar
+### 22.1 Zero-span/catalogue/native sidecar
 
 A `zero-span-entity` / `sidecar-zero-span` selector explicitly names its non-TF component. No fake TF slot is invented. The component participates in exact identity and dependency validation.
 
-### 21.2 Technical anchor versus semantic extent
+### 22.2 Technical anchor versus semantic extent
 
 A selector uses `extent: anchor-only` for a **technical anchor**. Semantic occurrence queries follow reviewed paths rather than pretending the anchor is full **semantic extent**.
 
 TLHdig `lex.oslots` is the mandatory stress example.
 
-### 21.3 Dense TF empty
+### 22.3 Dense TF empty
 
 A **dense TF empty** `""`/`None` storage record is non-semantic by default. The inventory/IR distinguishes raw records, non-empty nodes, empty observation count and semantic observed values.
 
 A dense empty cannot become **explicit absence**, omission, non-attestation, damage, unknown or uncertainty unless the native source explicitly asserts that meaning.
 
-### 21.4 Observed versus closed domain
+### 22.4 Observed versus closed domain
 
 Domain metadata distinguishes:
 
 - **observed small domain** — finite non-empty observations in one exact release;
 - **documented bounded** vocabulary — source evidence establishes bounded categories;
-- closed vocabulary — only where explicit source semantics establish closure;
+- closed vocabulary — only where explicit source semantics establishes closure;
 - open/large domain;
 - unknown closure.
 
 A finite observed release inventory is never silently promoted to permanent closure.
 
-## 22. Generated documentation and semantic diff
+## 23. Generated documentation and semantic diff
 
 The IR/source fields must generate all R-004 reference directions:
 
@@ -613,61 +665,65 @@ Semantic diff dimensions include at least:
 - ontology lock changed;
 - **parent compatibility evidence changed**;
 - required component/dependency change;
+- evidence digest change;
 - review binding/readiness change;
 - ambiguity candidate-projection change;
 - **prose-only** change.
 
 Generated docs expose source/profile/ontology/parent identities and never infer semantic values from dense empties.
 
-## 23. POC fixture matrix
+## 24. POC fixture matrix
 
 The first implementation fixtures must include positive and adversarial cases.
 
 | fixture | purpose | mandatory assertion |
 |---|---|---|
 | BHSA positive morphology | happy path | reviewed exact `sp`/`gn`/`nu` style mapping compiles and resolves |
-| changed-parent | compatibility | changed component set with complete closure → `verified-compatible` |
+| changed-parent | compatibility | changed component set with complete closure → `verified-compatible` plus immutable report |
 | changed sidecar with unchanged TF | identity negative | must not remain `verified-exact` |
 | ORACC-like zero-span | non-TF semantics | zero-span component is addressed without fake slots |
 | TLHdig technical-anchor | extent semantics | anchor-only does not become semantic occurrence extent |
 | dense-empty | storage negative | empty record does not become semantic value/applicability |
-| native-only | no-target state | no external target, non-substitute |
+| native-only | no-target state | no external target/lock/publication relation |
 | unsupported | negative capability | explicit unsupported result, no blank/guess |
 | ambiguous relation | ambiguity | same target with different candidate assessments remains non-executable |
+| ambiguous cross-lock | ambiguity | candidate targets from different ontology locks retain candidate-specific lock binding |
 | stale-review | review binding | material mapping edit with old reviewed digest becomes non-executable |
+| changed-evidence | evidence binding | changed evidence content digest invalidates review |
 
-## 24. Reproducible build and CI contract
+## 25. Reproducible build and CI contract
 
 For every future profile change CI must eventually:
 
 1. validate canonical sources against schemas;
 2. validate cross-artifact references and authority rules;
-3. recompute mapping semantic digests and review bindings;
-4. validate exact release parent manifest;
-5. compile normalized IR;
-6. regenerate runtime/reference/publication derivatives;
-7. run generation twice or otherwise verify deterministic canonical digests;
-8. fail stale committed generated artifacts;
-9. execute positive and negative fixtures;
-10. produce semantic diff dimensions from §22;
-11. fail on unreviewed/stale-review executable mappings;
-12. preserve explicit four-state compatibility evidence.
+3. validate content-addressed evidence bindings;
+4. recompute mapping semantic digests and review bindings;
+5. validate exact release parent manifest;
+6. compile normalized IR;
+7. regenerate runtime/reference/publication derivatives;
+8. run generation twice or otherwise verify deterministic canonical digests;
+9. fail stale committed generated artifacts;
+10. execute positive and negative fixtures;
+11. produce semantic diff dimensions from §23;
+12. fail on unreviewed/stale-review executable mappings;
+13. preserve explicit four-state compatibility evidence and report shape.
 
 Source digest and semantic digest are both reported so formatting-only source changes are distinguishable from semantic behavior changes.
 
-## 25. Implementation ticket decomposition
+## 26. Implementation ticket decomposition
 
 Every ticket below follows **research -> plan -> implement -> test** as applicable, with explicit **RED -> GREEN -> independent review** before merge. A ticket that changes public semantics requires a design amendment first rather than silently changing this contract.
 
 ### `I-001` — structural schemas and source validator
 
 **Dependency order:** first.  
-Create JSON Schema 2020-12 contracts for profile, parent components, ontology lock and mapping source plus parser/structural validator. Include duplicate-key and no-independent-`required` regressions.
+Create JSON Schema 2020-12 contracts for profile, parent components, ontology lock, evidence, mapping source and compatibility report plus parser/structural validator. Include duplicate-key, no-independent-`required`, evidence-shape and candidate-lock regressions.
 
 ### `I-002` — canonicalization and digest library
 
 Depends on `I-001`.  
-Implement UTF-8 source digest, RFC 8785 canonical JSON, `mapping_semantic_digest`, profile `semantic_digest`, source digest and test vectors proving `profile_version` exclusion.
+Implement UTF-8 source digest, RFC 8785 canonical JSON, evidence content digest helpers, `mapping_semantic_digest`, profile `semantic_digest`, source digest and test vectors proving `profile_version` exclusion.
 
 ### `I-003` — parent component identity
 
@@ -677,22 +733,22 @@ Implement TF/file/directory component identity and parent manifest composition. 
 ### `I-004` — cross-artifact semantic validator
 
 Depends on `I-001`..`I-003`.  
-Validate required-component authority, all eight assessment shapes, `candidate_projections`, ontology targets, native dependencies, dense-empty assertions and review-digest binding.
+Validate required-component authority, all eight assessment shapes, candidate-specific ontology locks, ontology targets, native dependencies, evidence digests, dense-empty assertions and review-digest binding.
 
 ### `I-005` — compatibility validator/report
 
 Depends on `I-003`, `I-004`.  
-Implement `verified-exact | verified-compatible | unverified | incompatible` with complete dependency closure and changed-parent fixtures.
+Implement `verified-exact | verified-compatible | unverified | incompatible`, immutable report identity/shape, complete dependency closure and changed-parent fixtures.
 
 ### `I-006` — normalized IR compiler
 
 Depends on `I-002`, `I-004`, `I-005`.  
-Compile deterministic semantic IR and semantic/source digests; reject stale review and nondeterministic ordering.
+Compile deterministic semantic IR and semantic/source digests; reject stale review/evidence and nondeterministic ordering.
 
 ### `I-007` — runtime sidecar and capability index
 
 Depends on `I-006`.  
-Generate deterministic runtime index plus capability records including negative states and provenance.
+Generate deterministic runtime index plus capability records including negative states, compatibility report identity and provenance.
 
 ### `I-008` — semantic resolver core
 
@@ -706,7 +762,7 @@ Generate native -> semantic / semantic -> corpora reference JSON/Markdown and st
 
 After each ticket: focused RED/GREEN tests, relevant full suite, then a fresh independent review of the exact head. A head change invalidates that review.
 
-## 26. Test strategy
+## 27. Test strategy
 
 Tests should be contract-oriented, not implementation snapshots.
 
@@ -714,11 +770,14 @@ Required layers:
 
 - schema validation positives/negatives;
 - canonicalization/digest fixed vectors;
+- evidence content-addressing and changed-evidence stale-review regression;
 - mapping digest/review-binding stale-review regression;
 - component-manifest fixed vectors;
-- exact/compatible/unverified/incompatible compatibility matrix;
+- exact/compatible/unverified/incompatible compatibility matrix plus immutable report vectors;
 - ambiguous same-target/different-assessment regression;
+- ambiguous candidate targets from different ontology locks;
 - no-target native-only/unsupported regressions;
+- exact-parent rebase version-classification regression;
 - zero-span/sidecar and technical-anchor fixtures;
 - dense-empty and observed-vs-closed-domain negatives;
 - deterministic compile: same semantic inputs => same semantic IR/runtime/reference digests;
@@ -726,7 +785,7 @@ Required layers:
 
 No test may treat a repository version string, feature-name coincidence, TF-only digest or author confidence as proof of semantic compatibility.
 
-## 27. Non-goals and implementation boundary
+## 28. Non-goals and implementation boundary
 
 P-001 creates no production schemas, no `profiles/`, no compiler/runtime implementation, no final corpus mapping release and no MCP code changes.
 
