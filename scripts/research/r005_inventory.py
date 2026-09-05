@@ -12,6 +12,11 @@ is semantically closed; R-005's curated research inventory may promote an observ
 small domain to ``categorical_bounded`` only when corpus documentation/source semantics
 support that claim.
 
+Dense TF files can expose empty-string records through the loaded API. Those records
+mean that no semantic value is present at that position; they are counted separately
+and never treated as members of the observed value domain or as evidence that a
+feature applies to that node type.
+
 Requires Text-Fabric. The research baseline was inspected against TF 13.1.0.
 """
 
@@ -35,19 +40,31 @@ def _stable_value(value: Any) -> str | int | float | bool | None:
     return str(value)
 
 
+def _is_empty_observation(value: Any) -> bool:
+    """Identify a TF record that carries no semantic feature value."""
+    return value is None or value == ""
+
+
 def summarize_values(
     values: Iterable[Any], *, small_domain_limit: int = 64, sample_limit: int = 20
 ) -> dict[str, Any]:
-    """Summarize observed values conservatively.
+    """Summarize observed non-empty values conservatively.
 
     ``observed_small_domain`` means only that the pinned artifact has few distinct
-    values. It does *not* assert that the source vocabulary is formally closed.
+    non-empty values. It does *not* assert that the source vocabulary is formally
+    closed. Empty-string/None records are counted separately because TF dense
+    feature representations may expose them even though no semantic value exists.
     """
-    counts = Counter(_stable_value(v) for v in values)
+    raw_values = [_stable_value(v) for v in values]
+    empty_count = sum(1 for value in raw_values if _is_empty_observation(value))
+    semantic_values = [value for value in raw_values if not _is_empty_observation(value)]
+    counts = Counter(semantic_values)
     ordered = sorted(counts.items(), key=lambda item: (str(type(item[0])), str(item[0])))
     result: dict[str, Any] = {
         "observed_unique_count": len(ordered),
         "observation_count": sum(counts.values()),
+        "raw_observation_count": len(raw_values),
+        "empty_observation_count": empty_count,
     }
     if len(ordered) <= small_domain_limit:
         result["domain_observation"] = "observed_small_domain"
@@ -83,12 +100,20 @@ def inventory_api(api: Any, *, small_domain_limit: int = 64) -> dict[str, Any]:
     for name in api.Fall(warp=False):
         feature = api.Fs(name)
         items = list(feature.items())
-        applies_to = sorted({otype.v(node) for node, _value in items if otype.v(node)})
+        semantic_items = [
+            (node, value)
+            for node, value in items
+            if not _is_empty_observation(value)
+        ]
+        applies_to = sorted(
+            {otype.v(node) for node, _value in semantic_items if otype.v(node)}
+        )
         info = {
             "kind": "node",
             "metadata": _metadata(feature),
             "applies_to": applies_to,
-            "nodes_with_value": len(items),
+            "nodes_with_value": len(semantic_items),
+            "node_records_seen": len(items),
         }
         info.update(
             summarize_values(
@@ -158,7 +183,10 @@ def inventory_api(api: Any, *, small_domain_limit: int = 64) -> dict[str, Any]:
 def digest_tf_files(path: Path) -> str:
     """Hash the exact TF feature files in deterministic path/content order."""
     digest = hashlib.sha256()
-    files = sorted((candidate for candidate in path.glob("*.tf") if candidate.is_file()), key=lambda p: p.name)
+    files = sorted(
+        (candidate for candidate in path.glob("*.tf") if candidate.is_file()),
+        key=lambda p: p.name,
+    )
     for file in files:
         digest.update(file.name.encode("utf-8"))
         digest.update(b"\0")
@@ -210,6 +238,7 @@ def build_inventory(
             "domain_policy": {
                 "small_domain_limit": small_domain_limit,
                 "observed_small_domain_is_not_automatically_categorical": True,
+                "empty_string_and_none_records_are_not_domain_members": True,
             },
         }
     )
