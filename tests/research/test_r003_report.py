@@ -22,6 +22,18 @@ class R003AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("d82e6ef2726f149f903eb43ddbfb615faf399cd5", text)
         self.assertIn("a554d4fdc36c8854519064f3a7611b80efa29622", text)
 
+    def test_current_host_is_distinct_from_current_protocol_target(self):
+        text = REPORT.read_text(encoding="utf-8").lower()
+        self.assertIn("current host implementation", text)
+        self.assertIn("mcp>=1.0,<2", text)
+        self.assertIn("current protocol target", text)
+        self.assertIn("2026-07-28", text)
+        self.assertIn("handshake-era", text)
+        self.assertIn("stateless", text)
+        self.assertIn("negotiated protocol", text)
+        self.assertIn("must not depend on mcp session state", text)
+        self.assertIn("legacy/handshake host and 2026 stateless host produce equivalent semantic resolution semantics", text)
+
     def test_capability_examples_use_evidence_bearing_compatibility_states(self):
         text = REPORT.read_text(encoding="utf-8")
         self.assertNotIn('"compatibility": "verified"', text)
