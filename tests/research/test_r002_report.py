@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import unittest
 from pathlib import Path
 
@@ -35,6 +34,12 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         text = REPORT.read_text(encoding="utf-8").lower()
         self.assertIn("`broader` means the target is broader than the native/source concept", text)
         self.assertIn("`narrower` means the target is narrower than the native/source concept", text)
+
+    def test_mapping_example_does_not_cross_stem_and_pos_dimensions(self):
+        text = REPORT.read_text(encoding="utf-8")
+        self.assertNotIn("native: BHSA word.vs = qal\ntarget: olia:Verb", text)
+        self.assertIn("native: BHSA word.gn = m", text)
+        self.assertIn("target: olia:Masculine", text)
 
     def test_saws_license_is_not_invented(self):
         text = REPORT.read_text(encoding="utf-8")
