@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORT = ROOT / "docs" / "research" / "R-002-ontology-governance.md"
+REGISTRY = ROOT / "docs" / "research" / "data" / "R-002-ontology-registry.json"
 
 
 class R002AuthoritativeReportTests(unittest.TestCase):
@@ -66,6 +68,26 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         )
         self.assertIn("R-005 accepted", text)
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
+
+    def test_machine_registry_matches_reconciled_policy(self):
+        data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+        candidates = {item["id"]: item for item in data["candidates"]}
+
+        self.assertEqual(candidates["prov-o"]["use_mode"], "core")
+        self.assertEqual(candidates["shacl"]["use_mode"], "validation-standard")
+
+        web_annotation = candidates["web-annotation"]
+        self.assertEqual(web_annotation["use_mode"], "optional-publication-targeting")
+
+        saws = candidates["saws"]
+        self.assertIn("not established", saws["license"].lower())
+        self.assertNotIn("non-commercial", saws["redistribution"].lower())
+        self.assertNotIn("nc licensing", saws["overlap"].lower())
+
+        cao = candidates["cao"]
+        self.assertNotIn("minimal tfont apparatus vocabulary", cao["overlap"].lower())
+        self.assertIn("native/profile-local", cao["overlap"].lower())
+        self.assertIn("second independent corpus", cao["overlap"].lower())
 
 
 if __name__ == "__main__":
