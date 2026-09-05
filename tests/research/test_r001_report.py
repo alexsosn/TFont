@@ -41,18 +41,21 @@ class R001AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
 
     def test_verified_exact_covers_all_semantically_addressed_parent_components(self):
-        report = REPORT.read_text(encoding="utf-8")
-        reconciliation = RECONCILIATION.read_text(encoding="utf-8")
-        combined = f"{report}\n{reconciliation}".lower()
+        report = REPORT.read_text(encoding="utf-8").lower()
+        reconciliation = RECONCILIATION.read_text(encoding="utf-8").lower()
 
-        self.assertIn("semantically addressable native component", combined)
-        self.assertIn("component identities", combined)
-        self.assertIn("external sidecar", combined)
-        self.assertIn("tf bytes stay identical", combined)
-        self.assertIn("must not remain `verified-exact`", combined)
+        for text in (report, reconciliation):
+            self.assertIn("semantically addressable native component", text)
+            self.assertIn("component identities", text)
+            self.assertIn("external sidecar", text)
+
+        self.assertIn("tf bytes stay identical", report)
+        self.assertIn("must not remain `verified-exact`", report)
+        self.assertIn("tf bytes stay identical", reconciliation)
+        self.assertIn("must not remain `verified-exact`", reconciliation)
         self.assertNotIn(
             "`verified-exact` proves that the loaded parent tf artifact is byte-identical",
-            reconciliation.lower(),
+            reconciliation,
         )
 
 
