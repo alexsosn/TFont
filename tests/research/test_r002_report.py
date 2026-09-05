@@ -24,6 +24,23 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("genuinely", text.lower())
         self.assertIn("skos", text.lower())
 
+    def test_mapping_assessment_semantics_are_complete(self):
+        text = REPORT.read_text(encoding="utf-8").lower()
+        required_definitions = (
+            "`exact` — the external target and native/source concept are judged semantically coextensive",
+            "`close` — the external target and native/source concept are substantially overlapping or near-equivalent",
+            "`broader` — the external target is broader than the native/source concept",
+            "`narrower` — the external target is narrower than the native/source concept",
+            "`related` — the external target is semantically related but neither coextensive nor ordered as broader/narrower",
+            "`ambiguous` — available evidence does not justify one unambiguous external-target assessment",
+            "`native-only` — the native/source concept is intentionally supported without an external ontology target",
+            "`unsupported` — the active tfont profile does not provide a supported semantic projection for the native/source concept",
+        )
+        for definition in required_definitions:
+            self.assertIn(definition, text)
+        self.assertIn("mapping-level `exact` is distinct from r-001 `verified-exact`", text)
+        self.assertIn("`native-only` and `unsupported` have no external target", text)
+
     def test_skos_role_does_not_own_runtime_mapping_assessment(self):
         text = REPORT.read_text(encoding="utf-8")
         self.assertNotIn("**Role in TFont:** mapping strength", text)
