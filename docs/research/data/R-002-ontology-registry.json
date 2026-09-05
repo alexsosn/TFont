@@ -51,7 +51,7 @@
       "offline": "downloadable vocabulary/specification",
       "scope": "portable annotation target/body/selector model",
       "overlap": "preferred portable targeting layer over adopting POWLA as generic runtime structure",
-      "use_mode": "core",
+      "use_mode": "optional-publication-targeting",
       "source": "https://www.w3.org/TR/annotation-vocab/"
     },
     {
@@ -350,13 +350,13 @@
       "version_or_date": "2.1",
       "namespace": "http://purl.org/saws/ontology",
       "authority": "SAWS project",
-      "license": "CC BY-NC-SA 3.0 project licensing",
-      "redistribution": "non-commercial restriction makes it unsuitable as a TFont normative dependency",
+      "license": "reusable ontology license not established from authoritative distribution inspected",
+      "redistribution": "reference only until reusable ontology rights are established and pinned",
       "maintenance": "historical project ontology; limited current evolution",
       "deprecation_policy": "reference fixed version only",
-      "offline": "ontology can be downloaded/cached for reference subject to license",
+      "offline": "ontology can be downloaded/cached for reference; redistribution rights require separate authoritative evidence",
       "scope": "ancient textual/intertextual and witness relationships",
-      "overlap": "useful prior art; older FRBRoo dependency and NC licensing argue against normative adoption",
+      "overlap": "useful prior art; older FRBRoo dependency and unresolved reusable ontology licensing argue against normative adoption",
       "use_mode": "reference-only",
       "source": "http://purl.org/saws/ontology"
     },
@@ -373,7 +373,7 @@
       "deprecation_policy": "no mature release/deprecation lifecycle observed; pin exact ontology snapshot",
       "offline": "OWL ontology committed in repository",
       "scope": "critical apparatus variation units, readings and philological argumentation",
-      "overlap": "closest apparatus prior art, but stale draft/legacy FRBRoo dependencies motivate a minimal TFont apparatus vocabulary",
+      "overlap": "closest apparatus prior art; keep apparatus domain concepts native/profile-local until a second independent corpus establishes the recurring semantic gap or mapping infrastructure requires a shared term",
       "use_mode": "reference-only",
       "source": "https://github.com/fgiovannetti/cao"
     }
