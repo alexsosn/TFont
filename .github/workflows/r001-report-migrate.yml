@@ -1,0 +1,118 @@
+name: R-001 one-time report migration
+
+on:
+  push:
+    branches:
+      - research/r-001-distribution-architecture
+    paths:
+      - .github/workflows/r001-report-migrate.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Consolidate reconciled contract into authoritative report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/research/R-001-distribution-architecture.md')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one anchor, found {count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The sidecar is the semantic source/runtime contract. It binds to exact parent corpus data revisions and schema fingerprints. It may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.",
+              "Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The **TFont profile source** is the canonical human-reviewable semantic source. A **compiled runtime sidecar** is a deterministic generated lookup/index derived from that source. Exact compatibility binds to a transport-independent artifact digest over the actual parent semantic TF bytes; reusable compatibility validates the profile dependency closure against a different parent artifact. TFont may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.",
+              'opening artifact roles',
+          )
+
+          replace_once(
+              "      schema_digest: sha256:<digest>\n      tested: true",
+              "      artifact_identity:\n        algorithm: tfont-tf-files-sha256-v1\n        digest: sha256:<digest>\n      dependency_manifest: dependencies.json\n      tested: true",
+              'manifest target',
+          )
+
+          replace_once(
+              "1. **logical corpus resource ID** — e.g. `bhsa`, `cuc`, `tlhdig-tf`;\n2. **canonical upstream repository/data location**;\n3. **parent TF/schema version**;\n4. **exact immutable upstream revision** used in CI;\n5. **schema digest** over the native structures that the mapping depends on;\n6. **expected slot type**;\n7. **TFont profile version and source revision**;\n8. **locked ontology/profile versions**.\n\nThe design ticket should define canonical schema-digest construction. At minimum it must include the warp metadata, referenced node/edge feature metadata and the declared bounded value inventories used by mappings. Hashing only filenames is insufficient.",
+              "1. **logical corpus resource ID** — e.g. `bhsa`, `cuc`, `tlhdig-tf`;\n2. **canonical upstream repository/data location**;\n3. **parent TF/schema version**;\n4. **exact immutable upstream revision** used in CI as provenance/acquisition evidence;\n5. **transport-independent parent artifact identity** over the actual semantic TF bytes;\n6. **complete profile dependency closure**, including every native selector/value/entity/invariant used by the mapping;\n7. **expected slot type**;\n8. **TFont profile version and source revision**;\n9. **locked ontology/profile versions**.\n\nThe design ticket should define canonical artifact-identity and dependency-manifest construction. Exact identity hashes the parent semantic bytes, including storage-level dense records. Dependency compatibility is semantic: an empty-string or `None` dense record carries **no semantic value** unless the parent corpus explicitly defines otherwise, so it cannot satisfy a required mapped value or establish feature applicability. Likewise, an **observed small** release domain is not automatically a **closed vocabulary**: compatibility validates the particular values and invariants the profile depends on rather than assuming every finite observed domain is permanently closed.",
+              'required identity fields',
+          )
+
+          replace_once(
+              "- `verified-exact` — installed corpus revision/schema matches a tested target;\n- `verified-schema` — different parent revision but identical relevant schema digest and the manifest explicitly permits schema-equivalent reuse;\n- `available-unverified` — version looks compatible by naming/range but no exact/schema-equivalent target was tested;\n- `stale` — required native features/types/value domains changed;\n- `incompatible` — known mismatch such as slot type or missing required structure.\n\nAutomatic semantic projection should default to the first two states. `available-unverified` requires explicit opt-in and must surface that provenance to the caller. `stale`/`incompatible` fail closed.",
+              "- `verified-exact` — loaded parent artifact identity equals an exact tested target;\n- `verified-compatible` — artifact identity differs, but the current profile's complete declared dependency closure has been validated against it;\n- `incompatible` — at least one required dependency differs, is absent, or cannot be validated;\n- `unverified` — TFont cannot prove exact identity or complete dependency compatibility.\n\nSemantic execution is enabled only for `verified-exact` and `verified-compatible`. `unverified` is diagnostic and **non-executable**: it may support migration inspection or a prospective resolution report, but there is no normal agent/user opt-in that converts it into executable semantic truth. `incompatible` fails closed.",
+              'compatibility states',
+          )
+
+          replace_once(
+              "1. acquisition resolves the new corpus revision;\n2. TFont computes/reads its schema fingerprint;\n3. compatibility is checked before semantic queries are enabled;\n4. if the exact target or permitted schema-equivalent fingerprint is absent, TFont reports the profile as unverified/stale;\n5. CI for the TFont profile is run against the new exact parent revision;\n6. any changed feature names, node types, edge semantics or bounded value inventories require mapping review;\n7. a new TFont profile release is published with the added tested target.\n\nDo not silently fall back to a nearest earlier mapping. A user asking for reproducible semantics should receive a hard incompatibility or explicit opt-in warning rather than plausible but unvalidated results.",
+              "1. acquisition resolves the new corpus revision and actual parent semantic artifact;\n2. TFont computes/verifies its transport-independent artifact identity;\n3. if it is not an exact tested target, TFont validates the complete profile dependency closure;\n4. semantic queries are enabled only after reaching `verified-exact` or `verified-compatible`; otherwise the profile is `unverified` or `incompatible` and remains non-executable;\n5. CI for the TFont profile is run against the new exact parent revision/artifact;\n6. any changed dependency — including mapped open-domain values/entity IDs, edge semantics, structural invariants, or required bounded values — requires mapping review;\n7. a new TFont profile release records the added exact target or explicit compatibility evidence.\n\nDo not silently fall back to a nearest earlier mapping. A reproducible semantic request receives verified execution or a diagnostic failure; an unverified profile never produces plausible but unvalidated semantic results.",
+              'parent update flow',
+          )
+
+          replace_once(
+              "- Is this mapping exact-tested, schema-tested, or unverified?",
+              "- Is this mapping `verified-exact`, `verified-compatible`, `unverified`, or `incompatible`, and what artifact/dependency evidence supports that state?",
+              'agent discovery status',
+          )
+
+          replace_once(
+              "1. parent identity/revision and TF/schema version;\n2. expected slot type;\n3. every mapped node type/feature/edge exists with the expected feature kind/datatype;\n4. bounded value mappings cover only actually supported values and unknown new values fail validation or remain explicitly unmapped;\n5. edge direction/value semantics match the adapter declaration;",
+              "1. transport-independent parent artifact identity, upstream revision provenance, and TF/schema version;\n2. expected slot type;\n3. every dependency in the compiled profile dependency closure exists with the expected node/edge kind, datatype, applicability, and structural invariants;\n4. every mapped bounded value and every referenced open-domain value/entity identifier is validated explicitly; unrelated new values in an open domain do not invalidate a profile unless the dependency contract says they matter;\n5. edge direction/value semantics match the adapter declaration;",
+              'CI dependency closure',
+          )
+
+          replace_once(
+              "| exact parent target verified | enable profile normally |\n| exact commit differs but allowed schema digest matches | enable as schema-equivalent and report actual revision |\n| only version label/range appears compatible | require explicit unverified opt-in; do not auto-enable |",
+              "| parent artifact identity equals an exact tested target | `verified-exact`; enable profile normally |\n| artifact differs but complete profile dependency closure validates | `verified-compatible`; enable with compatibility evidence |\n| exact identity or complete dependency compatibility cannot be proved | `unverified`; diagnostic/non-executable |",
+              'failure policy compatibility rows',
+          )
+
+          replace_once(
+              "- design ticket: exact manifest serialization, schema-digest algorithm, runtime index encoding, artifact naming and signing workflow;",
+              "- design ticket: exact manifest serialization, canonical parent-artifact digest and profile-dependency-manifest algorithms, runtime index encoding, artifact naming and signing workflow;",
+              'delegated design algorithm',
+          )
+
+          replace_once(
+              "- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision and schema digest.\n- [x] Defines semantic sidecar as canonical artifact; TF feature module is optional/generated.",
+              "- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision provenance and transport-independent artifact digest.\n- [x] Defines reusable compatibility through the complete profile dependency closure, including mapped open-domain values/entities and structural invariants.\n- [x] Defines the profile source as canonical semantic source; the runtime sidecar and TF feature module are deterministic generated artifacts.\n- [x] Defines `unverified` as diagnostic/non-executable and separates storage-empty records from semantic values/feature applicability.",
+              'acceptance trace identity',
+          )
+
+          # Remove the obsolete suggestion that an ordinary generated compatibility module
+          # may carry its own otext configuration; reserved TF configuration is outside the
+          # normal materialization boundary after independent review.
+          text = text.replace("        └── otext@tfont.tf     # only if text formats are deliberately added\n", "")
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit report and remove migration workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/r001-report-migrate.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A docs/research/R-001-distribution-architecture.md .github/workflows/r001-report-migrate.yml
+          git commit -m 'research: consolidate reconciled R-001 contract'
+          git fetch origin "$GITHUB_REF_NAME"
+          git rebase "origin/$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
