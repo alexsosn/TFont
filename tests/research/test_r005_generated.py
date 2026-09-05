@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PINS_PATH = ROOT / "docs" / "research" / "data" / "R-005-corpus-pins.json"
 REPORT_PATH = ROOT / "docs" / "research" / "R-005-corpus-semantic-census.md"
+MATRIX_PATH = ROOT / "docs" / "research" / "R-005-candidate-strength-matrix.md"
 GENERATED = ROOT / "docs" / "research" / "data" / "generated" / "r005"
 
 # Stress targets without a committed released TF artifact are intentionally absent.
@@ -76,6 +77,40 @@ class GeneratedInventoryContractTests(unittest.TestCase):
             with self.subTest(row=row):
                 self.assertIn(row, report)
 
+    def test_curated_bhsa_domains_preserve_native_na_and_unknown_values(self):
+        bhsa = self.inventories["bhsa"]["node_features"]
+        documented_special_values = (
+            "gn",
+            "prs_gn",
+            "nu",
+            "prs_nu",
+            "ps",
+            "prs_ps",
+        )
+        for feature in documented_special_values:
+            with self.subTest(feature=feature):
+                description = bhsa[feature]["metadata"]["description"]
+                self.assertIn("NA", description)
+                self.assertIn("unknown", description)
+                self.assertIn("NA", bhsa[feature]["observed_values"])
+                self.assertIn("unknown", bhsa[feature]["observed_values"])
+
+        # st's metadata documents the grammatical values a/c/e, while the exact
+        # release also contains the ordinary non-empty native value NA. Preserve it
+        # in the curated census instead of treating it like a storage empty.
+        self.assertEqual(set(bhsa["st"]["observed_values"]), {"NA", "a", "c", "e"})
+
+        report = REPORT_PATH.read_text(encoding="utf-8")
+        expected_rows = (
+            "| gender | `gn`, `prs_gn` | `m`, `f`, `NA`, `unknown` | `word` |",
+            "| number | `nu`, `prs_nu` | `sg`, `du`, `pl`, `NA`, `unknown` | `word` |",
+            "| person | `ps`, `prs_ps` | `p1`, `p2`, `p3`, `NA`, `unknown` | `word` |",
+            "| state | `st` | `a`, `c`, `e`, plus observed native `NA` | `word` |",
+        )
+        for row in expected_rows:
+            with self.subTest(row=row):
+                self.assertIn(row, report)
+
     def test_compact_candidate_strength_cells_match_dedicated_matrix_contract(self):
         report = REPORT_PATH.read_text(encoding="utf-8")
         rows = {
@@ -96,6 +131,58 @@ class GeneratedInventoryContractTests(unittest.TestCase):
         self.assertEqual(sign[2], "C primary alphabetic sign")
         self.assertEqual(sign[7], "C primary cuneiform sign + alignment")
         self.assertEqual(sign[9], "C semantic GDL sign")
+
+    def test_dependency_and_hierarchical_parent_relations_remain_separate(self):
+        bhsa_edges = self.inventories["bhsa"]["edge_features"]
+        self.assertIn("linguistic dependency", bhsa_edges["mother"]["metadata"]["description"])
+        self.assertNotIn(
+            "linguistic dependency",
+            bhsa_edges["functional_parent"]["metadata"]["description"],
+        )
+        self.assertNotIn(
+            "linguistic dependency",
+            bhsa_edges["distributional_parent"]["metadata"]["description"],
+        )
+
+        report = REPORT_PATH.read_text(encoding="utf-8")
+        compact_rows = {
+            line.split("|", 2)[1].strip(): [
+                cell.strip() for cell in line.strip().strip("|").split("|")
+            ]
+            for line in report.splitlines()
+            if line.startswith("| syntactic dependency |")
+            or line.startswith("| hierarchical parent relation |")
+        }
+        self.assertEqual(compact_rows["syntactic dependency"][1], "S `mother`")
+        self.assertEqual(compact_rows["syntactic dependency"][6], "S `mother`")
+        self.assertEqual(
+            compact_rows["hierarchical parent relation"][1],
+            "S `functional_parent` + `distributional_parent`",
+        )
+        self.assertEqual(
+            compact_rows["hierarchical parent relation"][6],
+            "S `functional_parent` + `distributional_parent`",
+        )
+
+        matrix = MATRIX_PATH.read_text(encoding="utf-8")
+        dedicated_rows = {
+            line.split("|", 2)[1].strip(): [
+                cell.strip() for cell in line.strip().strip("|").split("|")
+            ]
+            for line in matrix.splitlines()
+            if line.startswith("| syntactic dependency |")
+            or line.startswith("| hierarchical parent relation |")
+        }
+        self.assertEqual(dedicated_rows["syntactic dependency"][1], "`S` `mother`")
+        self.assertEqual(dedicated_rows["syntactic dependency"][6], "`S` `mother`")
+        self.assertEqual(
+            dedicated_rows["hierarchical parent relation"][1],
+            "`S` `functional_parent` / `distributional_parent`",
+        )
+        self.assertEqual(
+            dedicated_rows["hierarchical parent relation"][6],
+            "`S` `functional_parent` / `distributional_parent`",
+        )
 
     def test_r005_verification_ci_is_non_mutating(self):
         # The report reconciliation was a one-time migration. Keeping its write-enabled
