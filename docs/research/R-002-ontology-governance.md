@@ -19,14 +19,14 @@ The initial recommendation is:
 
 | tier | vocabularies / ontologies |
 |---|---|
-| **core infrastructure** | SKOS, PROV-O, Web Annotation; SHACL 1.0 for RDF validation tooling |
+| **supported foundation models** | SKOS, OLiA, OntoLex-Lemon core, CIDOC CRM 7.1.3, CRMtex 2.0, LRMoo 1.1.1, CRMinf 1.2.1; PROV-O for provenance; SHACL 1.0 for RDF validation tooling |
 | **supported linguistic/lexical profiles** | OLiA, OntoLex-Lemon 2016 core + VarTrans, LexInfo 3.0, OntoLex Lexicog 2019 |
 | **supported heritage/text profiles** | CIDOC CRM 7.1.3, CRMtex 2.0, LRMoo 1.1.1, CRMinf 1.2.1 |
-| **optional supported domain profiles** | CRMarchaeo 2.1.1, CRMsci 3.2 |
+| **optional supported domain/publication profiles** | CRMarchaeo 2.1.1, CRMsci 3.2, LexInfo 3.0, OntoLex Lexicog 2019, OntoLex VarTrans, Web Annotation |
 | **external controlled vocabularies** | Getty AAT, PeriodO |
 | **reference/prior art** | POWLA, SAWS, Critical Apparatus Ontology 0.9, OntoLex Morph until final publication, OntoLex FrAC until final publication |
 
-TFont must not infer semantic identity from similar labels. Formal equivalence is exceptional. Approximate mappings use SKOS mapping relations, with the corpus-native assertion remaining authoritative.
+TFont must not infer semantic identity from similar labels. Formal equivalence is exceptional. Every mapping carries a formalism-neutral **mapping assessment** (`exact | close | broader | narrower | related | ambiguous | native-only | unsupported`) for query planning and UX, while an independent **publication relation** records an RDF/OWL/SKOS formalization only when the target model justifies one. The corpus-native assertion remains authoritative.
 
 A mapping records both a **stable term URI** and the **tested ontology release/snapshot**. Versionless namespaces alone are not enough for reproducibility. Existing mapping releases never change meaning merely because an upstream ontology publishes a new release or deprecates a term.
 
@@ -37,7 +37,7 @@ When no external term fits, TFont should prefer, in order:
 3. define a corpus-local concept if the value is specific to one annotation tradition;
 4. define a small TFont concept only when the same semantic gap recurs across independent corpora and is needed for interoperability.
 
-The R-005 evidence indicates one recurrent gap large enough to justify an initial small TFont vocabulary: **text-critical apparatus assertions**, especially variation units, readings, witness attestation and explicit witness absence. Existing CAO/SAWS models are useful prior art, but their maintenance/licensing/model dependencies are not strong enough to make either the POC's normative apparatus model.
+R-005 demonstrates full variation-unit/reading/witness-attestation/explicit-absence apparatus semantics robustly in Pseudepigrapha-TF, but not in a second independent corpus. Peshitta A/B witness metadata and TLHdig line→fragment witness links are related assertions, not equivalent reading-at-locus apparatus graphs. Therefore the foundation POC should **not mint** apparatus-specific TFont domain vocabulary yet; keep those semantics native/profile-local and retain CAO/SAWS as prior art until recurrence or mapping-infrastructure necessity is established.
 
 ## 1. Evaluation method
 
@@ -130,6 +130,8 @@ A changed URI is not automatically a changed concept, and an upstream `replacedB
 
 ## 4. Mapping-strength policy
 
+TFont separates a reified **mapping assessment** from any RDF **publication relation**. The assessment controls runtime/query behavior; it does not automatically select an RDF predicate. Formalization follows the native formalism of the target ontology or remains an explicit TFont mapping assertion when no safe RDF/OWL/SKOS relation exists.
+
 ### 4.1 Identity and OWL equivalence
 
 `owl:sameAs` is reserved for two identifiers denoting the same individual/resource.
@@ -140,7 +142,7 @@ The ordinary corpus-mapping workflow should therefore almost never emit OWL equi
 
 ### 4.2 SKOS mappings
 
-For concepts/categories:
+SKOS mapping predicates are used only when the mapped resources are genuinely SKOS concepts in concept schemes. They are not a generic encoding for mappings to OWL/RDFS classes or properties such as OLiA or CIDOC CRM. For genuine SKOS concepts:
 
 - `skos:exactMatch` — high-confidence interchangeability between concepts in different concept schemes; still not an OWL identity claim;
 - `skos:closeMatch` — materially similar but not guaranteed interchangeable;
@@ -149,7 +151,7 @@ For concepts/categories:
 
 `skos:closeMatch` is intentionally not transitive. TFont must not infer A≈C merely because A close-matches B and B close-matches C.
 
-The compact R-005 words `same`, `close`, `broader/narrower`, `related`, `unknown` and `local-only` should become UI/reporting labels over explicit formal relations, not a second independent relation algebra.
+The compact R-005 candidate words are research evidence only. Approved mappings receive a reviewed TFont assessment; that assessment remains separate from RDF formalization. For OWL/RDFS class/property targets, use `rdfs:subClassOf` / `rdfs:subPropertyOf` or OWL equivalence only when logically justified, otherwise publish the reified TFont assertion without manufacturing a SKOS predicate.
 
 ### 4.3 Native assertions remain authoritative
 
@@ -185,7 +187,7 @@ Scores are qualitative: `5` strong, `1` poor. `maintenance` reflects governance/
 |---|---|---:|---:|---:|---:|---|
 | SKOS | W3C Recommendation, 2009 | 5 | 5 | 5 | 5 | core |
 | PROV-O | W3C Recommendation, 2013 | 5 | 5 | 5 | 5 | core |
-| Web Annotation | W3C Recommendation, 2017 | 5 | 5 | 5 | 5 | core |
+| Web Annotation | W3C Recommendation, 2017 | 5 | 5 | 5 | 5 | optional publication/targeting profile |
 | SHACL 1.0 | W3C Recommendation, 2017 | 5 | 5 | 4 | 5 | validation standard |
 | OLiA | maintained ontology ecosystem; checked 2026 repo head | 5 | 4 | 5 | 5 | supported linguistic profile |
 | OntoLex-Lemon core | W3C CG Final Report, 2016 | 4 | 4 | 5 | 5 | supported lexical profile |
@@ -203,7 +205,7 @@ Scores are qualitative: `5` strong, `1` poor. `maintenance` reflects governance/
 | Getty AAT | actively maintained open vocabulary, ODC-By 1.0 | 4 | 5 | 4 | 4 | external vocabulary |
 | PeriodO | active linked-data period gazetteer, public-domain dedication | 5 | 5 | 4 | 5 | external vocabulary |
 | POWLA | older draft/project model | 3 | 2 | 3 | 4 | reference only |
-| SAWS | v2.1 model; CC BY-NC-SA 3.0 project licensing | 2 | 2 | 4 | 4 | reference only |
+| SAWS | v2.1 model; reusable ontology license not established from authoritative distribution inspected | 2 | 2 | 4 | 4 | reference only |
 | CAO | 0.9 draft, 2019 ontology, repository last changed 2021 | 5 | 2 | 5 | 5 | reference/alignment only |
 
 ## 7. Core infrastructure vocabularies
@@ -233,9 +235,9 @@ Runtime need not perform OWL reasoning over PROV-O. The source/publication artif
 
 **Authoritative specifications:** W3C Web Annotation Data Model and Vocabulary Recommendations, 23 February 2017.  
 **Namespace:** `http://www.w3.org/ns/oa#`.  
-**Role:** portable expression of annotations targeting corpus entities or source spans.
+**Role:** supported **optional publication/targeting** profile for portable annotations targeting corpus entities or source spans. It is not required by every TFont profile or runtime mapping.
 
-This is a better maintained infrastructure choice than using POWLA as the generic RDF annotation layer. It is especially useful when a semantic assertion targets:
+This is a better maintained publication/targeting choice than using POWLA as the generic RDF annotation layer where portable annotation exchange is actually needed. It is especially useful when a semantic assertion targets:
 
 - a native TF node identifier;
 - a byte/source span retained by a converter;
@@ -409,11 +411,11 @@ Decision: reference only.
 
 ### 11.2 SAWS
 
-SAWS models relationships among ancient wisdom texts and witnesses and remains valuable prior art for intertextual/textual relationships. The published project materials are under **CC BY-NC-SA 3.0**, which conflicts with TFont's requirement that normative semantic dependencies remain usable in commercial environments.
+SAWS models relationships among ancient wisdom texts and witnesses and remains valuable prior art for intertextual/textual relationships. The authoritative ontology distribution inspected for R-002 establishes the model/version/PURL but does **not establish a reusable ontology license**. TFont therefore records the license as unknown/not established rather than inferring either permissive or non-commercial terms.
 
-Its historical dependence on FRBRoo is another reason not to adopt it as the POC's base apparatus model now that LRMoo is available.
+Its historical dependence on FRBRoo and the unresolved reuse rights are reasons not to adopt it as a normative POC dependency now that LRMoo is available.
 
-Decision: reference/alignment only.
+Decision: reference/alignment only unless authoritative licensing and current-model evidence are later established and pinned.
 
 ### 11.3 Critical Apparatus Ontology (CAO)
 
@@ -430,7 +432,7 @@ The checked repository `fgiovannetti/cao` is at `7a96094092123d5f53358cd3311c583
 
 CAO is one of the closest conceptual precedents for Pseudepigrapha-TF's apparatus, but its maturity/maintenance make it a poor normative dependency for a new POC.
 
-Decision: use CAO as explicit prior art and publish alignments where justified, but define the minimum recurrent apparatus concepts locally in TFont.
+Decision: use CAO as explicit prior art and publish alignments where justified. Keep apparatus domain concepts native/profile-local in the foundation POC until a second independent corpus establishes the same semantic gap or the design proves a term is required for TFont mapping infrastructure itself.
 
 ## 12. Minimal TFont vocabulary
 
@@ -438,23 +440,16 @@ TFont should not create a broad competing ontology. The initial local vocabulary
 
 ### 12.1 Text-critical concepts
 
-Proposed conceptual scope for the later design ticket:
+Do **not mint** TFont-local apparatus domain terms in the foundation POC. R-005 establishes full variation-unit/reading/witness-attestation/explicit-absence semantics in Pseudepigrapha-TF only; Peshitta witness designations and TLHdig fragment links do not constitute a second independent corpus with the same apparatus relation. Preserve the Pseudepigrapha-TF concepts natively/profile-locally and document the external ontology gap.
 
-- `tfont:VariationUnit` — a locus/unit at which the edition distinguishes readings or explicit witness states;
-- `tfont:Reading` — a reading option asserted for a variation unit;
-- `tfont:attestedBy` — reading → witness/source attestation;
-- `tfont:explicitlyAbsentIn` — variation unit/reading state → witness where the source explicitly records absence rather than merely lacking data.
-
-These names are conceptual placeholders, not approved production URIs. The design ticket must test them against Pseudepigrapha-TF and any other apparatus-bearing corpus before freezing them.
-
-`Witness` itself should preferably map to an appropriate established bibliographic/heritage entity when its native semantics are known; TFont does not need to invent a universal witness class merely because several corpora use the word `witness` differently.
+A later governance/design change may mint an apparatus term only after a **second independent corpus** requires the same semantic gap, or after the term is shown to be necessary for TFont's mapping-contract infrastructure rather than one corpus domain. `Witness` should likewise map to an established bibliographic/heritage entity when the native semantics justify it rather than being universalized from a shared label.
 
 ### 12.2 What should not enter the TFont vocabulary
 
 Do not mint local replacements for:
 
 - generic provenance — use PROV-O;
-- mapping strength — use SKOS/OWL as appropriate;
+- mapping strength — use the TFont mapping-assessment contract; publish SKOS/OWL/RDFS relations only where the target formalism justifies them;
 - annotation targets/selectors — use Web Annotation where publication needs them;
 - lexical entry/form/sense — use OntoLex where applicable;
 - generic museum/material entities — use CIDOC CRM/AAT where applicable;
