@@ -49,6 +49,54 @@ class GeneratedInventoryContractTests(unittest.TestCase):
         self.assertIn("remark", report)
         self.assertIn("R-005-candidate-strength-matrix.md", report)
 
+    def test_curated_cuc_applicability_matches_generated_inventory(self):
+        cuc = self.inventories["cuc"]["node_features"]
+        expected = {
+            "g_cons": ["word"],
+            "trailer": ["word"],
+            "utrailer": ["word"],
+            "trailer_emen": ["word"],
+            "language": ["word"],
+            "side": ["line"],
+            "cont": ["sign"],
+        }
+        for feature, applies_to in expected.items():
+            with self.subTest(feature=feature):
+                self.assertEqual(cuc[feature]["applies_to"], applies_to)
+
+        report = REPORT_PATH.read_text(encoding="utf-8")
+        expected_rows = (
+            "| `g_cons` | string | consonantal value | `word` |",
+            "| `trailer`, `utrailer`, `trailer_emen` | string | following spacing/punctuation/editorial rendering | `word` |",
+            "| `language` | string/categorical | encoded language | `word` |",
+            "| `side` | string/categorical | physical side | `line` |",
+            "| `cont` | string/flag-like | line-continuation information | `sign` |",
+        )
+        for row in expected_rows:
+            with self.subTest(row=row):
+                self.assertIn(row, report)
+
+    def test_compact_candidate_strength_cells_match_dedicated_matrix_contract(self):
+        report = REPORT_PATH.read_text(encoding="utf-8")
+        rows = {
+            line.split("|", 2)[1].strip(): [
+                cell.strip() for cell in line.strip().strip("|").split("|")
+            ]
+            for line in report.splitlines()
+            if line.startswith("| word/token |") or line.startswith("| sign/grapheme |")
+        }
+
+        word = rows["word/token"]
+        sign = rows["sign/grapheme"]
+        # Columns: semantic cluster, BHSA, CUC, Syriac, Peshitta, SyrNT,
+        # ExtraBiblical, TLHdig-TF, Pseudepigrapha-TF, ORACC-TF target.
+        self.assertEqual(word[2], "S word over signs")
+        self.assertEqual(word[7], "S word over signs")
+        self.assertEqual(word[9], "S word over signs")
+        self.assertEqual(sign[2], "C primary alphabetic sign")
+        self.assertEqual(sign[7], "C primary cuneiform sign + alignment")
+        self.assertEqual(sign[9], "C semantic GDL sign")
+
     def test_r005_verification_ci_is_non_mutating(self):
         # The report reconciliation was a one-time migration. Keeping its write-enabled
         # workflow after the report is repaired can move the PR head from CI and recreate
