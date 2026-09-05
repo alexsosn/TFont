@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORT = ROOT / "docs" / "research" / "R-001-distribution-architecture.md"
+RECONCILIATION = ROOT / "docs" / "research" / "R-001-R-005-reconciliation.md"
 
 
 class R001AuthoritativeReportTests(unittest.TestCase):
@@ -38,6 +39,21 @@ class R001AuthoritativeReportTests(unittest.TestCase):
         self.assertNotIn("14ba5919a283d11912f994036ad9495c0346a99a", text)
         self.assertIn("R-005 accepted", text)
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
+
+    def test_verified_exact_covers_all_semantically_addressed_parent_components(self):
+        report = REPORT.read_text(encoding="utf-8")
+        reconciliation = RECONCILIATION.read_text(encoding="utf-8")
+        combined = f"{report}\n{reconciliation}".lower()
+
+        self.assertIn("semantically addressable native component", combined)
+        self.assertIn("component identities", combined)
+        self.assertIn("external sidecar", combined)
+        self.assertIn("tf bytes stay identical", combined)
+        self.assertIn("must not remain `verified-exact`", combined)
+        self.assertNotIn(
+            "`verified-exact` proves that the loaded parent tf artifact is byte-identical",
+            reconciliation.lower(),
+        )
 
 
 if __name__ == "__main__":
