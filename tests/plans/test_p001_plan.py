@@ -98,6 +98,12 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("runtime provenance", self.lower)
         self.assertIn("immutable compatibility report", self.lower)
 
+    def test_compatibility_report_digest_projection_is_non_self_referential(self):
+        self.assertIn("report digest projection", self.lower)
+        self.assertIn("excludes `compatibility_report_id` and `report_digest`", self.lower)
+        self.assertIn("tfont-compatibility-sha256-v1", self.lower)
+        self.assertIn("derived from `report_digest`", self.lower)
+
     def test_mapping_object_preserves_r002_contract(self):
         for assessment in (
             "exact",
@@ -200,6 +206,12 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("evidence content changes", self.lower)
         self.assertIn("invalidates", self.lower)
         self.assertIn("review", self.lower)
+
+    def test_evidence_digest_projection_is_non_self_referential(self):
+        self.assertIn("evidence digest projection", self.lower)
+        self.assertIn("excludes `content_digest`", self.lower)
+        self.assertIn("exact external payload bytes", self.lower)
+        self.assertIn("display-only metadata", self.lower)
 
     def test_ir_and_runtime_handoff_are_defined(self):
         required = (
