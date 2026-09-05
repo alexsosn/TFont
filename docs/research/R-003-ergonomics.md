@@ -37,23 +37,27 @@ The inspected Context-Fabric source is the current repository head at research t
 - `cfabric-mcp`: `0.1.7`;
 - Context-Fabric core at the same revision: `0.5.7`.
 
+The **current host implementation** is the pinned Context-Fabric MCP server above. Its package metadata declares `mcp>=1.0,<2`, and its server imports the v1 `FastMCP` API. That is evidence about the host implementation, not evidence that it already implements the newest protocol revision. Depending on the installed v1 SDK/client pair, the negotiated protocol may be a **handshake-era** revision. TFont therefore must not infer 2026 stateless-protocol capabilities merely from the fact that `cfabric-mcp 0.1.7` is current.
+
 The existing MCP surface already provides corpus discovery, feature inspection, search, continuation/export, passage lookup, and node-feature access. TFont should not duplicate that API. It should add only semantic planning and execution above it.
 
 The existing progressive-disclosure pattern is sound: inspect a corpus, inspect relevant features, then search. TFont compresses repeated semantic discovery when a reviewed mapping already exists.
 
 ### 1.2 MCP protocol assumptions
 
-The current published MCP specification at research time is `2026-07-28`.
+The **current protocol target** at research time is MCP `2026-07-28`. That protocol generation has a stateless core and differs materially from the handshake-era protocol family that a current v1-SDK host may negotiate.
 
-Relevant design properties:
+The integration contract is therefore negotiation-aware rather than version-assumptive:
 
-- structured tool output and JSON Schema are first-class protocol features;
-- ordinary domain failures should be returned as tool-level errors rather than successful prose strings;
-- the 2026-07-28 core is stateless, so resolution identity must be explicit rather than relying on hidden server sessions;
-- list results can be cached, which supports compact capability discovery;
-- read-only/idempotent annotations are hints and do not replace server-side semantic validation.
+- a current Context-Fabric deployment may negotiate a handshake-era protocol through its v1 SDK;
+- a future or updated host may negotiate the `2026-07-28` stateless protocol;
+- structured tool output and schemas are used where supported by the negotiated protocol and host SDK;
+- protocol-specific transport/session metadata may differ, but semantic resolution meaning may not;
+- resolution fingerprints, compatibility evidence, provenance, and fail-closed execution **must not depend on MCP session state**.
 
-TFont therefore uses structured responses and deterministic resolution IDs, but never relies on model instructions for correctness.
+The portable invariant is: **legacy/handshake host and 2026 stateless host produce equivalent semantic resolution semantics** for the same corpus/profile/request, apart from protocol-specific transport metadata. A protocol upgrade is therefore not a semantic migration.
+
+TFont uses explicit resolution fingerprints rather than hidden session identity. On stateless `2026-07-28` transports this is mandatory; on handshake-era transports it remains the reproducible design. Read-only/idempotent annotations remain hints rather than correctness mechanisms, and model/server instructions never enforce semantic safety.
 
 ### 1.3 Accepted upstream contracts
 
@@ -614,6 +618,7 @@ These are the canonical implementation-test seeds.
 46. Default concept lookup is bounded to 20 candidates per concept and paginates beyond that.
 47. No default tool returns a whole ontology/mapping bundle; structured output fields are schema-defined.
 48. Tool/schema validation errors, semantic-domain errors, `unverified`, and `incompatible` states are machine-distinguishable.
+49. **Legacy/handshake host and 2026 stateless host produce equivalent semantic resolution semantics** for the same corpus/profile/request; negotiated-protocol transport/session metadata may differ, but resolution meaning, compatibility state, assessment, provenance, and native plan do not.
 
 ## 17. Rejected alternatives
 
@@ -641,6 +646,10 @@ Rejected because round-trip ambiguity produces competing sources of truth.
 
 Rejected. R-001 requires component identities and complete dependency validation.
 
+### Assume the current host implements the newest protocol revision
+
+Rejected. Context-Fabric `cfabric-mcp 0.1.7` currently pins `mcp>=1.0,<2`, while the current protocol target is `2026-07-28`. TFont must work according to the actually negotiated protocol and keep semantic behavior independent of protocol-era session mechanics.
+
 ## 18. Unresolved implementation questions
 
 Later design work must choose:
@@ -648,14 +657,14 @@ Later design work must choose:
 1. exact expression syntax;
 2. exact JSON Schemas and error-code namespace;
 3. whether semantic tools live inside Context-Fabric MCP or a composed adapter/server;
-4. resolution fingerprint lifetime/caching under stateless MCP;
+4. resolution fingerprint lifetime/caching under each negotiated MCP transport/protocol era;
 5. exact YAML schema and file granularity;
 6. multi-corpus result grouping/pagination;
 7. whether a dedicated explanation tool becomes justified after payload benchmarking;
 8. reviewer-provenance representation independent of one forge identity;
 9. final token/payload limits after real full-profile benchmarks.
 
-These questions do not reopen the hybrid workflow, component-aware compatibility gate, assessment/publication split, fail-closed behavior, or one-way authoring model.
+These questions do not reopen the hybrid workflow, component-aware compatibility gate, assessment/publication split, protocol-portable semantic behavior, fail-closed behavior, or one-way authoring model.
 
 ## 19. Acceptance trace
 
@@ -665,20 +674,22 @@ These questions do not reopen the hybrid workflow, component-aware compatibility
 - Mapping semantics: all R-002 assessments remain formalism-neutral and separate from publication relations.
 - Compatibility: R-001 component manifest and complete dependency closure determine executability.
 - Provenance: every plan exposes native constraints, component identity/evidence, mapping version, ontology lock, and assessment.
+- Protocol portability: semantic resolution meaning is invariant across negotiated handshake-era and `2026-07-28` stateless hosts; only protocol/transport metadata may vary.
 - Human authoring: schema-validated YAML is canonical; derived forms are one-way generated.
 - Safety: no silent widening/narrowing, no candidate auto-promotion, no dense-empty semantic invention.
 - Efficiency: bounded payloads and tool calls.
-- TDD: the 48 criteria above are the single canonical implementation-test seed list.
+- TDD: the 49 criteria above are the single canonical implementation-test seed list.
 
 ## 20. Sources
 
 Primary inspected sources:
 
 - Context-Fabric repository and MCP implementation at `Context-Fabric/context-fabric@3a38ca80e617d872ce1664e0f0740486d0e7e8ac`;
-- `cfabric-mcp` package metadata at version `0.1.7`;
+- `cfabric-mcp` package metadata at version `0.1.7`, including its `mcp>=1.0,<2` dependency;
 - Model Context Protocol `2026-07-28` specification/release material at `https://modelcontextprotocol.io/` and `https://blog.modelcontextprotocol.io/posts/2026-07-28/`;
+- official MCP Python SDK version/revision documentation distinguishing the v1 maintenance line from the v2 `2026-07-28` implementation line;
 - accepted R-001 distribution architecture / PR #8;
 - accepted R-002 ontology governance / PR #9;
 - accepted R-005 empirical corpus census / PR #7.
 
-Any future material change to R-001, R-002, or R-005 requires a new R-003 reconciliation and fresh exact-head review.
+Any future material change to R-001, R-002, R-005, or the host/protocol compatibility premise requires a new R-003 reconciliation and fresh exact-head review.
