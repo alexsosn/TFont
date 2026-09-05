@@ -21,7 +21,9 @@
         "reviewer_id": {"type": "string", "minLength": 1},
         "reviewed_at": {"type": "string", "minLength": 1},
         "review_source": {"type": "string", "minLength": 1},
-        "review_method": {"type": "string", "minLength": 1}
+        "review_method": {"type": "string", "minLength": 1},
+        "notes": {"type": "array", "items": {"type": "string"}},
+        "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}
       },
       "additionalProperties": false
     },
