@@ -242,7 +242,7 @@ Known failure dominates incomplete evidence: a proven false dependency yields `i
 Each validation produces an immutable compatibility report whose minimum fields are:
 
 - `compatibility_report_id` — stable content-addressed report identifier;
-- `report_digest` — SHA-256 over canonical report semantics excluding volatile timestamps/locations;
+- `report_digest` — SHA-256 over the versioned report digest projection below;
 - `profile_id` / `profile_version`;
 - `profile_semantic_digest`;
 - `expected_parent_manifest_digest`;
@@ -253,9 +253,13 @@ Each validation produces an immutable compatibility report whose minimum fields 
 - `evaluator_version` — compatibility/dependency evaluator contract version;
 - `incomplete_reasons` — machine reason codes explaining `unverified`, otherwise empty;
 - `failure_reasons` — failed dependency/component reason codes explaining `incompatible`, otherwise empty;
-- optional non-semantic generated timestamp outside the report digest projection.
+- optional non-semantic generated timestamp.
 
 Each dependency result records dependency ID, component ID, result (`pass | fail | unknown`), observed evidence digest/summary and evaluator rule version.
+
+The **report digest projection** `tfont-compatibility-sha256-v1` is RFC 8785 canonical JSON over all non-volatile report semantics listed above, including profile identity, expected/observed manifest digests, state, changed components, dependency results, evaluator version, incomplete reasons and failure reasons. It explicitly **excludes `compatibility_report_id` and `report_digest`**, generated timestamps, local file paths, transport/session metadata and display-only presentation fields. `report_digest` is SHA-256 of that projection.
+
+`compatibility_report_id` is deterministically **derived from `report_digest`** as `tfont-compatibility-sha256-v1:<report-digest-hex>`. There is no fixed-point or recursive hashing step.
 
 Runtime provenance references the **immutable compatibility report** by `compatibility_report_id` and `report_digest`; it does not recreate an unexplained boolean compatibility claim.
 
@@ -286,11 +290,19 @@ Evidence used to justify an executable mapping is not identified only by a mutab
 - `kind` — e.g. native-doc, pinned-source, ontology-definition, corpus-inventory, scholarly-rationale;
 - `source_uri` or repository/source locator;
 - optional `source_revision` / release identifier;
-- `content_digest` — exact digest of the reviewed evidence payload or normalized evidence record;
+- `content_mode` — `external-payload` or `normalized-record`;
+- optional `reviewed_content` — required for `normalized-record`; a JSON-compatible structured statement/locator set that captures exactly what was reviewed;
+- `content_digest` — digest produced by the versioned evidence rules below;
 - `license_ref` where relevant;
 - optional human citation metadata.
 
-A mapping references normative evidence through normalized `(evidence_id, content_digest)` bindings. A source can retain the same `evidence_id` across revisions, but a changed payload has a new `content_digest`.
+A mapping references normative evidence through normalized `(evidence_id, content_digest)` bindings. A source can retain the same `evidence_id` across revisions, but a changed reviewed payload or normalized reviewed content has a new `content_digest`.
+
+### 10.1 Evidence digest projection
+
+For `content_mode: external-payload`, `content_digest` uses `tfont-evidence-payload-sha256-v1`: SHA-256 of the **exact external payload bytes** that were reviewed. Source URI, filename and retrieval time are not substituted for content bytes.
+
+For `content_mode: normalized-record`, `content_digest` uses `tfont-evidence-record-sha256-v1`: SHA-256 of RFC 8785 canonical JSON over the **evidence digest projection** containing `evidence_id`, `kind`, pinned `source_uri`/`source_revision` where present, `reviewed_content`, and any license/source fields declared normative by the schema. The projection explicitly **excludes `content_digest`**, generated/retrieval timestamps, local paths, human citation formatting and other **display-only metadata**. There is no recursive hash input.
 
 Evidence content changes therefore change the mapping evidence binding and **invalidates review** until the mapping is reviewed against the new evidence digest. Pure display/citation formatting stored outside the content-addressed reviewed evidence projection may remain prose-only.
 
@@ -507,7 +519,7 @@ A changed `semantic_digest` can never be a patch.
 
 An **exact-parent rebase** publishes a new exact tested parent component manifest while mapping/dependency semantics remain unchanged and the complete dependency closure validates on the new parent. Because the expected parent identity is behavior-affecting, the rebase changes `semantic_digest`. If it adds/rebases exact support without removing previously supported behavior, the exact-parent rebase **is a minor release**. If it removes previously supported behavior or makes a previously supported parent/profile contract unavailable, it is major.
 
-This deterministic rule eliminates patch/minor ambiguity while satisfying the accepted R-001 requirement that a changed exact parent need not automatically force major versioning.
+This deterministic rule eliminates patch/minor ambiguity while satisfying the accepted R-001 requirement that a **changed exact parent need not automatically force major versioning**.
 
 An ontology-lock update also changes semantic digest; it is minor if backward-compatible/additive and major if it changes/removes previously supported semantics.
 
