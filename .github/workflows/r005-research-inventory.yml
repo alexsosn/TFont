@@ -140,8 +140,12 @@ jobs:
           d = json.loads(p.read_text())
           cert = d['node_features']['cert']
           emen = d['node_features']['emen']
-          assert cert['observed_values'] == ['', 'False', 'True'], cert
-          assert set(emen['observed_values']) == {'', 'restored', 'redundant', 'excised', 'missing'}, emen
+          assert cert['observed_values'] == ['False', 'True'], cert
+          assert set(emen['observed_values']) == {
+              'restored', 'redundant', 'excised', 'missing', 'remark'
+          }, emen
+          assert cert['empty_observation_count'] > 0, cert
+          assert emen['empty_observation_count'] > 0, emen
           print('CUC regression domains:', cert['observed_values'], emen['observed_values'])
           PY
 
@@ -157,4 +161,9 @@ jobs:
             exit 0
           fi
           git commit -m 'research: generate pinned R-005 feature inventories'
-          git push
+          # The branch may receive research/documentation commits while the expensive
+          # census is running. Rebase the generated-only commit before pushing rather
+          # than losing those commits or failing with a non-fast-forward race.
+          git fetch origin "$GITHUB_REF_NAME"
+          git rebase "origin/$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
