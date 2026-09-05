@@ -12,6 +12,15 @@ on:
       - schemas/**
       - src/tfont/**
       - tests/i001/**
+  pull_request:
+    paths:
+      - .github/workflows/i001-validation.yml
+      - docs/research/I-001-structural-validator-research.md
+      - docs/plans/I-001-structural-validator-plan.md
+      - pyproject.toml
+      - schemas/**
+      - src/tfont/**
+      - tests/i001/**
   workflow_dispatch:
 
 permissions:
@@ -29,10 +38,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install RED test dependencies
-        run: python -m pip install "jsonschema>=4.26,<5" "ruamel.yaml>=0.19.1,<0.20"
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Show validation dependency versions
+        run: |
+          python --version
+          python -c "import jsonschema, ruamel.yaml; print('jsonschema', jsonschema.__version__); print('ruamel.yaml', ruamel.yaml.__version__)"
 
       - name: Run I-001 contract tests
-        env:
-          PYTHONPATH: src
         run: python -m unittest discover -s tests/i001 -v
+
+      - name: Run repository test suite
+        run: python -m unittest discover -s tests -v

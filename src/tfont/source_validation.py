@@ -1,0 +1,230 @@
+from __future__ import annotations
+
+import json
+import math
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal
+
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
+from ruamel.yaml import YAML
+from ruamel.yaml.constructor import DuplicateKeyError
+from ruamel.yaml.error import YAMLError
+
+JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
+
+SCHEMA_FILES = {
+    "profile": "profile.schema.json",
+    "parent-component-manifest": "parent-component-manifest.schema.json",
+    "ontology-lock": "ontology-lock.schema.json",
+    "evidence": "evidence.schema.json",
+    "review": "review.schema.json",
+    "mapping": "mapping.schema.json",
+    "compatibility-report": "compatibility-report.schema.json",
+}
+
+_DEFAULT_SCHEMA_ROOT = Path(__file__).resolve().parents[2] / "schemas"
+
+
+@dataclass(frozen=True)
+class ValidationProblem:
+    category: str
+    message: str
+    source_name: str
+    instance_path: tuple[str | int, ...] = ()
+    schema_path: tuple[str | int, ...] = ()
+
+
+class SourceValidationError(ValueError):
+    def __init__(self, problem: ValidationProblem):
+        self.problem = problem
+        super().__init__(f"{problem.category}: {problem.message}")
+
+
+def _raise(category: str, message: str, source_name: str) -> None:
+    raise SourceValidationError(
+        ValidationProblem(category=category, message=message, source_name=source_name)
+    )
+
+
+def _plain_json(value: Any, *, source_name: str, active: set[int] | None = None) -> JSONValue:
+    if active is None:
+        active = set()
+
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            _raise("non_json_value", "non-finite numeric value", source_name)
+        return value
+    if isinstance(value, list):
+        identity = id(value)
+        if identity in active:
+            _raise("non_json_value", "recursive container alias", source_name)
+        active.add(identity)
+        try:
+            return [_plain_json(item, source_name=source_name, active=active) for item in value]
+        finally:
+            active.remove(identity)
+    if isinstance(value, dict):
+        identity = id(value)
+        if identity in active:
+            _raise("non_json_value", "recursive container alias", source_name)
+        active.add(identity)
+        try:
+            result: dict[str, JSONValue] = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    _raise("non_json_value", "mapping keys must be strings", source_name)
+                result[key] = _plain_json(item, source_name=source_name, active=active)
+            return result
+        finally:
+            active.remove(identity)
+
+    _raise("non_json_value", f"unsupported value type: {type(value).__name__}", source_name)
+
+
+class _JSONDuplicateKey(ValueError):
+    pass
+
+
+def _json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _JSONDuplicateKey(key)
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON numeric constant: {value}")
+
+
+def loads_source(
+    text: str,
+    *,
+    format: Literal["yaml", "json"],
+    source_name: str = "<memory>",
+) -> JSONValue:
+    if format == "json":
+        try:
+            parsed = json.loads(
+                text,
+                object_pairs_hook=_json_pairs,
+                parse_constant=_reject_json_constant,
+            )
+        except _JSONDuplicateKey as exc:
+            _raise("duplicate_key", f"duplicate mapping key: {exc}", source_name)
+        except (json.JSONDecodeError, ValueError) as exc:
+            _raise("decode_error", str(exc), source_name)
+        return _plain_json(parsed, source_name=source_name)
+
+    if format == "yaml":
+        parser = YAML(typ="safe", pure=True)
+        parser.allow_duplicate_keys = False
+        try:
+            parsed = parser.load(text)
+        except DuplicateKeyError as exc:
+            _raise("duplicate_key", str(exc), source_name)
+        except YAMLError as exc:
+            _raise("decode_error", str(exc), source_name)
+        return _plain_json(parsed, source_name=source_name)
+
+    _raise("decode_error", f"unsupported source format: {format}", source_name)
+
+
+def load_source(path: str | Path) -> JSONValue:
+    source_path = Path(path)
+    source_name = str(source_path)
+    try:
+        text = source_path.read_bytes().decode("utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        _raise("decode_error", str(exc), source_name)
+
+    suffix = source_path.suffix.lower()
+    if suffix in {".yaml", ".yml"}:
+        format: Literal["yaml", "json"] = "yaml"
+    elif suffix == ".json":
+        format = "json"
+    else:
+        _raise("decode_error", f"unsupported source suffix: {suffix or '<none>'}", source_name)
+    return loads_source(text, format=format, source_name=source_name)
+
+
+def _problem_path(path: Any) -> tuple[str | int, ...]:
+    return tuple(path)
+
+
+def validate_source(
+    data: JSONValue,
+    schema_name: str,
+    *,
+    schema_root: str | Path | None = None,
+) -> None:
+    filename = SCHEMA_FILES.get(schema_name)
+    if filename is None:
+        _raise("unknown_schema", f"unknown schema: {schema_name}", schema_name)
+
+    root = Path(schema_root) if schema_root is not None else _DEFAULT_SCHEMA_ROOT
+    schema_path = root / filename
+    try:
+        schema_text = schema_path.read_bytes().decode("utf-8-sig")
+        schema = json.loads(
+            schema_text,
+            object_pairs_hook=_json_pairs,
+            parse_constant=_reject_json_constant,
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        _raise("invalid_schema", str(exc), str(schema_path))
+
+    if not isinstance(schema, dict) or schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        _raise("invalid_schema", "schema must declare JSON Schema Draft 2020-12", str(schema_path))
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        raise SourceValidationError(
+            ValidationProblem(
+                category="invalid_schema",
+                message=exc.message,
+                source_name=str(schema_path),
+                instance_path=_problem_path(exc.path),
+                schema_path=_problem_path(exc.schema_path),
+            )
+        ) from exc
+
+    validator = Draft202012Validator(schema)
+    errors = sorted(
+        validator.iter_errors(data),
+        key=lambda error: (
+            tuple(str(part) for part in error.absolute_path),
+            tuple(str(part) for part in error.absolute_schema_path),
+            error.message,
+        ),
+    )
+    if errors:
+        error = errors[0]
+        raise SourceValidationError(
+            ValidationProblem(
+                category="schema_validation",
+                message=error.message,
+                source_name=schema_name,
+                instance_path=_problem_path(error.absolute_path),
+                schema_path=_problem_path(error.absolute_schema_path),
+            )
+        )
+
+
+def load_and_validate(
+    path: str | Path,
+    schema_name: str,
+    *,
+    schema_root: str | Path | None = None,
+) -> JSONValue:
+    data = load_source(path)
+    validate_source(data, schema_name, schema_root=schema_root)
+    return data
