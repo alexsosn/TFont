@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   inventory:
@@ -154,22 +154,13 @@ jobs:
           print('CUC regression domains:', cert['observed_values'], emen['observed_values'])
           PY
 
-      - name: Commit generated research inventories
+      - name: Verify committed inventories are byte-for-byte current
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/research/data/generated/r005
-          if git diff --cached --quiet; then
-            echo 'Generated inventories already current; this run verifies the exact head.'
-            exit 0
+          if git diff --exit-code -- docs/research/data/generated/r005; then
+            echo 'Committed generated inventories exactly match regeneration on this head.'
+          else
+            echo 'Generated R-005 inventories are stale. Regenerate and commit them before review.' >&2
+            exit 1
           fi
-          git commit -m 'research: generate pinned R-005 feature inventories'
-          # A generated-output commit is itself a workflow trigger. The follow-up
-          # no-diff run is the exact-head verification gate required for final review.
-          # The branch may also receive documentation commits while the expensive
-          # census is running, so rebase the generated-only commit before pushing.
-          git fetch origin "$GITHUB_REF_NAME"
-          git rebase "origin/$GITHUB_REF_NAME"
-          git push origin "HEAD:$GITHUB_REF_NAME"
