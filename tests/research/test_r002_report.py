@@ -38,7 +38,7 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         )
         for definition in required_definitions:
             self.assertIn(definition, text)
-        self.assertIn("mapping-level `exact` is distinct from r-001 `verified-exact`", text)
+        self.assertIn("mapping-level **`exact` is distinct from r-001 `verified-exact`**", text)
         self.assertIn("`native-only` and `unsupported` have no external target", text)
 
     def test_skos_role_does_not_own_runtime_mapping_assessment(self):
