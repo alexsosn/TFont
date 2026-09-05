@@ -113,7 +113,7 @@ class R003AuthoritativeReportTests(unittest.TestCase):
         text = REPORT.read_text(encoding="utf-8").lower()
         self.assertNotIn("forty concrete criteria", text)
         self.assertIn("different parent component set cannot become executable merely because feature names", text)
-        self.assertIn("unverified profiles can be inspected but cannot be passed to normal semantic execution", text)
+        self.assertIn("`unverified` profiles can be inspected but cannot be passed to normal semantic execution", text)
         self.assertIn("research-stage r-005 `s` classification alone cannot compile into an executable `exact` mapping", text)
         self.assertIn("empty-string/`none` dense tf records are excluded from semantic capability domains", text)
         self.assertIn("empty dense records do not expand a feature's advertised applicable node types", text)
