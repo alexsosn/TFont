@@ -29,38 +29,31 @@ jobs:
           path = Path('docs/research/R-003-ergonomics.md')
           text = path.read_text(encoding='utf-8')
 
-          # Replace illustrative generic compatibility values. Both examples refer to
-          # exact pinned/profile-supported cases; evidence fields remain conceptual.
           count = text.count('"compatibility": "verified"')
           if count != 2:
               raise SystemExit(f'generic compatibility examples: expected 2, found {count}')
           text = text.replace('"compatibility": "verified"', '"compatibility": "verified-exact"')
 
-          anchor = (
-              "The API must never present layer 3 as though it were a native feature of the parent corpus.\n"
+          anchor = "The API must never present layer 3 as though it were a native feature of the parent corpus.\n"
+          addition = (
+              anchor
+              + "\nCompatibility uses R-001's evidence-bearing states: `verified-exact`, `verified-compatible`, `incompatible`, and `unverified`. Only the first two are executable in the normal semantic API. `unverified` is diagnostic and **non-executable**; there is no normal execution escape hatch. Capability/explanation output should expose the parent artifact identity and dependency evidence that produced the state.\n\n"
+              + "R-005 `S/C/B/N/R/U/L` values are research-stage **candidate** relations, not approved runtime mappings. A candidate `S` **cannot** activate runtime `exact`. Runtime strengths such as `exact`, `close`, `broader`, or `narrower` exist only for an **approved** profile mapping after ontology-term selection and review under R-002.\n"
           )
-          addition = anchor + "\nCompatibility uses R-001's evidence-bearing states: `verified-exact`, `verified-compatible`, `incompatible`, and `unverified`. Only the first two are executable in the normal semantic API. `unverified` is diagnostic and **non-executable**; there is no `allow_unverified` execution escape hatch. Capability/explanation output should expose the parent artifact identity and dependency evidence that produced the state.\n\nR-005 `S/C/B/N/R/U/L` values are research-stage **candidate** relations, not approved runtime mappings. A candidate `S` **cannot** activate runtime `exact`. Runtime strengths such as `exact`, `close`, `broader`, or `narrower` exist only for an **approved** profile mapping after ontology-term selection and review under R-002.\n"
           if text.count(anchor) != 1:
               raise SystemExit('R-001/R-002 layer anchor not unique')
           text = text.replace(anchor, addition, 1)
 
-          anchor2 = (
-              "### 2.5 No silent widening\n\n"
+          anchor2 = "### 2.5 No silent widening\n\n"
+          addition2 = (
+              "### 2.5 Dense storage records are not semantic values\n\n"
+              "R-005 shows that dense Text-Fabric features may expose empty-string/`None` records. These are storage/API records with **no semantic value** unless a source explicitly defines the literal as meaningful. They must not appear in semantic capability domains and must not make a feature look **applicable** to a node type by themselves.\n\n"
+              "Capability/coverage reporting therefore distinguishes `nodes_with_value` from raw records encountered. `semantic_resolve` cannot map an empty-string/`None` record to `Absent`, `Unknown`, `Omitted`, `Unattested`, damage, uncertainty, or another **explicit absence** concept without a reviewed native source assertion. Diagnostic output may report empty-record counts separately.\n\n"
+              "### 2.6 No silent widening\n\n"
           )
-          addition2 = """### 2.5 Dense storage records are not semantic values
-
-R-005 shows that dense Text-Fabric features may expose empty-string/`None` records. These are storage/API records with **no semantic value** unless a source explicitly defines the literal as meaningful. They must not appear in semantic capability domains and must not make a feature look **applicable** to a node type by themselves.
-
-Capability/coverage reporting therefore distinguishes `nodes_with_value` from raw records encountered. `semantic_resolve` cannot map an empty-string/`None` record to `Absent`, `Unknown`, `Omitted`, `Unattested`, damage, uncertainty, or another **explicit absence** concept without a reviewed native source assertion. Diagnostic output may report empty-record counts separately.
-
-### 2.6 No silent widening
-
-"""
           if text.count(anchor2) != 1:
               raise SystemExit('no-silent-widening anchor not unique')
           text = text.replace(anchor2, addition2, 1)
-
-          # Subsequent subsection numbers shift by one.
           text = text.replace("### 2.6 Ambiguity", "### 2.7 Ambiguity", 1)
 
           path.write_text(text, encoding='utf-8')
