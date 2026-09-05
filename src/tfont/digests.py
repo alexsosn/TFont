@@ -197,6 +197,10 @@ def _require_nonempty_string(value: Any, *, path: tuple[str | int, ...]) -> str:
     return value
 
 
+def _utf16_sort_key(value: str) -> bytes:
+    return value.encode("utf-16be")
+
+
 def evidence_record_projection(record: dict[str, Any]) -> dict[str, Any]:
     source = _exact_dict(record)
     allowed = {
@@ -243,7 +247,7 @@ def _normalize_unique_strings(value: Any, *, path: tuple[str | int, ...]) -> lis
             _fail("projection_error", f"duplicate set-like identifier: {item}", path + (index,))
         seen.add(item)
         result.append(item)
-    return sorted(result)
+    return sorted(result, key=_utf16_sort_key)
 
 
 def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> list[dict[str, str]]:
@@ -267,7 +271,7 @@ def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> 
             _fail("projection_error", "duplicate evidence binding", item_path)
         seen.add(key)
         result.append({"evidence_id": evidence_id, "content_digest": content_digest})
-    result.sort(key=lambda item: (item["evidence_id"], item["content_digest"]))
+    result.sort(key=lambda item: (_utf16_sort_key(item["evidence_id"]), _utf16_sort_key(item["content_digest"])))
     return result
 
 
@@ -353,7 +357,7 @@ def _normalize_record_set(
         seen.add(identifier)
         _validate_json(obj, path=item_path)
         result.append(dict(obj))
-    result.sort(key=lambda item: item[id_field])
+    result.sort(key=lambda item: _utf16_sort_key(item[id_field]))
     return result
 
 
@@ -395,7 +399,7 @@ def _normalize_ontology_lock_identities(value: Any) -> list[dict[str, Any]]:
         normalized["terms_used"] = _normalize_unique_strings(obj["terms_used"], path=item_path + ("terms_used",))
         result.append(normalized)
 
-    result.sort(key=lambda item: item["lock_id"])
+    result.sort(key=lambda item: _utf16_sort_key(item["lock_id"]))
     return result
 
 
@@ -418,7 +422,7 @@ def _normalize_mapping_identities(value: Any) -> list[dict[str, str]]:
             _fail("projection_error", f"duplicate mapping_id: {mapping_id}", item_path + ("mapping_id",))
         seen.add(mapping_id)
         result.append({"mapping_id": mapping_id, "mapping_semantic_digest": digest})
-    result.sort(key=lambda item: item["mapping_id"])
+    result.sort(key=lambda item: _utf16_sort_key(item["mapping_id"]))
     return result
 
 
@@ -451,7 +455,7 @@ def _normalize_review_readiness(value: Any) -> list[dict[str, Any]]:
                 "reviewed_digest_matches": obj["reviewed_digest_matches"],
             }
         )
-    result.sort(key=lambda item: item["mapping_id"])
+    result.sort(key=lambda item: _utf16_sort_key(item["mapping_id"]))
     return result
 
 
