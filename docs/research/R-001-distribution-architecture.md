@@ -8,13 +8,13 @@
 
 For the POC, TFont should use a **central source repository with independently versioned per-corpus semantic sidecar bundles**.
 
-Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The **TFont profile source** is the canonical human-reviewable semantic source. A **compiled runtime sidecar** is a deterministic generated lookup/index derived from that source. Exact compatibility binds to a transport-independent artifact digest over the actual parent semantic TF bytes; reusable compatibility validates the profile dependency closure against a different parent artifact. TFont may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.
+Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The **TFont profile source** is the canonical human-reviewable semantic source. A **compiled runtime sidecar** is a deterministic generated lookup/index derived from that source. Exact compatibility binds to a transport-independent parent component manifest covering every **semantically addressable native component** of the tested parent — the TF payload plus any declared external sidecar, catalogue, zero-span entity store, or native-adapter artifact. Reusable compatibility validates the profile dependency closure against a different parent component set. TFont may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.
 
 Agora should discover and install TFont profiles and select compatible profiles for a parent corpus. Agora should not contain mappings, ontology reasoning, term equivalence rules, or corpus-specific semantic transformations. Context-Fabric/Text-Fabric remain corpus loaders and query engines; TFont owns semantic resolution over the loaded corpus plus its sidecar.
 
 The POC therefore has four distinct artifact roles:
 
-1. **parent corpus artifact** — authoritative native TF data and corpus metadata;
+1. **parent corpus artifact** — authoritative native TF data plus any semantically addressable native sidecars/catalogue/adapter data and corpus metadata;
 2. **TFont profile source** — version-controlled declarative semantic mappings, compatibility manifest, tests and documentation;
 3. **TFont runtime sidecar** — deterministic compiled/indexed representation consumed by TFont without requiring an RDF store;
 4. **optional materialized TF module** — derived node/edge features for tools that only understand TF features, produced only where semantic fidelity is preserved.
@@ -97,7 +97,7 @@ Consequences for TFont:
 
 Current Context-Fabric includes a Hugging Face Hub downloader whose `revision` can be a tag, branch or commit. This is another useful acquisition mechanism, especially for large precompiled `.cfm` artifacts, but it is not a reason to make Hugging Face the identity authority for TFont profiles.
 
-A corpus can be obtained from TF-native GitHub/GitLab data, Context-Fabric/HF distribution, Agora materialization, or a local checkout. TFont compatibility must resolve all of those to the **same logical parent corpus identity plus verified source/schema revision**, rather than bind semantic correctness to one download transport.
+A corpus can be obtained from TF-native GitHub/GitLab data, Context-Fabric/HF distribution, Agora materialization, or a local checkout. TFont compatibility must resolve all of those to the **same logical parent corpus identity plus the same declared component identities**, rather than bind semantic correctness to one download transport.
 
 ### 3.3 Runtime performance favors a sidecar index
 
@@ -165,7 +165,7 @@ Witness semantics require explicit reading/unit/manuscript relations and disting
 
 ### ORACC-TF
 
-The current target includes sign slots, source GDL structures, physical object/catalogue metadata and zero-span sidecar entities. TFont cannot require every mapped entity to be a materialized TF node. The distribution format must allow a profile to describe corpus-native sidecar/entity sources alongside TF nodes/features.
+The current target includes sign slots, source GDL structures, physical object/catalogue metadata and zero-span sidecar entities. TFont cannot require every mapped entity to be a materialized TF node. The distribution format must allow a profile to describe corpus-native sidecar/entity sources alongside TF nodes/features. If an ORACC profile semantically addresses those native sidecar/catalogue entities, their bytes are part of the tested parent component manifest; a TF-only digest cannot establish exact identity for that profile.
 
 ## 6. Architecture alternatives
 
@@ -288,8 +288,14 @@ compatibility:
     - tf_version: "2021"
       upstream_revision: 4db00e2157915495e1a4d3d57e41223df24775da
       artifact_identity:
-        algorithm: tfont-tf-files-sha256-v1
-        digest: sha256:<digest>
+        algorithm: tfont-parent-components-sha256-v1
+        components:
+          tf:
+            kind: tf-payload
+            algorithm: tfont-tf-files-sha256-v1
+            digest: sha256:<digest>
+          # Additional native components are declared when the profile
+          # semantically addresses sidecar/catalogue/adapter data.
       dependency_manifest: dependencies.json
       tested: true
 
@@ -318,24 +324,26 @@ A verified compatibility target should include:
 2. **canonical upstream repository/data location**;
 3. **parent TF/schema version**;
 4. **exact immutable upstream revision** used in CI as provenance/acquisition evidence;
-5. **transport-independent parent artifact identity** over the actual semantic TF bytes;
+5. **transport-independent parent component manifest** with exact **component identities** for every semantically addressable native component — the TF payload plus any external sidecar, catalogue, zero-span entity store, or native-adapter artifact used by the profile;
 6. **complete profile dependency closure**, including every native selector/value/entity/invariant used by the mapping;
 7. **expected slot type**;
 8. **TFont profile version and source revision**;
 9. **locked ontology/profile versions**.
 
-The design ticket should define canonical artifact-identity and dependency-manifest construction. Exact identity hashes the parent semantic bytes, including storage-level dense records. Dependency compatibility is semantic: an empty-string or `None` dense record carries **no semantic value** unless the parent corpus explicitly defines otherwise, so it cannot satisfy a required mapped value or establish feature applicability. Likewise, an **observed small** release domain is not automatically a **closed vocabulary**: compatibility validates the particular values and invariants the profile depends on rather than assuming every finite observed domain is permanently closed.
+The design ticket should define canonical component-identity and dependency-manifest construction. The TF payload identity hashes the parent semantic TF bytes, including storage-level dense records, but that digest is only one component identity when the profile addresses native semantics outside `*.tf`. Exact identity requires every declared semantically addressable component to match the tested target. Dependency compatibility is semantic: an empty-string or `None` dense record carries **no semantic value** unless the parent corpus explicitly defines otherwise, so it cannot satisfy a required mapped value or establish feature applicability. Likewise, an **observed small** release domain is not automatically a **closed vocabulary**: compatibility validates the particular values and invariants the profile depends on rather than assuming every finite observed domain is permanently closed.
 
 ### Compatibility states
 
 Runtime discovery should distinguish:
 
-- `verified-exact` — loaded parent artifact identity equals an exact tested target;
-- `verified-compatible` — artifact identity differs, but the current profile's complete declared dependency closure has been validated against it;
+- `verified-exact` — every declared semantically addressable parent component identity equals the exact tested target and no required component is missing or unverifiable;
+- `verified-compatible` — one or more component identities differ, but the current profile's complete declared dependency closure has been validated against the changed parent component set;
 - `incompatible` — at least one required dependency differs, is absent, or cannot be validated;
-- `unverified` — TFont cannot prove exact identity or complete dependency compatibility.
+- `unverified` — TFont cannot prove exact component identity or complete dependency compatibility.
 
 Semantic execution is enabled only for `verified-exact` and `verified-compatible`. `unverified` is diagnostic and **non-executable**: it may support migration inspection or a prospective resolution report, but there is no normal agent/user opt-in that converts it into executable semantic truth. `incompatible` fails closed.
+
+Negative regression case: if **TF bytes stay identical** but a required **external sidecar** or other semantically addressable native component changes, the profile **must not remain `verified-exact`**. It may become `verified-compatible` only after the full dependency closure validates against the changed component; otherwise it is `incompatible` or `unverified`.
 
 A semver/version range may be a **discovery hint**, but must not by itself authorize a mapping. Many TF corpora use non-semver versions such as `2021`, `c`, or corpus-specific tags, and a repository can change data inside a nominally same version directory.
 
@@ -343,13 +351,13 @@ A semver/version range may be a **discovery hint**, but must not by itself autho
 
 When a parent corpus changes:
 
-1. acquisition resolves the new corpus revision and actual parent semantic artifact;
-2. TFont computes/verifies its transport-independent artifact identity;
-3. if it is not an exact tested target, TFont validates the complete profile dependency closure;
+1. acquisition resolves the new corpus revision and complete semantically addressable native component set used by the profile;
+2. TFont computes/verifies the transport-independent component identities;
+3. if any declared component identity is not an exact tested target, TFont validates the complete profile dependency closure across the changed component set;
 4. semantic queries are enabled only after reaching `verified-exact` or `verified-compatible`; otherwise the profile is `unverified` or `incompatible` and remains non-executable;
-5. CI for the TFont profile is run against the new exact parent revision/artifact;
-6. any changed dependency — including mapped open-domain values/entity IDs, edge semantics, structural invariants, or required bounded values — requires mapping review;
-7. a new TFont profile release records the added exact target or explicit compatibility evidence.
+5. CI for the TFont profile is run against the new exact parent revision/component set;
+6. any changed dependency — including mapped open-domain values/entity IDs, edge semantics, external sidecar/native-adapter entities, structural invariants, or required bounded values — requires mapping review;
+7. a new TFont profile release records the added exact component manifest or explicit compatibility evidence.
 
 Do not silently fall back to a nearest earlier mapping. A reproducible semantic request receives verified execution or a diagnostic failure; an unverified profile never produces plausible but unvalidated semantic results.
 
@@ -400,7 +408,7 @@ R-002 should decide the exact ontology/mapping predicates and URI governance. R-
 
 | component | owns | must not own |
 |---|---|---|
-| parent corpus repository | native nodes/features/edges, corpus versioning, native semantics, source provenance, corpus licence | TFont cross-corpus equivalence claims unless it explicitly chooses to contribute them |
+| parent corpus repository | native nodes/features/edges and native sidecar/catalogue data, corpus versioning, native semantics, source provenance, corpus licence | TFont cross-corpus equivalence claims unless it explicitly chooses to contribute them |
 | TFont | ontology/profile locks, corpus mapping assertions, mapping strength, semantic sidecars, mapping validation, generated semantic reference, optional TF materialization | parent corpus data truth; download-marketplace policy; MCP transport |
 | Text-Fabric | TF data model, module loading/distribution conventions, core/advanced APIs | TFont ontology policy |
 | Context-Fabric core | efficient `.tf`/`.cfm` loading and core graph/query APIs | TFont mapping governance or marketplace discovery |
@@ -463,6 +471,7 @@ Agora participates before runtime by resolving the appropriate corpus/profile ar
 
 - profile is not released until ORACC-TF has a stable schema release;
 - sidecar can cover TF warp entities plus zero-span sidecar/catalogue entities;
+- any native sidecar/catalogue component that the profile addresses is explicitly included in the parent component identity manifest;
 - TFont runtime entity addressing must allow non-TF entities qualified by source identity and profile adapter, rather than requiring every semantic object to have a TF node number.
 
 ## 14. Offline and caching behavior
@@ -471,12 +480,12 @@ A reproducible offline workspace should be representable as:
 
 ```text
 workspace/
-├── corpus/             # exact parent corpus revision or exported data
+├── corpus/             # exact parent corpus revision/component set or exported data
 ├── tfont-profile/      # exact immutable TFont bundle
-└── lock.json           # resolved identities/digests
+└── lock.json           # resolved component/profile/ontology identities and digests
 ```
 
-After acquisition, no network is required for semantic querying. The lock records the resolved corpus/profile/ontology revisions and digests.
+After acquisition, no network is required for semantic querying. The lock records the resolved corpus component/profile/ontology revisions and digests.
 
 Caches may accelerate acquisition or compilation but are disposable. Semantic identity must never be inferred from the cache path alone. A corrupted or mismatched runtime cache is rejected by digest/version metadata and can be regenerated from the profile source/bundle.
 
@@ -487,11 +496,11 @@ For Context-Fabric `.cfm` caches, TFont should treat the native corpus feature s
 An agent should be able to ask discovery questions before executing a semantic query:
 
 - Which TFont profiles are installed for this corpus?
-- Which profile release is compatible with the exact loaded corpus revision?
+- Which profile release is compatible with the exact loaded corpus component set?
 - Which ontology profiles are active?
 - Is a requested concept native, projected with a `same/close/broader/...` mapping, or unsupported?
-- Which native feature/node/edge produces the answer?
-- Is this mapping `verified-exact`, `verified-compatible`, `unverified`, or `incompatible`, and what artifact/dependency evidence supports that state?
+- Which native feature/node/edge/sidecar entity produces the answer?
+- Is this mapping `verified-exact`, `verified-compatible`, `unverified`, or `incompatible`, and what component/dependency evidence supports that state?
 
 Agora can help discover/install the profile. TFont supplies the semantic capability metadata. Context-Fabric supplies native corpus schema and values. These layers should not synthesize one another's claims.
 
@@ -499,14 +508,14 @@ Agora can help discover/install the profile. TFont supplies the semantic capabil
 
 A profile cannot be released as verified merely because its manifest validates. CI should acquire each exact declared parent target and check at least:
 
-1. transport-independent parent artifact identity, upstream revision provenance, and TF/schema version;
+1. transport-independent parent component manifest, exact component identities for every semantically addressable native component, upstream revision provenance, and TF/schema version;
 2. expected slot type;
-3. every dependency in the compiled profile dependency closure exists with the expected node/edge kind, datatype, applicability, and structural invariants;
+3. every dependency in the compiled profile dependency closure exists with the expected node/edge/sidecar kind, datatype, applicability, and structural invariants;
 4. every mapped bounded value and every referenced open-domain value/entity identifier is validated explicitly; unrelated new values in an open domain do not invalidate a profile unless the dependency contract says they matter;
-5. edge direction/value semantics match the adapter declaration;
+5. edge direction/value semantics and external sidecar/native-adapter contracts match the adapter declaration;
 6. no generated TF compatibility feature collides with native or selected optional-module features unless the override is explicit and tested;
 7. semantic sidecar source compiles deterministically;
-8. generated RDF/runtime/TF artifacts all record the same profile/parent/ontology locks;
+8. generated RDF/runtime/TF artifacts all record the same profile/parent-component/ontology locks;
 9. representative cross-corpus queries from R-005 produce expected supported/unsupported behavior;
 10. release bundle digests/attestations are emitted from the reviewed commit.
 
@@ -537,10 +546,11 @@ Fail closed where a wrong semantic result would look plausible.
 | condition | behavior |
 |---|---|
 | profile missing | report semantic capability unavailable; native corpus remains queryable |
-| parent artifact identity equals an exact tested target | `verified-exact`; enable profile normally |
-| artifact differs but complete profile dependency closure validates | `verified-compatible`; enable with compatibility evidence |
-| exact identity or complete dependency compatibility cannot be proved | `unverified`; diagnostic/non-executable |
-| required feature/node/edge absent | mark profile stale/incompatible |
+| every declared semantically addressable parent component identity equals the exact tested target | `verified-exact`; enable profile normally |
+| one or more component identities differ but complete profile dependency closure validates | `verified-compatible`; enable with compatibility evidence |
+| TF payload matches but a required external sidecar/catalogue/native component differs | must not remain `verified-exact`; validate full dependency closure before any execution |
+| exact component identity or complete dependency compatibility cannot be proved | `unverified`; diagnostic/non-executable |
+| required feature/node/edge/sidecar entity absent | mark profile stale/incompatible |
 | new unmapped categorical value appears | return native value + unmapped status; never coerce to nearest known term |
 | ontology dependency unavailable offline | use locked local copy if bundled; otherwise profile unavailable rather than silently changing vocabulary |
 | optional materialized TF module unavailable | sidecar semantic queries continue; feature-only clients lose only the compatibility projection |
@@ -557,6 +567,7 @@ Fail closed where a wrong semantic result would look plausible.
 6. **Agora should duplicate mapping manifests.** Rejected: Agora should carry only the metadata needed for discovery/acquisition/compatibility selection and point at the authoritative TFont release.
 7. **A semver range can authorize auto-loading.** Rejected: several TF corpora use non-semver data versions, and compatible-looking versions can still change schema semantics.
 8. **Generated projected features should overwrite native features.** Rejected: native corpus semantics remain authoritative; collision is a validation failure unless a deliberately named override artifact is requested.
+9. **Matching TF bytes prove exact parent semantics when the profile also addresses native sidecars.** Rejected: exact identity is component-aware and must cover every semantically addressable native component.
 
 ## 20. Unresolved questions delegated to later tickets/design
 
@@ -565,21 +576,21 @@ These do not reopen the distribution decision:
 - R-002: exact ontology set, local-term governance, mapping predicates, URI policy and RDF source/export syntax;
 - R-003: exact semantic query API, discovery schema, provenance payload and runtime index access patterns;
 - R-004: which reference tables are generated from manifests versus maintained prose;
-- design ticket: exact manifest serialization, canonical parent-artifact digest and profile-dependency-manifest algorithms, runtime index encoding, artifact naming and signing workflow;
+- design ticket: exact manifest serialization, canonical parent-component identity and profile-dependency-manifest algorithms, runtime index encoding, artifact naming and signing workflow;
 - implementation benchmark: whether JSON, SQLite, memory-mapped arrays or another deterministic index best serves R-003 query shapes;
 - Agora follow-up: final name/schema for `semantic-module`, and whether it is added before or after the first TFont POC release.
 
 ## 21. Acceptance-criteria trace
 
 - [x] Recommends one exact POC distribution architecture.
-- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision provenance and transport-independent artifact digest.
-- [x] Defines reusable compatibility through the complete profile dependency closure, including mapped open-domain values/entities and structural invariants.
+- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision provenance and a transport-independent component manifest covering every semantically addressable native component.
+- [x] Defines reusable compatibility through the complete profile dependency closure, including mapped open-domain values/entities, external sidecar/native-adapter contracts and structural invariants.
 - [x] Defines the profile source as canonical semantic source; the runtime sidecar and TF feature module are deterministic generated artifacts.
 - [x] Defines `unverified` as diagnostic/non-executable and separates storage-empty records from semantic values/feature applicability.
 - [x] Keeps Agora limited to discovery, compatibility metadata, acquisition and integration verification.
 - [x] Separates source, publication/interchange, runtime and TF compatibility artifacts.
 - [x] Covers BHSA, CUC, Syriac, ExtraBiblical and TLHdig-TF deployment behavior.
-- [x] Covers Pseudepigrapha-TF and ORACC-TF stress cases.
+- [x] Covers Pseudepigrapha-TF and ORACC-TF stress cases, including native zero-span sidecar identity.
 - [x] Scores central, per-corpus, parent-owned, TF-module-only, Agora-owned and RDF-runtime alternatives.
 - [x] Addresses independent release cycles, offline use, caching, integrity/attestations, stale mappings and parent schema drift.
 - [x] Defines an explicit migration path from central POC to per-corpus repositories.
