@@ -223,9 +223,9 @@ Scores are qualitative: `5` strong, `1` poor. `maintenance` reflects governance/
 **Authoritative specification:** W3C Recommendation, *SKOS Simple Knowledge Organization System Reference*, 18 August 2009.  
 **Namespace:** `http://www.w3.org/2004/02/skos/core#`.  
 **Governance:** W3C Recommendation process.  
-**Role in TFont:** mapping strength and local concept schemes.
+**Role in TFont:** concept schemes and publication mapping relations.
 
-SKOS supplies exact/close/broad/narrow/related publication relations for genuine concept-scheme mappings. TFont's runtime mapping assessment remains formalism-neutral and does not require every target ontology term to be represented as a SKOS concept.
+SKOS supplies exact/close/broad/narrow/related publication relations for genuine concept-scheme mappings. The **TFont mapping assessment** remains the formalism-neutral runtime/query contract and does not require every target ontology term to be represented as a SKOS concept.
 
 TFont should not make every ontology class into a SKOS concept. SKOS is used for TFont's own concept schemes and for mappings where the external resource is appropriately treated as a concept scheme. OWL class/property relations remain OWL relations.
 
@@ -476,8 +476,10 @@ Primary useful profiles:
 
 - OLiA/LexInfo for POS, gender, number, person and selected morphological categories;
 - OntoLex for `lex` entities and lexical identity;
-- SKOS for approximate mappings of corpus-specific grammatical concepts;
+- SKOS for TFont/local concept schemes and publication mappings only when both resources are genuine SKOS concepts;
 - PROV-O for mapping provenance.
+
+Approximate cross-ontology projection remains a **TFont mapping assessment** unless the target formalism independently justifies a publication relation; merely being approximate does not make the mapping a SKOS mapping.
 
 Native BHSA syntax (`mother`, `functional_parent`, `distributional_parent`) must remain distinct predicates. OLiA can provide semantic categories where definitions match, but the edges are not automatically replaced by generic `dependsOn`/`parent` relations.
 
