@@ -1,0 +1,1447 @@
+{
+  "corpus_id": "syriac",
+  "domain_policy": {
+    "empty_string_and_none_records_are_not_domain_members": true,
+    "observed_small_domain_is_not_automatically_categorical": true,
+    "small_domain_limit": 64
+  },
+  "edge_features": {},
+  "evidence_kind": "loaded_tf_artifact",
+  "excluded_warp_features": {
+    "edge": [
+      "oslots"
+    ],
+    "node": [
+      "otype"
+    ]
+  },
+  "node_features": {
+    "book": {
+      "applies_to": [
+        "book"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:30+00:00Z",
+        "description": "Name of a book",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 29,
+      "nodes_with_value": 29,
+      "observation_count": 29,
+      "observed_frequencies": {
+        "1_Kings": 1,
+        "2_Kings": 1,
+        "4Esr": 1,
+        "ApDn": 1,
+        "BLC": 1,
+        "Daniel": 1,
+        "Deuteronomy": 1,
+        "ESNJ": 1,
+        "EpBarA": 1,
+        "EpBarB": 1,
+        "Eprx": 1,
+        "Exodus": 1,
+        "Ezekiel": 1,
+        "Genesis": 1,
+        "Jeremiah": 1,
+        "Jonah": 1,
+        "Joshua": 1,
+        "Judges": 1,
+        "Leviticus": 1,
+        "Numbers": 1,
+        "OrManA": 1,
+        "OrManB": 1,
+        "PsE": 1,
+        "PsH": 1,
+        "PsM": 1,
+        "PsS": 1,
+        "Psalms": 1,
+        "Sir": 1,
+        "Zechariah": 1
+      },
+      "observed_unique_count": 29,
+      "observed_values": [
+        "1_Kings",
+        "2_Kings",
+        "4Esr",
+        "ApDn",
+        "BLC",
+        "Daniel",
+        "Deuteronomy",
+        "ESNJ",
+        "EpBarA",
+        "EpBarB",
+        "Eprx",
+        "Exodus",
+        "Ezekiel",
+        "Genesis",
+        "Jeremiah",
+        "Jonah",
+        "Joshua",
+        "Judges",
+        "Leviticus",
+        "Numbers",
+        "OrManA",
+        "OrManB",
+        "PsE",
+        "PsH",
+        "PsM",
+        "PsS",
+        "Psalms",
+        "Sir",
+        "Zechariah"
+      ],
+      "raw_observation_count": 29
+    },
+    "chapter": {
+      "applies_to": [
+        "chapter"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:30+00:00Z",
+        "description": "Chapter in a book",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "int",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 676,
+      "nodes_with_value": 676,
+      "observation_count": 676,
+      "observed_frequencies": {
+        "0": 3,
+        "1": 26,
+        "10": 23,
+        "11": 23,
+        "12": 23,
+        "13": 22,
+        "14": 22,
+        "15": 19,
+        "16": 19,
+        "17": 18,
+        "18": 18,
+        "19": 17,
+        "2": 23,
+        "20": 17,
+        "21": 17,
+        "22": 16,
+        "23": 15,
+        "24": 15,
+        "25": 14,
+        "26": 11,
+        "27": 10,
+        "28": 9,
+        "29": 9,
+        "3": 24,
+        "30": 9,
+        "31": 8,
+        "32": 8,
+        "33": 7,
+        "34": 6,
+        "35": 5,
+        "36": 5,
+        "37": 5,
+        "38": 5,
+        "39": 5,
+        "4": 24,
+        "40": 5,
+        "41": 4,
+        "42": 4,
+        "43": 4,
+        "44": 4,
+        "45": 4,
+        "46": 4,
+        "47": 4,
+        "48": 4,
+        "49": 2,
+        "5": 23,
+        "50": 2,
+        "51": 1,
+        "6": 23,
+        "7": 23,
+        "78": 2,
+        "79": 2,
+        "8": 23,
+        "80": 2,
+        "81": 2,
+        "82": 2,
+        "83": 2,
+        "84": 2,
+        "85": 2,
+        "86": 2,
+        "87": 1,
+        "9": 23
+      },
+      "observed_unique_count": 62,
+      "observed_values": [
+        0,
+        1,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        2,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        3,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        4,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        5,
+        50,
+        51,
+        6,
+        7,
+        78,
+        79,
+        8,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        9
+      ],
+      "raw_observation_count": 676
+    },
+    "emf": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 307357,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:30+00:00Z",
+        "description": "Paradigmatic form of the emphatic state morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 52836,
+      "observation_count": 52836,
+      "observed_frequencies": {
+        ">": 52836
+      },
+      "observed_unique_count": 1,
+      "observed_values": [
+        ">"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_cons": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 685,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:30+00:00Z",
+        "description": "The text of a word in ETCBC transcription",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 359508,
+      "observation_count": 359508,
+      "observed_unique_count": 13630,
+      "raw_observation_count": 360193,
+      "sample_values": [
+        "W",
+        "D",
+        "L",
+        "H",
+        "B",
+        "MN",
+        "L>",
+        "HWN",
+        "K",
+        "MRJ>",
+        "HJ",
+        "<L",
+        "KL",
+        "J",
+        ">MR",
+        "KWN",
+        "HW",
+        ">JK",
+        "MVL",
+        ">R<>"
+      ]
+    },
+    "g_cons_utf8": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:30+00:00Z",
+        "description": "The text of a word in estrangela script",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 359508,
+      "nodes_with_value": 359508,
+      "observation_count": 359508,
+      "observed_unique_count": 13630,
+      "raw_observation_count": 359508,
+      "sample_values": [
+        "ܘ",
+        "ܕ",
+        "ܠ",
+        "ܗ",
+        "ܒ",
+        "ܡܢ",
+        "ܠܐ",
+        "ܗܘܢ",
+        "ܟ",
+        "ܡܪܝܐ",
+        "ܗܝ",
+        "ܥܠ",
+        "ܟܠ",
+        "ܝ",
+        "ܐܡܪ",
+        "ܟܘܢ",
+        "ܗܘ",
+        "ܐܝܟ",
+        "ܡܛܠ",
+        "ܐܪܥܐ"
+      ]
+    },
+    "g_emf": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 307358,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:31+00:00Z",
+        "description": "Realized form of the emphatic state morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 52835,
+      "observation_count": 52835,
+      "observed_frequencies": {
+        ">": 52835
+      },
+      "observed_unique_count": 1,
+      "observed_values": [
+        ">"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_lex": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 685,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:31+00:00Z",
+        "description": "Realization of the lexeme in ETCBC transcription",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 359508,
+      "observation_count": 359508,
+      "observed_unique_count": 4997,
+      "raw_observation_count": 360193,
+      "sample_values": [
+        "W",
+        "D",
+        "L",
+        "H",
+        "B",
+        "MN",
+        "L>",
+        "HWN",
+        "K",
+        ">MR",
+        "MRJ>",
+        "<L",
+        "HJ",
+        "KL",
+        "J",
+        "HW",
+        "<BD",
+        "<M",
+        "HW>",
+        "KWN"
+      ]
+    },
+    "g_nme": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 324707,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:32+00:00Z",
+        "description": "Realized form of the nominal ending morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 35486,
+      "observation_count": 35486,
+      "observed_frequencies": {
+        ">": 2590,
+        ">S": 1,
+        "J": 8380,
+        "J>": 1,
+        "JN": 6056,
+        "JT": 45,
+        "N": 889,
+        "S": 3,
+        "T": 14177,
+        "TJ": 29,
+        "TJN": 241,
+        "W": 2816,
+        "WN": 2,
+        "WT": 256
+      },
+      "observed_unique_count": 14,
+      "observed_values": [
+        ">",
+        ">S",
+        "J",
+        "J>",
+        "JN",
+        "JT",
+        "N",
+        "S",
+        "T",
+        "TJ",
+        "TJN",
+        "W",
+        "WN",
+        "WT"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_pfm": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 340927,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:32+00:00Z",
+        "description": "Realized form of the preformative morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 19266,
+      "observation_count": 19266,
+      "observed_frequencies": {
+        ">": 1756,
+        "M": 5777,
+        "N": 7974,
+        "T": 3759
+      },
+      "observed_unique_count": 4,
+      "observed_values": [
+        ">",
+        "M",
+        "N",
+        "T"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_pfx": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 354498,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:32+00:00Z",
+        "description": "Realized form of the passive prefix morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 5695,
+      "observation_count": 5695,
+      "observed_frequencies": {
+        ">C": 403,
+        ">S": 81,
+        ">T": 1900,
+        ">TT": 2,
+        ">Y": 33,
+        ">Z": 83,
+        "C": 486,
+        "S": 120,
+        "T": 2481,
+        "TT": 2,
+        "Y": 52,
+        "Z": 52
+      },
+      "observed_unique_count": 12,
+      "observed_values": [
+        ">C",
+        ">S",
+        ">T",
+        ">TT",
+        ">Y",
+        ">Z",
+        "C",
+        "S",
+        "T",
+        "TT",
+        "Y",
+        "Z"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_vbe": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 343252,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:33+00:00Z",
+        "description": "Realized form of the verbal stem morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 16941,
+      "observation_count": 16941,
+      "observed_frequencies": {
+        "J": 957,
+        "JN": 94,
+        "JNJ": 1,
+        "N": 594,
+        "NN": 14,
+        "T": 4928,
+        "TJ": 174,
+        "TJN": 11,
+        "TN": 2,
+        "TWN": 426,
+        "W": 6377,
+        "WN": 3361,
+        "WWN": 2
+      },
+      "observed_unique_count": 13,
+      "observed_values": [
+        "J",
+        "JN",
+        "JNJ",
+        "N",
+        "NN",
+        "T",
+        "TJ",
+        "TJN",
+        "TN",
+        "TWN",
+        "W",
+        "WN",
+        "WWN"
+      ],
+      "raw_observation_count": 360193
+    },
+    "g_vbs": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 356698,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:33+00:00Z",
+        "description": "Realized form of the verbal stem morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 3495,
+      "observation_count": 3495,
+      "observed_frequencies": {
+        ">": 2888,
+        "C": 95,
+        "S": 21,
+        "T": 463,
+        "V": 28
+      },
+      "observed_unique_count": 5,
+      "observed_values": [
+        ">",
+        "C",
+        "S",
+        "T",
+        "V"
+      ],
+      "raw_observation_count": 360193
+    },
+    "gloss": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:33+00:00Z",
+        "description": "English gloss, not intended to be used for translation purposes",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 360193,
+      "observation_count": 360193,
+      "observed_unique_count": 4796,
+      "raw_observation_count": 360193,
+      "sample_values": [
+        "and",
+        "(relative)",
+        "to",
+        "him",
+        "in",
+        "you",
+        "them",
+        "from",
+        "not",
+        "me",
+        "upon, because",
+        "to be",
+        "THE LORD",
+        "to say",
+        "whole",
+        "her",
+        "to do, to make, to work",
+        "because of",
+        "as, almost, about",
+        "earth, land"
+      ]
+    },
+    "gn": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:34+00:00Z",
+        "description": "Gender of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 215841,
+      "nodes_with_value": 215841,
+      "observation_count": 215841,
+      "observed_frequencies": {
+        "f": 39650,
+        "m": 156702,
+        "unknown": 19489
+      },
+      "observed_unique_count": 3,
+      "observed_values": [
+        "f",
+        "m",
+        "unknown"
+      ],
+      "raw_observation_count": 215841
+    },
+    "lex": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:34+00:00Z",
+        "description": "Lexeme in ETCBC transcription",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 360193,
+      "observation_count": 360193,
+      "observed_unique_count": 5065,
+      "raw_observation_count": 360193,
+      "sample_values": [
+        "W",
+        "D",
+        "L",
+        "B",
+        "H",
+        "MN",
+        "L>",
+        "HWN",
+        "K",
+        "<L",
+        "HWJ",
+        "MRJ>",
+        ">MR",
+        "KL",
+        "H=",
+        "J",
+        "HJ",
+        "<BD",
+        "KWN",
+        "MVL"
+      ]
+    },
+    "ls": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:34+00:00Z",
+        "description": "Lexical set of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 129879,
+      "nodes_with_value": 129879,
+      "observation_count": 129879,
+      "observed_frequencies": {
+        "card": 4974,
+        "cjad": 1115,
+        "demo": 3575,
+        "focp": 953,
+        "gntl": 1168,
+        "nmex": 1189,
+        "ordn": 305,
+        "pcon": 35621,
+        "pers": 7583,
+        "pinr": 20,
+        "pint": 1709,
+        "ppre": 2996,
+        "prin": 1899,
+        "prop": 18748,
+        "quot": 4334,
+        "sffx": 39248,
+        "vbex": 4442
+      },
+      "observed_unique_count": 17,
+      "observed_values": [
+        "card",
+        "cjad",
+        "demo",
+        "focp",
+        "gntl",
+        "nmex",
+        "ordn",
+        "pcon",
+        "pers",
+        "pinr",
+        "pint",
+        "ppre",
+        "prin",
+        "prop",
+        "quot",
+        "sffx",
+        "vbex"
+      ],
+      "raw_observation_count": 129879
+    },
+    "nme": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 315044,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:34+00:00Z",
+        "description": "Paradigmatic form of the nominal ending morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 45149,
+      "observation_count": 45149,
+      "observed_frequencies": {
+        ">": 2597,
+        "J": 19904,
+        "J=": 145,
+        "J==": 18,
+        "JN": 5887,
+        "JN=": 322,
+        "N": 891,
+        "T": 10342,
+        "T=": 3990,
+        "TJ": 71,
+        "TJN": 241,
+        "W": 634,
+        "WT": 107
+      },
+      "observed_unique_count": 13,
+      "observed_values": [
+        ">",
+        "J",
+        "J=",
+        "J==",
+        "JN",
+        "JN=",
+        "N",
+        "T",
+        "T=",
+        "TJ",
+        "TJN",
+        "W",
+        "WT"
+      ],
+      "raw_observation_count": 360193
+    },
+    "nu": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:35+00:00Z",
+        "description": "Number of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 220518,
+      "nodes_with_value": 220518,
+      "observation_count": 220518,
+      "observed_frequencies": {
+        "du": 779,
+        "pl": 56838,
+        "sg": 162896,
+        "unknown": 5
+      },
+      "observed_unique_count": 4,
+      "observed_values": [
+        "du",
+        "pl",
+        "sg",
+        "unknown"
+      ],
+      "raw_observation_count": 220518
+    },
+    "pfm": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 340927,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:35+00:00Z",
+        "description": "Paradigmatic form of the preformative morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 19266,
+      "observation_count": 19266,
+      "observed_frequencies": {
+        ">": 1756,
+        "M": 5777,
+        "N": 7549,
+        "N=": 425,
+        "T": 2855,
+        "T=": 904
+      },
+      "observed_unique_count": 6,
+      "observed_values": [
+        ">",
+        "M",
+        "N",
+        "N=",
+        "T",
+        "T="
+      ],
+      "raw_observation_count": 360193
+    },
+    "pfx": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 354483,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:35+00:00Z",
+        "description": "Paradigmatic form of the passive prefix morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 5710,
+      "observation_count": 5710,
+      "observed_frequencies": {
+        ">T": 5710
+      },
+      "observed_unique_count": 1,
+      "observed_values": [
+        ">T"
+      ],
+      "raw_observation_count": 360193
+    },
+    "ps": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:36+00:00Z",
+        "description": "Person of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 87910,
+      "nodes_with_value": 87910,
+      "observation_count": 87910,
+      "observed_frequencies": {
+        "first": 12574,
+        "second": 17515,
+        "third": 57820,
+        "unknown": 1
+      },
+      "observed_unique_count": 4,
+      "observed_values": [
+        "first",
+        "second",
+        "third",
+        "unknown"
+      ],
+      "raw_observation_count": 87910
+    },
+    "sp": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:36+00:00Z",
+        "description": "Part of speech of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 360193,
+      "observation_count": 360193,
+      "observed_frequencies": {
+        "adjv": 9001,
+        "advb": 5290,
+        "conj": 41791,
+        "inrg": 88,
+        "intj": 865,
+        "nega": 6547,
+        "prep": 81614,
+        "pron": 52305,
+        "subs": 105895,
+        "verb": 56797
+      },
+      "observed_unique_count": 10,
+      "observed_values": [
+        "adjv",
+        "advb",
+        "conj",
+        "inrg",
+        "intj",
+        "nega",
+        "prep",
+        "pron",
+        "subs",
+        "verb"
+      ],
+      "raw_observation_count": 360193
+    },
+    "st": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:36+00:00Z",
+        "description": "State of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 130623,
+      "nodes_with_value": 130623,
+      "observation_count": 130623,
+      "observed_frequencies": {
+        "abs": 25009,
+        "c": 13710,
+        "cst": 13690,
+        "emph": 52836,
+        "unknown": 25378
+      },
+      "observed_unique_count": 5,
+      "observed_values": [
+        "abs",
+        "c",
+        "cst",
+        "emph",
+        "unknown"
+      ],
+      "raw_observation_count": 130623
+    },
+    "trailer": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:36+00:00Z",
+        "description": "Comes after a word, can be empty space or None",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 225272,
+      "nodes_with_value": 225272,
+      "observation_count": 225272,
+      "observed_frequencies": {
+        " ": 225272
+      },
+      "observed_unique_count": 1,
+      "observed_values": [
+        " "
+      ],
+      "raw_observation_count": 225272
+    },
+    "vbe": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 343617,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Paradigmatic form of the verbal stem morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 16576,
+      "observation_count": 16576,
+      "observed_frequencies": {
+        "J": 212,
+        "J=": 377,
+        "JN": 75,
+        "JN=": 22,
+        "N": 296,
+        "N=": 310,
+        "T": 2147,
+        "T=": 956,
+        "T==": 1825,
+        "TJ": 174,
+        "TJN": 13,
+        "TWN": 426,
+        "W": 6379,
+        "WN": 3364
+      },
+      "observed_unique_count": 14,
+      "observed_values": [
+        "J",
+        "J=",
+        "JN",
+        "JN=",
+        "N",
+        "N=",
+        "T",
+        "T=",
+        "T==",
+        "TJ",
+        "TJN",
+        "TWN",
+        "W",
+        "WN"
+      ],
+      "raw_observation_count": 360193
+    },
+    "vbs": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 354048,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Paradigmatic form of the verbal stem morpheme",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 360193,
+      "nodes_with_value": 6145,
+      "observation_count": 6145,
+      "observed_frequencies": {
+        ">": 5774,
+        "C": 320,
+        "S": 51
+      },
+      "observed_unique_count": 3,
+      "observed_values": [
+        ">",
+        "C",
+        "S"
+      ],
+      "raw_observation_count": 360193
+    },
+    "verse": {
+      "applies_to": [
+        "verse"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Verse in a chapter",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "int",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 16072,
+      "nodes_with_value": 16072,
+      "observation_count": 16072,
+      "observed_unique_count": 641,
+      "raw_observation_count": 16072,
+      "sample_values": [
+        2,
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    },
+    "vo": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Voice of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 56797,
+      "nodes_with_value": 56797,
+      "observation_count": 56797,
+      "observed_frequencies": {
+        "act": 47915,
+        "pas": 8882
+      },
+      "observed_unique_count": 2,
+      "observed_values": [
+        "act",
+        "pas"
+      ],
+      "raw_observation_count": 56797
+    },
+    "vpm": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Vowel pattern marker",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 11408,
+      "nodes_with_value": 11408,
+      "observation_count": 11408,
+      "observed_frequencies": {
+        "d": 8232,
+        "dp": 369,
+        "p": 2807
+      },
+      "observed_unique_count": 3,
+      "observed_values": [
+        "d",
+        "dp",
+        "p"
+      ],
+      "raw_observation_count": 11408
+    },
+    "vs": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Verbal stem of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 56797,
+      "nodes_with_value": 56797,
+      "observation_count": 56797,
+      "observed_frequencies": {
+        "af": 6145,
+        "pa": 8601,
+        "pe": 42051
+      },
+      "observed_unique_count": 3,
+      "observed_values": [
+        "af",
+        "pa",
+        "pe"
+      ],
+      "raw_observation_count": 56797
+    },
+    "vt": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "compiler": "Martijn Naaijer",
+        "dateWritten": "2026-07-24T05:24:37+00:00Z",
+        "description": "Verbal tense of a word",
+        "name": "ETCBC Syriac Corpus",
+        "source": "ETCBC Syriac Corpus",
+        "valueType": "str",
+        "version": "0.9",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 56797,
+      "nodes_with_value": 56797,
+      "observation_count": 56797,
+      "observed_frequencies": {
+        "imp": 3875,
+        "inf": 2114,
+        "ipf": 13489,
+        "pf": 23706,
+        "ptc": 13613
+      },
+      "observed_unique_count": 5,
+      "observed_values": [
+        "imp",
+        "inf",
+        "ipf",
+        "pf",
+        "ptc"
+      ],
+      "raw_observation_count": 56797
+    }
+  },
+  "node_types": {
+    "book": 29,
+    "chapter": 676,
+    "verse": 16072,
+    "word": 360193
+  },
+  "repository": "ETCBC/syriac",
+  "revision": "bb0eaa7e21b020a26b7566d2e495da9b1f84a919",
+  "schema_version": 1,
+  "slot_type": "word",
+  "tf_files_sha256": "eca80cb23fc2cea0b55381d9cea0cc313eeccd42879a2d686e769145a8ada2eb",
+  "tf_version": "0.9"
+}
