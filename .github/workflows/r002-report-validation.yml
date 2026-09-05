@@ -11,6 +11,7 @@ on:
       - docs/research/R-002-ontology-governance.md
       - docs/research/R-002-review-reconciliation.md
       - docs/research/R-002-R-005-reconciliation.md
+      - docs/research/data/R-002-ontology-registry.json
   workflow_dispatch:
 
 permissions:
