@@ -158,7 +158,7 @@ def inventory_api(api: Any, *, small_domain_limit: int = 64) -> dict[str, Any]:
 def digest_tf_files(path: Path) -> str:
     """Hash the exact TF feature files in deterministic path/content order."""
     digest = hashlib.sha256()
-    files = sorted(path.glob("*.tf"), key=lambda p: p.name)
+    files = sorted((candidate for candidate in path.glob("*.tf") if candidate.is_file()), key=lambda p: p.name)
     for file in files:
         digest.update(file.name.encode("utf-8"))
         digest.update(b"\0")
