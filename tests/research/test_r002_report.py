@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -78,7 +79,7 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertNotIn(
             "merge is blocked on independent acceptance of R-005 (#7)", text
         )
-        self.assertIn("R-005 accepted", text)
+        self.assertRegex(text, r"R-005(?:\s+and\s+R-001)? accepted")
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
 
     def test_main_report_records_r001_as_accepted_dependency(self):
