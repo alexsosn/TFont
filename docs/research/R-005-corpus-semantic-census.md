@@ -82,10 +82,10 @@ The maintained BHSA feature reference groups the important native features as fo
 | qere | `qere`, `qere_utf8`, `qere_trailer`, `qere_trailer_utf8` | string/open; absent when no qere | `word` |
 | lexical identity | `lex`, `lex_utf8`, `g_lex`, `g_lex_utf8`, `language`, `languageISO`, `sp`, `pdp`, `ls` | strings; `sp`/`pdp` categorical | `word` |
 | lexeme node | `lex`, `voc_lex`, `voc_lex_utf8`, `sp`, `ls`, `nametype`, `gloss`, `language`, `languageISO` | strings/categorical | `lex` |
-| gender | `gn`, `prs_gn` | `m`, `f` where applicable | `word` |
-| number | `nu`, `prs_nu` | `sg`, `pl`, `du` where applicable | `word` |
-| person | `ps`, `prs_ps` | `p1`, `p2`, `p3` where applicable | `word` |
-| state | `st` | `a`, `c`, `e` | `word` |
+| gender | `gn`, `prs_gn` | documented `m`, `f`, `NA`, `unknown` | `word` |
+| number | `nu`, `prs_nu` | documented `sg`, `du`, `pl`, `NA`, `unknown` | `word` |
+| person | `ps`, `prs_ps` | documented `p1`, `p2`, `p3`, `NA`, `unknown` | `word` |
+| state | `st` | documented `a`, `c`, `e`; observed native `NA` also present | `word` |
 | verbal stem | `vs` | Hebrew stem inventory (`qal`, `piel`, `nif`, `hif`, etc.) | verbal `word` |
 | verbal tense/type | `vt` | BHSA inventory including `perf`, `impf`, `wayq`, etc. | verbal `word` |
 | morphemes | `nme`, `g_nme`, `pfm`, `g_pfm`, `prs`, `g_prs`, `uvf`, `g_uvf`, `vbe`, `g_vbe`, `vbs`, `g_vbs` | string/categorical | `word` |
@@ -93,7 +93,7 @@ The maintained BHSA feature reference groups the important native features as fo
 | phrase analysis | `typ`, `rela`, `function`, `det` | categorical/string | phrase/atoms |
 | generic structural | `number`, `dist`, `dist_unit`, `mother_object_type`, `label` | int/string/categorical | several non-slot types |
 
-The exact categorical domains are corpus-native. A future ontology profile may project `gn=m` to a general masculine concept, but the raw `m` remains authoritative and must be retained for reproducibility.
+The exact categorical domains are corpus-native. In particular, BHSA `NA` and `unknown` are native non-empty values where the pinned feature metadata documents them; they are not storage empties. A documented domain may be wider than the observed release subset: for example, `prs_nu` documents `sg/du/pl/NA/unknown` while the pinned 2021 artifact observes only `sg/pl/NA`, and `prs_ps` documents `p1/p2/p3/NA/unknown` while this release observes `p1/p2/p3/NA`. Conversely, `st` observes native `NA` even though its metadata description lists only `a/c/e`. The generated inventory remains authoritative for exact-release observations. A future ontology profile may project `gn=m` to a general masculine concept, but the raw native value remains authoritative and must be retained for reproducibility.
 
 #### Edges
 
@@ -458,7 +458,8 @@ Legend: **S** candidate `same`; **C** `close`; **B/N** broader/narrower; **R** r
 | phrase | S linguistic | U | U | U | U | S/C ETCBC | no BHSA phrase ontology | source hierarchy/apparatus, not syntax | C only explicit `phrase`; generic chunks separate |
 | clause | S linguistic | U | U | U | U | S/C ETCBC | U | U | U |
 | sentence | S linguistic | U | U | U | U | S/C ETCBC | U | U | **U for ORACC implicit sentence chunks** |
-| syntactic dependency | mother + parent edges | U | U | U | U | BHSA-family edges | U | source `parent` is structural, not syntax | U |
+| syntactic dependency | S `mother` | U | U | U | U | S `mother` | U | R source `parent` is structural, not syntax | U |
+| hierarchical parent relation | S `functional_parent` + `distributional_parent` | U | U | U | U | S `functional_parent` + `distributional_parent` | U | C source structural `parent`; semantics differ from ETCBC hierarchy | U |
 | discourse/text category | domain/txt | U | U | U | U | domain/code/kind | project/structural metadata | version/source hierarchy | generic chunk/discourse source category |
 | book/chapter/verse | S | U | S | S | S | S | U | S interface + exact source refs | U |
 | tablet/document | U | tablet | textual work only | textual book | textual book | textual book | document | version/work/source hierarchy | document |
