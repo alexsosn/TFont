@@ -96,7 +96,7 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         ):
             self.assertIn(f"`{field}`", self.text)
         self.assertIn("runtime provenance", self.lower)
-        self.assertIn("immutable compatibility report", self.lower)
+        self.assertIn("compatibility reports are deterministic evidence artifacts", self.lower)
 
     def test_compatibility_report_digest_projection_is_non_self_referential(self):
         self.assertIn("report digest projection", self.lower)
