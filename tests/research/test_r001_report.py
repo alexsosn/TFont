@@ -35,6 +35,7 @@ class R001AuthoritativeReportTests(unittest.TestCase):
         self.assertNotIn(
             "merge is blocked on independent acceptance of R-005 (#7)", text
         )
+        self.assertNotIn("14ba5919a283d11912f994036ad9495c0346a99a", text)
         self.assertIn("R-005 accepted", text)
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
 
