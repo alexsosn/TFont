@@ -145,6 +145,8 @@ TFont records the exact native selector/path necessary to identify the fact, but
 
 ### 3.2 TFont mapping assertions
 
+Generated documentation distinguishes three objects that must not be collapsed: **research candidate** evidence such as the R-005 `S/C/B/N/R/U/L` matrix, an **approved mapping** with a reviewed TFont assessment, and any optional **formal publication** relation in RDF/OWL/SKOS. Research candidates may be linked as evidence but never rendered as released mappings merely because they appear semantically plausible.
+
 Examples:
 
 - native `sp=subs` maps to an external noun concept with relation `exact`;
@@ -161,7 +163,7 @@ Examples:
 
 - `related` mappings are never executable substitutions by default;
 - generated docs never override canonical mapping data;
-- a stale parent-schema binding fails closed.
+- compatibility is documented with R-001 evidence states (`verified-exact`, `verified-compatible`, `unverified`, `incompatible`); only verified states may activate, and the page exposes parent artifact/dependency evidence rather than a generic stale-schema flag.
 
 Authority: approved architecture/specification documents produced through the design gate.
 
@@ -349,7 +351,8 @@ One stable mapping ID gets one generated detail page showing:
 
 - source profile and native selector/path;
 - target term URI/CURIE;
-- relation strength;
+- TFont `assessment.strength` used by runtime/query planning;
+- optional formal publication relation/pattern, displayed separately from the assessment;
 - applicability conditions;
 - evidence/rationale;
 - review status;
@@ -393,6 +396,8 @@ The UI/reference vocabulary should use the same machine states as the resolver w
 - `ambiguous`
 - `native-only`
 - `unsupported`
+- `verified-exact` / `verified-compatible` compatibility evidence where relevant
+- `unverified`
 - `incompatible` / unavailable profile
 
 Color may supplement but never replace these words.
@@ -408,6 +413,8 @@ Default exact mode: not executable.
 Do not hide approximate mappings behind a generic “mapped” badge.
 
 ### Evidence uncertainty versus mapping strength
+
+Mapping strength here means the TFont **assessment**, not automatically an RDF predicate. The generated page renders any **formal publication** relation separately. For an OWL-class target, `assessment: exact` does not by itself assert `owl:equivalentClass` or `skos:exactMatch`; genuine SKOS predicates are shown only for reviewed concept-scheme mappings.
 
 These are separate fields.
 
@@ -426,7 +433,8 @@ Minimum compact provenance:
 TFont profile:      tfont-bhsa 0.1.0
 Parent corpus:      ETCBC/bhsa 2021
 Parent revision:    <exact tested commit>
-Schema fingerprint: <digest>
+Parent artifact:    <transport-independent semantic-content digest>
+Dependency fingerprint: <profile dependency evidence digest>
 Mapping source:     <source digest/revision>
 Ontology lock:      <lock ID/digest>
 Target ontology:    <term URI + tested release/status>
@@ -567,6 +575,8 @@ Not equivalent to: emendation state; alternative reading
 
 The exact observed domains should be generated from the accepted R-005 inventory, not typed manually into this guide.
 
+At pinned CUC 0.2.8 the generated non-empty `emen` observations are `excised`, `missing`, `redundant`, `remark`, and `restored`. Generated reference must keep `node_records_seen`, `nodes_with_value`, and `empty_observation_count` distinct: empty-string/`None` storage records are not semantic values and do not establish feature applicability. A finite **observed small domain** is also not automatically a **documented bounded** or **closed vocabulary**; closure requires parent-corpus evidence.
+
 Physical pages should separately document `tablet`, `column`, `line`, `side` and sign-slot semantics.
 
 ### 13.5 TLHdig-TF lexical relation
@@ -654,7 +664,7 @@ For every profile/mapping PR, CI should eventually perform:
 
 1. validate canonical mapping source against schema;
 2. validate profile manifest and ontology lock;
-3. validate exact parent corpus binding/schema requirements;
+3. validate parent artifact identity and the complete profile dependency contract, including mapped values/invariants;
 4. compile one deterministic normalized semantic intermediate representation;
 5. generate runtime sidecar, RDF/JSON exports and reference Markdown/JSON from that IR;
 6. run generation twice or otherwise verify deterministic output/digests;
