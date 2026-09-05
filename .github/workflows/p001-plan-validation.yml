@@ -1,0 +1,29 @@
+name: P-001 design validation
+
+on:
+  push:
+    branches:
+      - plan/p-001-foundation-poc-design
+    paths:
+      - .github/workflows/p001-plan-validation.yml
+      - tests/plans/test_p001_plan.py
+      - docs/plans/P-001-foundation-poc-design.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out design branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate P-001 design contract
+        run: python -m unittest tests.plans.test_p001_plan -v
