@@ -8,6 +8,11 @@ on:
       - .github/workflows/r005-research-inventory.yml
       - scripts/research/r005_inventory.py
       - tests/research/test_r005_inventory.py
+      - docs/research/R-005-corpus-semantic-census.md
+      - docs/research/R-005-candidate-strength-matrix.md
+      - docs/research/R-005-review-reconciliation.md
+      - docs/research/data/R-005-corpus-pins.json
+      - docs/research/data/generated/r005/**
   workflow_dispatch:
 
 permissions:
@@ -157,13 +162,14 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/research/data/generated/r005
           if git diff --cached --quiet; then
-            echo 'Generated inventories already current.'
+            echo 'Generated inventories already current; this run verifies the exact head.'
             exit 0
           fi
           git commit -m 'research: generate pinned R-005 feature inventories'
-          # The branch may receive research/documentation commits while the expensive
-          # census is running. Rebase the generated-only commit before pushing rather
-          # than losing those commits or failing with a non-fast-forward race.
+          # A generated-output commit is itself a workflow trigger. The follow-up
+          # no-diff run is the exact-head verification gate required for final review.
+          # The branch may also receive documentation commits while the expensive
+          # census is running, so rebase the generated-only commit before pushing.
           git fetch origin "$GITHUB_REF_NAME"
           git rebase "origin/$GITHUB_REF_NAME"
           git push origin "HEAD:$GITHUB_REF_NAME"
