@@ -91,6 +91,10 @@ The ergonomic API therefore has to expose three layers without confusing them:
 
 The API must never present layer 3 as though it were a native feature of the parent corpus.
 
+Compatibility uses R-001's evidence-bearing states: `verified-exact`, `verified-compatible`, `incompatible`, and `unverified`. Only the first two are executable in the normal semantic API. `unverified` is diagnostic and **non-executable**; there is no normal execution escape hatch. Capability/explanation output should expose the parent artifact identity and dependency evidence that produced the state.
+
+R-005 `S/C/B/N/R/U/L` values are research-stage **candidate** relations, not approved runtime mappings. A candidate `S` **cannot** activate runtime `exact`. Runtime strengths such as `exact`, `close`, `broader`, or `narrower` exist only for an **approved** profile mapping after ontology-term selection and review under R-002.
+
 ## 2. Agent workflow
 
 ### 2.1 Minimum workflow
@@ -155,7 +159,7 @@ Conceptual compact response:
   "corpora": {
     "bhsa": {
       "profile": "tfont-bhsa@0.1.0",
-      "compatibility": "verified",
+      "compatibility": "verified-exact",
       "concepts": {
         "olia:Noun": {"status": "exact"},
         "olia:Feminine": {"status": "exact"},
@@ -164,7 +168,7 @@ Conceptual compact response:
     },
     "syriac": {
       "profile": "tfont-syriac@0.1.0",
-      "compatibility": "verified",
+      "compatibility": "verified-exact",
       "concepts": {
         "olia:Noun": {"status": "exact"},
         "olia:Feminine": {"status": "exact"},
@@ -241,7 +245,13 @@ A full query plan also has one aggregate status:
 - `incompatible` — mapping/corpus version contract failed;
 - `unsupported` — the corpus cannot answer the requested semantics.
 
-### 2.5 No silent widening
+### 2.5 Dense storage records are not semantic values
+
+R-005 shows that dense Text-Fabric features may expose empty-string/`None` records. These are storage/API records with **no semantic value** unless a source explicitly defines the literal as meaningful. They must not appear in semantic capability domains and must not make a feature look **applicable** to a node type by themselves.
+
+Capability/coverage reporting therefore distinguishes `nodes_with_value` from raw records encountered. `semantic_resolve` cannot map an empty-string/`None` record to `Absent`, `Unknown`, `Omitted`, `Unattested`, damage, uncertainty, or another **explicit absence** concept without a reviewed native source assertion. Diagnostic output may report empty-record counts separately.
+
+### 2.6 No silent widening
 
 If the user requests `Noun AND Feminine AND Plural` and a corpus supports only `Noun AND Plural`, TFont must not execute the two supported constraints and omit gender.
 
@@ -258,7 +268,7 @@ The response should say, structurally:
 
 If a caller intentionally wants the relaxed query, it submits a new expression or an explicit relaxation policy. The resulting plan records that relaxation.
 
-### 2.6 Ambiguity
+### 2.7 Ambiguity
 
 When a corpus-native category maps to multiple candidates without a reviewed preference, TFont returns the alternatives with rationale/provenance. It does not choose the candidate that happens to yield more results.
 
