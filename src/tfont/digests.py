@@ -137,8 +137,7 @@ def _validate_logical_path(path: Any) -> str:
         _fail("projection_error", "logical path must use portable ASCII repository-path characters")
     if path.startswith("/") or "\\" in path:
         _fail("projection_error", "logical path must be relative and use forward slashes")
-    segments = path.split("/")
-    if any(segment in {"", ".", ".."} for segment in segments):
+    if any(segment in {"", ".", ".."} for segment in path.split("/")):
         _fail("projection_error", "logical path contains an empty/dot traversal segment")
     return path
 
@@ -192,6 +191,12 @@ def _check_source_keys(
         _fail("projection_error", f"unknown projection fields: {', '.join(unknown)}", path)
 
 
+def _require_nonempty_string(value: Any, *, path: tuple[str | int, ...]) -> str:
+    if type(value) is not str or not value:
+        _fail("projection_error", "expected a non-empty exact string", path)
+    return value
+
+
 def evidence_record_projection(record: dict[str, Any]) -> dict[str, Any]:
     source = _exact_dict(record)
     allowed = {
@@ -233,8 +238,7 @@ def _normalize_unique_strings(value: Any, *, path: tuple[str | int, ...]) -> lis
     result: list[str] = []
     seen: set[str] = set()
     for index, item in enumerate(value):
-        if type(item) is not str or not item:
-            _fail("projection_error", "set-like identifier must be a non-empty exact string", path + (index,))
+        item = _require_nonempty_string(item, path=path + (index,))
         if item in seen:
             _fail("projection_error", f"duplicate set-like identifier: {item}", path + (index,))
         seen.add(item)
@@ -248,20 +252,19 @@ def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> 
     result: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for index, binding in enumerate(value):
-        obj = _exact_dict(binding, path=path + (index,))
+        item_path = path + (index,)
+        obj = _exact_dict(binding, path=item_path)
         _check_source_keys(
             obj,
             allowed={"evidence_id", "content_digest"},
             required={"evidence_id", "content_digest"},
-            path=path + (index,),
+            path=item_path,
         )
-        evidence_id = obj["evidence_id"]
-        content_digest = obj["content_digest"]
-        if type(evidence_id) is not str or not evidence_id or type(content_digest) is not str or not content_digest:
-            _fail("projection_error", "evidence binding values must be non-empty exact strings", path + (index,))
+        evidence_id = _require_nonempty_string(obj["evidence_id"], path=item_path + ("evidence_id",))
+        content_digest = _require_nonempty_string(obj["content_digest"], path=item_path + ("content_digest",))
         key = (evidence_id, content_digest)
         if key in seen:
-            _fail("projection_error", "duplicate evidence binding", path + (index,))
+            _fail("projection_error", "duplicate evidence binding", item_path)
         seen.add(key)
         result.append({"evidence_id": evidence_id, "content_digest": content_digest})
     result.sort(key=lambda item: (item["evidence_id"], item["content_digest"]))
@@ -275,24 +278,18 @@ def _normalize_candidates(value: Any) -> list[dict[str, Any]]:
     seen: set[bytes] = set()
     required = {"external_target", "ontology_lock", "assessment_candidate", "evidence"}
     for index, candidate in enumerate(value):
-        obj = _exact_dict(candidate, path=("candidate_projections", index))
-        _check_source_keys(
-            obj,
-            allowed=required,
-            required=required,
-            path=("candidate_projections", index),
-        )
+        item_path = ("candidate_projections", index)
+        obj = _exact_dict(candidate, path=item_path)
+        _check_source_keys(obj, allowed=required, required=required, path=item_path)
         item = {
             "external_target": obj["external_target"],
             "ontology_lock": obj["ontology_lock"],
             "assessment_candidate": obj["assessment_candidate"],
-            "evidence": _normalize_evidence_bindings(
-                obj["evidence"], path=("candidate_projections", index, "evidence")
-            ),
+            "evidence": _normalize_evidence_bindings(obj["evidence"], path=item_path + ("evidence",)),
         }
         encoded = canonical_json_bytes(item)
         if encoded in seen:
-            _fail("projection_error", "duplicate candidate projection", ("candidate_projections", index))
+            _fail("projection_error", "duplicate candidate projection", item_path)
         seen.add(encoded)
         normalized.append((encoded, item))
     normalized.sort(key=lambda pair: pair[0])
@@ -320,9 +317,7 @@ def mapping_semantic_projection(mapping: dict[str, Any]) -> dict[str, Any]:
         "mapping_id": source["mapping_id"],
         "profile_id": source["profile_id"],
         "native_selector": source["native_selector"],
-        "native_dependencies": _normalize_unique_strings(
-            source["native_dependencies"], path=("native_dependencies",)
-        ),
+        "native_dependencies": _normalize_unique_strings(source["native_dependencies"], path=("native_dependencies",)),
         "external_target": source["external_target"],
         "candidate_projections": _normalize_candidates(source["candidate_projections"]),
         "assessment": source["assessment"],
@@ -344,31 +339,86 @@ def _normalize_record_set(
     *,
     id_field: str,
     path: tuple[str | int, ...],
-    allowed_fields: set[str] | None = None,
-    required_fields: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     if type(value) is not list:
         _fail("projection_error", "set-like record collection must be an exact list", path)
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, record in enumerate(value):
-        obj = _exact_dict(record, path=path + (index,))
-        if allowed_fields is not None:
-            _check_source_keys(
-                obj,
-                allowed=allowed_fields,
-                required=required_fields if required_fields is not None else allowed_fields,
-                path=path + (index,),
-            )
-        identifier = obj.get(id_field)
-        if type(identifier) is not str or not identifier:
-            _fail("projection_error", f"record requires non-empty {id_field}", path + (index, id_field))
+        item_path = path + (index,)
+        obj = _exact_dict(record, path=item_path)
+        identifier = _require_nonempty_string(obj.get(id_field), path=item_path + (id_field,))
         if identifier in seen:
-            _fail("projection_error", f"duplicate {id_field}: {identifier}", path + (index, id_field))
+            _fail("projection_error", f"duplicate {id_field}: {identifier}", item_path + (id_field,))
         seen.add(identifier)
-        _validate_json(obj, path=path + (index,))
+        _validate_json(obj, path=item_path)
         result.append(dict(obj))
     result.sort(key=lambda item: item[id_field])
+    return result
+
+
+def _normalize_ontology_lock_identities(value: Any) -> list[dict[str, Any]]:
+    path = ("ontology_locks",)
+    if type(value) is not list:
+        _fail("projection_error", "ontology_locks must be an exact list", path)
+
+    required = {
+        "lock_id",
+        "ontology_id",
+        "support_tier",
+        "term_namespace",
+        "release",
+        "source_uri",
+        "content_digest",
+        "license",
+        "terms_used",
+    }
+    optional = {"upstream_release_status", "source_revision", "redistribution_policy"}
+    scalar_fields = (required - {"terms_used"}) | optional
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for index, record in enumerate(value):
+        item_path = path + (index,)
+        obj = _exact_dict(record, path=item_path)
+        _check_source_keys(obj, allowed=required | optional, required=required, path=item_path)
+
+        lock_id = _require_nonempty_string(obj["lock_id"], path=item_path + ("lock_id",))
+        if lock_id in seen:
+            _fail("projection_error", f"duplicate lock_id: {lock_id}", item_path + ("lock_id",))
+        seen.add(lock_id)
+
+        normalized: dict[str, Any] = {}
+        for field in scalar_fields:
+            if field in obj:
+                normalized[field] = _require_nonempty_string(obj[field], path=item_path + (field,))
+        normalized["terms_used"] = _normalize_unique_strings(obj["terms_used"], path=item_path + ("terms_used",))
+        result.append(normalized)
+
+    result.sort(key=lambda item: item["lock_id"])
+    return result
+
+
+def _normalize_mapping_identities(value: Any) -> list[dict[str, str]]:
+    path = ("mappings",)
+    if type(value) is not list:
+        _fail("projection_error", "mappings must be an exact list", path)
+    fields = {"mapping_id", "mapping_semantic_digest"}
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for index, record in enumerate(value):
+        item_path = path + (index,)
+        obj = _exact_dict(record, path=item_path)
+        _check_source_keys(obj, allowed=fields, required=fields, path=item_path)
+        mapping_id = _require_nonempty_string(obj["mapping_id"], path=item_path + ("mapping_id",))
+        digest = _require_nonempty_string(
+            obj["mapping_semantic_digest"], path=item_path + ("mapping_semantic_digest",)
+        )
+        if mapping_id in seen:
+            _fail("projection_error", f"duplicate mapping_id: {mapping_id}", item_path + ("mapping_id",))
+        seen.add(mapping_id)
+        result.append({"mapping_id": mapping_id, "mapping_semantic_digest": digest})
+    result.sort(key=lambda item: item["mapping_id"])
     return result
 
 
@@ -379,24 +429,28 @@ def _normalize_review_readiness(value: Any) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, record in enumerate(value):
-        obj = _exact_dict(record, path=("review_readiness", index))
-        _check_source_keys(
-            obj,
-            allowed=allowed,
-            required=allowed,
-            path=("review_readiness", index),
-        )
-        mapping_id = obj["mapping_id"]
-        if type(mapping_id) is not str or not mapping_id:
-            _fail("projection_error", "review readiness requires mapping_id", ("review_readiness", index, "mapping_id"))
+        item_path = ("review_readiness", index)
+        obj = _exact_dict(record, path=item_path)
+        _check_source_keys(obj, allowed=allowed, required=allowed, path=item_path)
+        mapping_id = _require_nonempty_string(obj["mapping_id"], path=item_path + ("mapping_id",))
         if mapping_id in seen:
-            _fail("projection_error", f"duplicate mapping_id: {mapping_id}", ("review_readiness", index, "mapping_id"))
+            _fail("projection_error", f"duplicate mapping_id: {mapping_id}", item_path + ("mapping_id",))
         seen.add(mapping_id)
         if obj["status"] not in {"reviewed", "provisional", "disputed"}:
-            _fail("projection_error", "invalid review readiness status", ("review_readiness", index, "status"))
+            _fail("projection_error", "invalid review readiness status", item_path + ("status",))
         if type(obj["reviewed_digest_matches"]) is not bool:
-            _fail("projection_error", "reviewed_digest_matches must be boolean", ("review_readiness", index, "reviewed_digest_matches"))
-        result.append(dict(obj))
+            _fail(
+                "projection_error",
+                "reviewed_digest_matches must be boolean",
+                item_path + ("reviewed_digest_matches",),
+            )
+        result.append(
+            {
+                "mapping_id": mapping_id,
+                "status": obj["status"],
+                "reviewed_digest_matches": obj["reviewed_digest_matches"],
+            }
+        )
     result.sort(key=lambda item: item["mapping_id"])
     return result
 
@@ -417,8 +471,6 @@ def profile_semantic_digest(projection: dict[str, Any]) -> str:
         "publication_semantics",
     }
     _check_source_keys(source, allowed=required, required=required)
-    lock_identity_fields = {"lock_id", "content_digest"}
-    mapping_identity_fields = {"mapping_id", "mapping_semantic_digest"}
     normalized = {
         "profile_id": source["profile_id"],
         "schema_version": source["schema_version"],
@@ -426,20 +478,8 @@ def profile_semantic_digest(projection: dict[str, Any]) -> str:
         "semantic_domains": _normalize_unique_strings(source["semantic_domains"], path=("semantic_domains",)),
         "expected_parent_manifest_digest": source["expected_parent_manifest_digest"],
         "dependencies": _normalize_record_set(source["dependencies"], id_field="dependency_id", path=("dependencies",)),
-        "ontology_locks": _normalize_record_set(
-            source["ontology_locks"],
-            id_field="lock_id",
-            path=("ontology_locks",),
-            allowed_fields=lock_identity_fields,
-            required_fields=lock_identity_fields,
-        ),
-        "mappings": _normalize_record_set(
-            source["mappings"],
-            id_field="mapping_id",
-            path=("mappings",),
-            allowed_fields=mapping_identity_fields,
-            required_fields=mapping_identity_fields,
-        ),
+        "ontology_locks": _normalize_ontology_lock_identities(source["ontology_locks"]),
+        "mappings": _normalize_mapping_identities(source["mappings"]),
         "review_readiness": _normalize_review_readiness(source["review_readiness"]),
         "applicability": source["applicability"],
         "publication_semantics": source["publication_semantics"],
