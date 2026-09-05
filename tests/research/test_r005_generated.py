@@ -77,8 +77,13 @@ class GeneratedInventoryContractTests(unittest.TestCase):
             with self.subTest(row=row):
                 self.assertIn(row, report)
 
-    def test_curated_bhsa_domains_preserve_native_na_and_unknown_values(self):
+    def test_curated_bhsa_domains_preserve_documented_and_observed_native_values(self):
         bhsa = self.inventories["bhsa"]["node_features"]
+
+        # The BHSA metadata itself documents NA/unknown as members of these
+        # grammatical feature domains. They are native non-empty values and must not
+        # be collapsed with TF storage empties just because a particular subfeature
+        # does not instantiate every documented value in this release.
         documented_special_values = (
             "gn",
             "prs_gn",
@@ -93,23 +98,42 @@ class GeneratedInventoryContractTests(unittest.TestCase):
                 self.assertIn("NA", description)
                 self.assertIn("unknown", description)
                 self.assertIn("NA", bhsa[feature]["observed_values"])
-                self.assertIn("unknown", bhsa[feature]["observed_values"])
 
-        # st's metadata documents the grammatical values a/c/e, while the exact
-        # release also contains the ordinary non-empty native value NA. Preserve it
-        # in the curated census instead of treating it like a storage empty.
+        # Exact-release observations are a separate fact from the documented domain.
+        self.assertEqual(
+            set(bhsa["gn"]["observed_values"]), {"NA", "f", "m", "unknown"}
+        )
+        self.assertEqual(
+            set(bhsa["prs_gn"]["observed_values"]), {"NA", "f", "m", "unknown"}
+        )
+        self.assertEqual(
+            set(bhsa["nu"]["observed_values"]), {"NA", "du", "pl", "sg", "unknown"}
+        )
+        self.assertEqual(set(bhsa["prs_nu"]["observed_values"]), {"NA", "pl", "sg"})
+        self.assertEqual(
+            set(bhsa["ps"]["observed_values"]), {"NA", "p1", "p2", "p3", "unknown"}
+        )
+        self.assertEqual(
+            set(bhsa["prs_ps"]["observed_values"]), {"NA", "p1", "p2", "p3"}
+        )
+
+        # st's metadata documents a/c/e, while the exact release also contains the
+        # ordinary non-empty native value NA.
         self.assertEqual(set(bhsa["st"]["observed_values"]), {"NA", "a", "c", "e"})
 
         report = REPORT_PATH.read_text(encoding="utf-8")
         expected_rows = (
-            "| gender | `gn`, `prs_gn` | `m`, `f`, `NA`, `unknown` | `word` |",
-            "| number | `nu`, `prs_nu` | `sg`, `du`, `pl`, `NA`, `unknown` | `word` |",
-            "| person | `ps`, `prs_ps` | `p1`, `p2`, `p3`, `NA`, `unknown` | `word` |",
-            "| state | `st` | `a`, `c`, `e`, plus observed native `NA` | `word` |",
+            "| gender | `gn`, `prs_gn` | documented `m`, `f`, `NA`, `unknown` | `word` |",
+            "| number | `nu`, `prs_nu` | documented `sg`, `du`, `pl`, `NA`, `unknown` | `word` |",
+            "| person | `ps`, `prs_ps` | documented `p1`, `p2`, `p3`, `NA`, `unknown` | `word` |",
+            "| state | `st` | documented `a`, `c`, `e`; observed native `NA` also present | `word` |",
         )
         for row in expected_rows:
             with self.subTest(row=row):
                 self.assertIn(row, report)
+        self.assertIn("native non-empty values", report)
+        self.assertIn("documented domain", report)
+        self.assertIn("observed release subset", report)
 
     def test_compact_candidate_strength_cells_match_dedicated_matrix_contract(self):
         report = REPORT_PATH.read_text(encoding="utf-8")
