@@ -1,6 +1,6 @@
 # R-002: ontology governance and supported semantic profiles
 
-**Status:** research complete; R-005 accepted; pending exact-head independent review  
+**Status:** research complete; R-005 and R-001 accepted; pending exact-head independent review  
 **Issue:** #2  
 **Recorded:** 2026-09-05
 
@@ -28,6 +28,8 @@ The initial recommendation is:
 
 TFont must not infer semantic identity from similar labels. Formal equivalence is exceptional. Every mapping carries a formalism-neutral **mapping assessment** (`exact | close | broader | narrower | related | ambiguous | native-only | unsupported`) for query planning and UX, while an independent **publication relation** records an RDF/OWL/SKOS formalization only when the target model justifies one. The corpus-native assertion remains authoritative.
 
+The directional assessment values are always interpreted from the native/source concept toward the external target: **`broader` means the target is broader than the native/source concept**, while **`narrower` means the target is narrower than the native/source concept**. This runtime direction is part of the TFont assessment contract and does not imply any particular RDF predicate.
+
 A mapping records both a **stable term URI** and the **tested ontology release/snapshot**. Versionless namespaces alone are not enough for reproducibility. Existing mapping releases never change meaning merely because an upstream ontology publishes a new release or deprecates a term.
 
 When no external term fits, TFont should prefer, in order:
@@ -38,6 +40,8 @@ When no external term fits, TFont should prefer, in order:
 4. define a small TFont concept only when the same semantic gap recurs across independent corpora and is needed for interoperability.
 
 R-005 demonstrates full variation-unit/reading/witness-attestation/explicit-absence apparatus semantics robustly in Pseudepigrapha-TF, but not in a second independent corpus. Peshitta A/B witness metadata and TLHdig line→fragment witness links are related assertions, not equivalent reading-at-locus apparatus graphs. Therefore the foundation POC should **not mint** apparatus-specific TFont domain vocabulary yet; keep those semantics native/profile-local and retain CAO/SAWS as prior art until recurrence or mapping-infrastructure necessity is established.
+
+R-001 accepted the distribution/version-binding dependency at exact reviewed head `68b88a820f5519ad65d46b732679a6278e9ca3c9`, merged as `a22a95084a1518882d1e3e87d10e9757121f106d`. R-002 therefore assumes the accepted component-aware parent identity contract: every semantically addressable native component is identity-bound for `verified-exact`, and any non-exact component set must pass the complete dependency-closure validation before semantic execution.
 
 ## 1. Evaluation method
 
@@ -159,9 +163,13 @@ A projection does not overwrite the corpus value. A result should be able to rep
 
 ```text
 native: BHSA word.vs = qal
-projection: tfont:HebrewQalStem skos:broadMatch olia:...
+target: olia:Verb
+assessment: broader
+publication_relation: none
 confidence: reviewed
 ```
+
+Here `assessment: broader` means the OLiA target is broader than the native Qal-stem concept. Because the target is an OWL class and no reviewed OWL/RDFS relation is asserted by this example, `publication_relation` remains `none`; TFont must not manufacture a SKOS mapping predicate.
 
 If no defensible external concept exists, the projection is absent rather than fabricated.
 
@@ -643,10 +651,10 @@ These questions refine implementation. They do not reopen the support-tier, open
 
 - **Current status/version/governance/license checked:** all proposed supported candidates and all required candidates are classified above; draft/stale/licensing-uncertain cases are explicitly downgraded.
 - **Support policy:** four tiers — core, supported, external, reference — with optional domain profiles.
-- **Exact versus approximate mappings:** runtime mapping assessment is formalism-neutral; SKOS exact/close/broad/narrow/related publication relations are used only for genuine SKOS concepts/concept schemes, while OWL/RDFS relations require their own logical justification.
+- **Exact versus approximate mappings:** runtime mapping assessment is formalism-neutral and directionally defined from native/source to target; SKOS exact/close/broad/narrow/related publication relations are used only for genuine SKOS concepts/concept schemes, while OWL/RDFS relations require their own logical justification.
 - **Local concepts:** native-only first; corpus-local for source-specific categories; TFont-local only for recurrent interoperability gaps.
 - **Version/deprecation:** stable URI plus tested release/snapshot/content digest; no silent migration.
-- **Runtime versus publication:** runtime uses the compiled sidecar from R-001; RDF vocabularies are validated source/publication semantics and need not imply a triplestore.
+- **Runtime versus publication:** runtime uses the compiled sidecar from accepted R-001; RDF vocabularies are validated source/publication semantics and need not imply a triplestore.
 - **Corpus coverage:** BHSA, CUC, all three Syriac profiles, ExtraBiblical, TLHdig-TF, Pseudepigrapha-TF and ORACC-TF are exercised explicitly.
 - **Domain coverage:** linguistic, lexical-semantic, textological/codicological, physical/material and archaeological/scientific optional domains are covered.
 - **Apparatus gap:** recurrence is not yet established across a second independent corpus, so apparatus domain terms remain native/profile-local; mapping strength/provenance/targeting use existing standards/contracts.
@@ -677,3 +685,5 @@ Primary sources used for the decision include:
 - Critical Apparatus Ontology: `https://github.com/fgiovannetti/cao`; checked repo head `7a96094092123d5f53358cd3311c583495d9cd8e`, ontology IRI `https://w3id.org/cao/`, version 0.9.
 
 R-005 / PR #7 was accepted at exact reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb` and merged as `a9c4d74d4de2f9a15eb1464dce341ecd2f92f898`. This report has been reconciled against that empirical dependency; any future material census revision requires a new R-002 reconciliation.
+
+R-001 / PR #8 was accepted at exact reviewed head `68b88a820f5519ad65d46b732679a6278e9ca3c9` and merged as `a22a95084a1518882d1e3e87d10e9757121f106d`. This report is reconciled against its component-aware distribution/version-binding contract; any future material R-001 change requires a new R-002 reconciliation.
