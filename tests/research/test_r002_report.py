@@ -24,6 +24,20 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("genuinely", text.lower())
         self.assertIn("skos", text.lower())
 
+    def test_skos_role_does_not_own_runtime_mapping_assessment(self):
+        text = REPORT.read_text(encoding="utf-8")
+        self.assertNotIn("**Role in TFont:** mapping strength", text)
+        self.assertNotIn("SKOS for approximate mappings of corpus-specific grammatical concepts", text)
+        self.assertIn("**Role in TFont:** concept schemes and publication mapping relations", text)
+        self.assertIn("TFont mapping assessment", text)
+
+        data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+        skos = {item["id"]: item for item in data["candidates"]}["skos"]
+        self.assertNotIn("mapping strength", skos["overlap"].lower())
+        self.assertIn("publication", skos["overlap"].lower())
+        self.assertIn("tfont", skos["overlap"].lower())
+        self.assertIn("assessment", skos["overlap"].lower())
+
     def test_owl_targets_are_not_shown_with_skos_mapping_predicates(self):
         text = REPORT.read_text(encoding="utf-8")
         self.assertNotIn("skos:broadMatch olia:", text)
