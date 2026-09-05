@@ -8,7 +8,7 @@
 
 For the POC, TFont should use a **central source repository with independently versioned per-corpus semantic sidecar bundles**.
 
-Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The sidecar is the semantic source/runtime contract. It binds to exact parent corpus data revisions and schema fingerprints. It may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.
+Each corpus profile is authored and validated in the TFont repository, but is publishable as its own immutable release artifact. The **TFont profile source** is the canonical human-reviewable semantic source. A **compiled runtime sidecar** is a deterministic generated lookup/index derived from that source. Exact compatibility binds to a transport-independent artifact digest over the actual parent semantic TF bytes; reusable compatibility validates the profile dependency closure against a different parent artifact. TFont may optionally generate a Text-Fabric feature module when the mapped semantics can be represented faithfully as TF node/edge features, but generated TF features are never the canonical mapping source.
 
 Agora should discover and install TFont profiles and select compatible profiles for a parent corpus. Agora should not contain mappings, ontology reasoning, term equivalence rules, or corpus-specific semantic transformations. Context-Fabric/Text-Fabric remain corpus loaders and query engines; TFont owns semantic resolution over the loaded corpus plus its sidecar.
 
@@ -259,7 +259,6 @@ A published **profile bundle** should contain at least:
 └── optional-tf/
     └── <parent-tf-version>/
         ├── *.tf
-        └── otext@tfont.tf     # only if text formats are deliberately added
 ```
 
 The exact runtime index encoding should be benchmarked in implementation; its **logical contract** is fixed here: deterministic, offline, read-only, generated from the profile source, no semantic information present only in the compiled form.
@@ -288,7 +287,10 @@ compatibility:
   targets:
     - tf_version: "2021"
       upstream_revision: 4db00e2157915495e1a4d3d57e41223df24775da
-      schema_digest: sha256:<digest>
+      artifact_identity:
+        algorithm: tfont-tf-files-sha256-v1
+        digest: sha256:<digest>
+      dependency_manifest: dependencies.json
       tested: true
 
 ontologies:
@@ -315,25 +317,25 @@ A verified compatibility target should include:
 1. **logical corpus resource ID** — e.g. `bhsa`, `cuc`, `tlhdig-tf`;
 2. **canonical upstream repository/data location**;
 3. **parent TF/schema version**;
-4. **exact immutable upstream revision** used in CI;
-5. **schema digest** over the native structures that the mapping depends on;
-6. **expected slot type**;
-7. **TFont profile version and source revision**;
-8. **locked ontology/profile versions**.
+4. **exact immutable upstream revision** used in CI as provenance/acquisition evidence;
+5. **transport-independent parent artifact identity** over the actual semantic TF bytes;
+6. **complete profile dependency closure**, including every native selector/value/entity/invariant used by the mapping;
+7. **expected slot type**;
+8. **TFont profile version and source revision**;
+9. **locked ontology/profile versions**.
 
-The design ticket should define canonical schema-digest construction. At minimum it must include the warp metadata, referenced node/edge feature metadata and the declared bounded value inventories used by mappings. Hashing only filenames is insufficient.
+The design ticket should define canonical artifact-identity and dependency-manifest construction. Exact identity hashes the parent semantic bytes, including storage-level dense records. Dependency compatibility is semantic: an empty-string or `None` dense record carries **no semantic value** unless the parent corpus explicitly defines otherwise, so it cannot satisfy a required mapped value or establish feature applicability. Likewise, an **observed small** release domain is not automatically a **closed vocabulary**: compatibility validates the particular values and invariants the profile depends on rather than assuming every finite observed domain is permanently closed.
 
 ### Compatibility states
 
 Runtime discovery should distinguish:
 
-- `verified-exact` — installed corpus revision/schema matches a tested target;
-- `verified-schema` — different parent revision but identical relevant schema digest and the manifest explicitly permits schema-equivalent reuse;
-- `available-unverified` — version looks compatible by naming/range but no exact/schema-equivalent target was tested;
-- `stale` — required native features/types/value domains changed;
-- `incompatible` — known mismatch such as slot type or missing required structure.
+- `verified-exact` — loaded parent artifact identity equals an exact tested target;
+- `verified-compatible` — artifact identity differs, but the current profile's complete declared dependency closure has been validated against it;
+- `incompatible` — at least one required dependency differs, is absent, or cannot be validated;
+- `unverified` — TFont cannot prove exact identity or complete dependency compatibility.
 
-Automatic semantic projection should default to the first two states. `available-unverified` requires explicit opt-in and must surface that provenance to the caller. `stale`/`incompatible` fail closed.
+Semantic execution is enabled only for `verified-exact` and `verified-compatible`. `unverified` is diagnostic and **non-executable**: it may support migration inspection or a prospective resolution report, but there is no normal agent/user opt-in that converts it into executable semantic truth. `incompatible` fails closed.
 
 A semver/version range may be a **discovery hint**, but must not by itself authorize a mapping. Many TF corpora use non-semver versions such as `2021`, `c`, or corpus-specific tags, and a repository can change data inside a nominally same version directory.
 
@@ -341,15 +343,15 @@ A semver/version range may be a **discovery hint**, but must not by itself autho
 
 When a parent corpus changes:
 
-1. acquisition resolves the new corpus revision;
-2. TFont computes/reads its schema fingerprint;
-3. compatibility is checked before semantic queries are enabled;
-4. if the exact target or permitted schema-equivalent fingerprint is absent, TFont reports the profile as unverified/stale;
-5. CI for the TFont profile is run against the new exact parent revision;
-6. any changed feature names, node types, edge semantics or bounded value inventories require mapping review;
-7. a new TFont profile release is published with the added tested target.
+1. acquisition resolves the new corpus revision and actual parent semantic artifact;
+2. TFont computes/verifies its transport-independent artifact identity;
+3. if it is not an exact tested target, TFont validates the complete profile dependency closure;
+4. semantic queries are enabled only after reaching `verified-exact` or `verified-compatible`; otherwise the profile is `unverified` or `incompatible` and remains non-executable;
+5. CI for the TFont profile is run against the new exact parent revision/artifact;
+6. any changed dependency — including mapped open-domain values/entity IDs, edge semantics, structural invariants, or required bounded values — requires mapping review;
+7. a new TFont profile release records the added exact target or explicit compatibility evidence.
 
-Do not silently fall back to a nearest earlier mapping. A user asking for reproducible semantics should receive a hard incompatibility or explicit opt-in warning rather than plausible but unvalidated results.
+Do not silently fall back to a nearest earlier mapping. A reproducible semantic request receives verified execution or a diagnostic failure; an unverified profile never produces plausible but unvalidated semantic results.
 
 ## 10. Release and integrity model
 
@@ -489,7 +491,7 @@ An agent should be able to ask discovery questions before executing a semantic q
 - Which ontology profiles are active?
 - Is a requested concept native, projected with a `same/close/broader/...` mapping, or unsupported?
 - Which native feature/node/edge produces the answer?
-- Is this mapping exact-tested, schema-tested, or unverified?
+- Is this mapping `verified-exact`, `verified-compatible`, `unverified`, or `incompatible`, and what artifact/dependency evidence supports that state?
 
 Agora can help discover/install the profile. TFont supplies the semantic capability metadata. Context-Fabric supplies native corpus schema and values. These layers should not synthesize one another's claims.
 
@@ -497,10 +499,10 @@ Agora can help discover/install the profile. TFont supplies the semantic capabil
 
 A profile cannot be released as verified merely because its manifest validates. CI should acquire each exact declared parent target and check at least:
 
-1. parent identity/revision and TF/schema version;
+1. transport-independent parent artifact identity, upstream revision provenance, and TF/schema version;
 2. expected slot type;
-3. every mapped node type/feature/edge exists with the expected feature kind/datatype;
-4. bounded value mappings cover only actually supported values and unknown new values fail validation or remain explicitly unmapped;
+3. every dependency in the compiled profile dependency closure exists with the expected node/edge kind, datatype, applicability, and structural invariants;
+4. every mapped bounded value and every referenced open-domain value/entity identifier is validated explicitly; unrelated new values in an open domain do not invalidate a profile unless the dependency contract says they matter;
 5. edge direction/value semantics match the adapter declaration;
 6. no generated TF compatibility feature collides with native or selected optional-module features unless the override is explicit and tested;
 7. semantic sidecar source compiles deterministically;
@@ -535,9 +537,9 @@ Fail closed where a wrong semantic result would look plausible.
 | condition | behavior |
 |---|---|
 | profile missing | report semantic capability unavailable; native corpus remains queryable |
-| exact parent target verified | enable profile normally |
-| exact commit differs but allowed schema digest matches | enable as schema-equivalent and report actual revision |
-| only version label/range appears compatible | require explicit unverified opt-in; do not auto-enable |
+| parent artifact identity equals an exact tested target | `verified-exact`; enable profile normally |
+| artifact differs but complete profile dependency closure validates | `verified-compatible`; enable with compatibility evidence |
+| exact identity or complete dependency compatibility cannot be proved | `unverified`; diagnostic/non-executable |
 | required feature/node/edge absent | mark profile stale/incompatible |
 | new unmapped categorical value appears | return native value + unmapped status; never coerce to nearest known term |
 | ontology dependency unavailable offline | use locked local copy if bundled; otherwise profile unavailable rather than silently changing vocabulary |
@@ -563,15 +565,17 @@ These do not reopen the distribution decision:
 - R-002: exact ontology set, local-term governance, mapping predicates, URI policy and RDF source/export syntax;
 - R-003: exact semantic query API, discovery schema, provenance payload and runtime index access patterns;
 - R-004: which reference tables are generated from manifests versus maintained prose;
-- design ticket: exact manifest serialization, schema-digest algorithm, runtime index encoding, artifact naming and signing workflow;
+- design ticket: exact manifest serialization, canonical parent-artifact digest and profile-dependency-manifest algorithms, runtime index encoding, artifact naming and signing workflow;
 - implementation benchmark: whether JSON, SQLite, memory-mapped arrays or another deterministic index best serves R-003 query shapes;
 - Agora follow-up: final name/schema for `semantic-module`, and whether it is added before or after the first TFont POC release.
 
 ## 21. Acceptance-criteria trace
 
 - [x] Recommends one exact POC distribution architecture.
-- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision and schema digest.
-- [x] Defines semantic sidecar as canonical artifact; TF feature module is optional/generated.
+- [x] Binds parent identity through logical resource ID, canonical source, TF/schema version, exact tested revision provenance and transport-independent artifact digest.
+- [x] Defines reusable compatibility through the complete profile dependency closure, including mapped open-domain values/entities and structural invariants.
+- [x] Defines the profile source as canonical semantic source; the runtime sidecar and TF feature module are deterministic generated artifacts.
+- [x] Defines `unverified` as diagnostic/non-executable and separates storage-empty records from semantic values/feature applicability.
 - [x] Keeps Agora limited to discovery, compatibility metadata, acquisition and integration verification.
 - [x] Separates source, publication/interchange, runtime and TF compatibility artifacts.
 - [x] Covers BHSA, CUC, Syriac, ExtraBiblical and TLHdig-TF deployment behavior.
