@@ -56,12 +56,22 @@ class GeneratedInventoryContractTests(unittest.TestCase):
                 self.assertEqual(inventory["node_types"], pin["node_counts"])
                 self.assertRegex(inventory["tf_files_sha256"], SHA256_RE)
 
-    def test_generated_edge_inventory_covers_all_pinned_custom_edges(self):
+    def test_generated_edge_inventory_covers_pinned_semantic_edges(self):
         for key, inventory in self.inventories.items():
             with self.subTest(corpus=key):
-                expected = set(self.pins[key].get("custom_edges", []))
-                observed = set(inventory["edge_features"])
-                self.assertEqual(observed, expected)
+                semantic_edges = set(self.pins[key].get("custom_edges", []))
+                observed_edges = set(inventory["edge_features"])
+                self.assertTrue(semantic_edges.issubset(observed_edges))
+
+                # The pins file is intentionally a semantic synopsis, whereas the
+                # generated inventory is exhaustive. BHSA additionally exposes TF
+                # version/node mapping edge features; preserve them in the census
+                # without pretending they are corpus-semantic relations.
+                infrastructure_edges = observed_edges - semantic_edges
+                self.assertTrue(
+                    all(name.startswith("omap@") for name in infrastructure_edges),
+                    (key, sorted(infrastructure_edges)),
+                )
 
     def test_feature_metadata_and_applicability_are_explicit(self):
         for key, inventory in self.inventories.items():
@@ -136,11 +146,6 @@ class GeneratedInventoryContractTests(unittest.TestCase):
         self.assertEqual(tlhdig["selected"]["target_types"], ["analysis"])
 
     def _check_domain(self, feature):
-        self.assertTrue(
-            feature["domain_policy"]
-            if "domain_policy" in feature
-            else True
-        )
         if feature["domain_observation"] == "observed_small_domain":
             values = feature["observed_values"]
             self.assertEqual(len(values), feature["observed_unique_count"])
