@@ -159,17 +159,17 @@ The compact R-005 candidate words are research evidence only. Approved mappings 
 
 ### 4.3 Native assertions remain authoritative
 
-A projection does not overwrite the corpus value. A result should be able to report, for example:
+A projection does not overwrite the corpus value. A result record can, for example, keep a corpus-native grammatical-gender value next to a same-domain external candidate:
 
 ```text
-native: BHSA word.vs = qal
-target: olia:Verb
-assessment: broader
+native: BHSA word.gn = m
+target: olia:Masculine
+assessment: close
 publication_relation: none
-confidence: reviewed
+confidence: illustrative
 ```
 
-Here `assessment: broader` means the OLiA target is broader than the native Qal-stem concept. Because the target is an OWL class and no reviewed OWL/RDFS relation is asserted by this example, `publication_relation` remains `none`; TFont must not manufacture a SKOS mapping predicate.
+This example is intentionally like-for-like: both sides concern grammatical gender rather than crossing from a verbal-stem value to a part-of-speech category. It illustrates the record shape and the separation between TFont assessment and RDF publication formalism; it does **not** itself approve `close` (or `exact`) for a released mapping. A production mapping must review the pinned BHSA definition and pinned OLiA class definition before choosing the final assessment. Because the target is an OLiA OWL class and this example asserts no independently justified OWL/RDFS relation, `publication_relation` remains `none`; TFont must not manufacture a SKOS mapping predicate.
 
 If no defensible external concept exists, the projection is absent rather than fabricated.
 
