@@ -140,8 +140,8 @@ jobs:
           d = json.loads(p.read_text())
           cert = d['node_features']['cert']
           emen = d['node_features']['emen']
-          assert cert['observed_values'] == [False, True] or cert['observed_values'] == ['False', 'True'], cert
-          assert set(emen['observed_values']) >= {'restored', 'redundant', 'excised'}, emen
+          assert cert['observed_values'] == ['', 'False', 'True'], cert
+          assert set(emen['observed_values']) == {'', 'restored', 'redundant', 'excised', 'missing'}, emen
           print('CUC regression domains:', cert['observed_values'], emen['observed_values'])
           PY
 
