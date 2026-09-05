@@ -54,8 +54,10 @@ class FakeApi:
             {"description": "object type", "valueType": "str"},
             slot_type="sign",
         )
+        # The empty string on node 3 models a dense TF record with no semantic
+        # feature value. It must not make `pos` look applicable to signs.
         self.F.pos = FakeNodeFeature(
-            {1: "noun", 2: "verb"},
+            {1: "noun", 2: "verb", 3: ""},
             {"description": "part of speech", "valueType": "str"},
         )
         self.F.form = FakeNodeFeature(
@@ -99,6 +101,16 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(got["observed_values"], ["f", "m"])
         self.assertEqual(got["observed_unique_count"], 2)
         self.assertEqual(got["observation_count"], 3)
+        self.assertEqual(got["raw_observation_count"], 3)
+        self.assertEqual(got["empty_observation_count"], 0)
+
+    def test_empty_and_none_records_are_not_domain_members(self):
+        got = MODULE.summarize_values(["", None, "f", "m", "f"], small_domain_limit=8)
+        self.assertEqual(got["observed_values"], ["f", "m"])
+        self.assertEqual(got["observed_unique_count"], 2)
+        self.assertEqual(got["observation_count"], 3)
+        self.assertEqual(got["raw_observation_count"], 5)
+        self.assertEqual(got["empty_observation_count"], 2)
 
     def test_large_domain_is_sampled_not_exhaustively_dumped(self):
         got = MODULE.summarize_values(
@@ -116,6 +128,8 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(pos["applies_to"], ["word"])
         self.assertEqual(pos["observed_values"], ["noun", "verb"])
         self.assertEqual(pos["nodes_with_value"], 2)
+        self.assertEqual(pos["node_records_seen"], 3)
+        self.assertEqual(pos["empty_observation_count"], 1)
         self.assertEqual(got["slot_type"], "sign")
 
     def test_open_node_domain_is_identified_from_actual_values(self):
