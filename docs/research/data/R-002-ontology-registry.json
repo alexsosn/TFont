@@ -15,8 +15,8 @@
       "maintenance": "stable Recommendation",
       "deprecation_policy": "W3C namespace/specification governance; pin tested Recommendation/snapshot",
       "offline": "downloadable specification and RDF vocabulary; cache pinned snapshot",
-      "scope": "concept schemes and mapping relations",
-      "overlap": "supplies mapping strength; does not replace OWL class/property semantics",
+      "scope": "concept schemes and SKOS publication mapping relations",
+      "overlap": "provides publication mapping relations for genuine SKOS concepts; TFont owns the formalism-neutral runtime mapping assessment, while OWL/RDFS targets retain their own formalism",
       "use_mode": "core",
       "source": "https://www.w3.org/TR/skos-reference/"
     },
