@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -139,6 +140,14 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(selected["target_types"], ["sign", "word"])
         self.assertEqual(selected["observed_values"], ["1", "1bR"])
         self.assertEqual(selected["edge_count"], 2)
+
+    def test_digest_ignores_directories_whose_names_end_in_dot_tf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "otype.tf").write_text("@node\n1\tword\n", encoding="utf-8")
+            expected = MODULE.digest_tf_files(root)
+            (root / ".tf").mkdir()
+            self.assertEqual(MODULE.digest_tf_files(root), expected)
 
 
 if __name__ == "__main__":
