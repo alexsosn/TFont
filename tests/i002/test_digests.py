@@ -188,6 +188,22 @@ class SemanticDigestTests(DigestTestCase):
         }
 
     def profile_projection(self) -> dict:
+        def lock(lock_id: str, revision: str, digest: str) -> dict:
+            return {
+                "lock_id": lock_id,
+                "ontology_id": "olia",
+                "support_tier": "core",
+                "term_namespace": "http://purl.org/olia/olia.owl#",
+                "release": "2026-02-04",
+                "upstream_release_status": "stable",
+                "source_uri": "https://example.org/olia.owl",
+                "source_revision": revision,
+                "content_digest": digest,
+                "license": "CC-BY-4.0",
+                "redistribution_policy": "allowed",
+                "terms_used": ["Masculine", "Feminine"],
+            }
+
         return {
             "profile_id": "tfont-test",
             "schema_version": 1,
@@ -199,8 +215,8 @@ class SemanticDigestTests(DigestTestCase):
                 {"dependency_id": "dep:a", "component_id": "c", "kind": "feature"},
             ],
             "ontology_locks": [
-                {"lock_id": "lock:b", "content_digest": "sha256:b"},
-                {"lock_id": "lock:a", "content_digest": "sha256:a"},
+                lock("lock:b", "rev-b", "sha256:b"),
+                lock("lock:a", "rev-a", "sha256:a"),
             ],
             "mappings": [
                 {"mapping_id": "map:b", "mapping_semantic_digest": "sha256:mb"},
@@ -293,11 +309,13 @@ class SemanticDigestTests(DigestTestCase):
 
     def test_profile_projection_fixed_vector_and_set_order(self):
         projection = self.profile_projection()
-        expected = "sha256:5f7d0372a10bc2ef4c569e9e4547ec47c2af0a06a0383fd906dcf2c76ddbab04"
+        expected = "sha256:e407e7f1ab60110a4d5146af51fa10e4c4f7ebb1ed4c3277c595ee0327dcb9ea"
         self.assertEqual(profile_semantic_digest(projection), expected)
         reordered = self.profile_projection()
         for field in ("semantic_domains", "dependencies", "ontology_locks", "mappings", "review_readiness"):
             reordered[field].reverse()
+        for lock in reordered["ontology_locks"]:
+            lock["terms_used"].reverse()
         self.assertEqual(profile_semantic_digest(reordered), expected)
 
     def test_profile_version_is_outside_semantic_projection(self):
