@@ -7,7 +7,7 @@
 
 ## 1. Decision
 
-The first TFont POC uses a **validated canonical source bundle** compiled deterministically into a **normalized semantic IR**. Runtime, reference, compatibility and publication artifacts are generated derivatives; none is a second semantic source of truth.
+The first TFont POC uses a **validated canonical source bundle** compiled deterministically into a **normalized semantic IR**. Runtime, reference and publication artifacts are generated derivatives; compatibility evidence additionally depends on the concrete parent artifact being validated and is never inferred from IR alone.
 
 The canonical source bundle contains:
 
@@ -17,12 +17,12 @@ The canonical source bundle contains:
 4. one or more **canonical mapping source** YAML files;
 5. content-addressed evidence records and review records referenced by stable IDs.
 
-The one-way artifact flow is:
+The build-time artifact flow is:
 
 ```text
 canonical source bundle
   profile manifest
-  + parent component manifest
+  + expected parent component manifest
   + ontology lock(s)
   + canonical mapping source
   + evidence/review records
@@ -35,17 +35,36 @@ cross-artifact semantic validation
             |
             v
 normalized semantic IR
+      |              |                    |
+      v              v                    v
+runtime sidecar  reference JSON      publication output
+                    |                 RDF/OWL/SKOS
+                    v
+generated docs
+
+validated IR + exact expected parent artifact
             |
-      +-----+-------------------+--------------------+
-      |                         |                    |
-      v                         v                    v
-runtime sidecar          reference JSON      publication output
-      |                       |                RDF/OWL/SKOS
-      v                       v
-compatibility report      generated docs
+            v
+release compatibility validation
+            |
+            v
+release-validation report (`verified-exact` required)
 ```
 
-Every artifact below normalized semantic IR is a **generated derivative**. The compiler must be deterministic and fail closed when source contracts cannot be proved.
+Runtime/load-time compatibility is a separate dataflow:
+
+```text
+validated IR + observed parent component manifest
+            |
+            v
+compatibility evaluator
+            |
+            v
+activation compatibility report
+  (`verified-exact | verified-compatible | unverified | incompatible`)
+```
+
+Static runtime/reference/publication artifacts below normalized semantic IR are **generated derivatives**. Compatibility reports are deterministic evidence artifacts generated from validated IR plus a specific observed parent identity. The compiler/runtime must fail closed when source or compatibility contracts cannot be proved.
 
 ## 2. Accepted foundation dependencies
 
@@ -89,12 +108,14 @@ ontology/locks/<lock-id>.yaml
 build/<profile-id>/
   semantic-ir.json
   runtime-index.json
-  compatibility-report.json
+  release-validation-report.json
   reference/index.json
   publication/mapping.ttl
 
 dist/<profile-id>/<profile-version>/...
 ```
+
+Activation compatibility reports are not canonical source and are not committed as one mutable `build/.../compatibility-report.json`. They may be stored in a **runtime cache** keyed by profile semantic digest, observed parent-manifest digest and evaluator version. A cache entry is expendable because the immutable report ID/digest is reproducible from the same inputs.
 
 The release boundary is one profile release, not the whole repository revision.
 
@@ -239,7 +260,7 @@ Known failure dominates incomplete evidence: a proven false dependency yields `i
 
 ### 8.1 Compatibility report machine contract
 
-Each validation produces an immutable compatibility report whose minimum fields are:
+Both report lifecycles use the **same report schema** and digest algorithm. Each report contains at minimum:
 
 - `compatibility_report_id` — stable content-addressed report identifier;
 - `report_digest` — SHA-256 over the versioned report digest projection below;
@@ -261,7 +282,15 @@ The **report digest projection** `tfont-compatibility-sha256-v1` is RFC 8785 can
 
 `compatibility_report_id` is deterministically **derived from `report_digest`** as `tfont-compatibility-sha256-v1:<report-digest-hex>`. There is no fixed-point or recursive hashing step.
 
-Runtime provenance references the **immutable compatibility report** by `compatibility_report_id` and `report_digest`; it does not recreate an unexplained boolean compatibility claim.
+### 8.2 Report lifecycle
+
+A **release-validation report** is produced during profile build from the **validated IR + exact expected parent artifact**. The release gate requires this report to be `verified-exact`; it is shipped with the release bundle as immutable evidence that the canonical profile was validated against its declared exact parent.
+
+An **activation compatibility report** is produced at load/runtime from **validated IR + observed parent component manifest**. It may yield any of the four compatibility states. It is not canonical mapping source and can be recreated deterministically whenever the same profile semantic digest, observed manifest digest and evaluator version are available.
+
+Activation reports may be held in a **runtime cache** keyed by those exact inputs. A cached report is reused only when all key inputs and the report digest verify; otherwise it is recomputed. Runtime provenance references the activation report actually used by `compatibility_report_id` and `report_digest`.
+
+The release-validation report and activation compatibility report therefore share the same report schema, but have different observed-parent inputs and lifecycle. A static release report never substitutes for validation of a changed loaded parent.
 
 ## 9. Ontology lock contract
 
@@ -352,9 +381,13 @@ evidence:
     content_digest: sha256:...
 mapping_semantic_digest: sha256:...
 review:
+  review_id: review:2026-09-bhsa-gn-m
   status: reviewed
-  review_id: review:...
   reviewed_mapping_digest: sha256:...
+  reviewer_id: reviewer:opaque-project-id
+  reviewed_at: 2026-09-05T21:00:00Z
+  review_source: offline-bundle-or-pr-reference
+  review_method: independent-skeptical
 rationale: Reviewed native and ontology definitions support this projection.
 ```
 
@@ -421,7 +454,26 @@ Review states are:
 - `provisional` — diagnostic/authoring only;
 - `disputed` — audit/research only.
 
-### 14.1 Per-mapping semantic digest
+### 14.1 Review record machine contract
+
+Every mapping review record has at least:
+
+- `review_id` — stable logical review-record ID;
+- `status` — `reviewed | provisional | disputed`;
+- `reviewed_mapping_digest` — the exact mapping semantic digest seen by the reviewer;
+- `reviewer_id` — project-controlled provenance identifier; it may link externally to a person/agent identity but a **forge username** is not required;
+- `reviewed_at` — timestamp for audit chronology;
+- `review_source` — immutable/offline-resolvable review artifact reference or external reference plus bundled summary;
+- `review_method` — review class such as `independent-skeptical`;
+- optional note/evidence references.
+
+For **executable readiness**, only `status` and the equality of `reviewed_mapping_digest` to the current recomputed mapping digest are behavior gates in the first POC. Those readiness facts participate in the profile semantic projection.
+
+`review_id`, `reviewer_id`, `reviewed_at`, `review_source`, `review_method`, notes and display labels are **audit-only** provenance and are not part of semantic identity or `mapping_semantic_digest`; changing them alone does not alter mapping behavior. They remain in the released source/IR provenance and therefore remain covered by source/bundle integrity. In particular, a **forge username** is **not part of semantic identity**.
+
+The project/PR process decides whether a submitted review is legitimately independent; the compiler verifies the machine binding and readiness state rather than pretending to cryptographically infer reviewer independence from a username.
+
+### 14.2 Per-mapping semantic digest
 
 `mapping_semantic_digest` is SHA-256 of RFC 8785 canonical JSON over behavior/publication-affecting mapping fields, including:
 
@@ -452,8 +504,7 @@ It contains:
 - dependency definitions;
 - ontology locks/term pins;
 - content-addressed evidence bindings used by mappings;
-- normalized mappings including `mapping_semantic_digest` and review binding;
-- review readiness;
+- normalized mappings including `mapping_semantic_digest` and review readiness/provenance;
 - generated lookup indexes;
 - explicit IR format version.
 
@@ -498,14 +549,14 @@ JSON-compatible normalized objects use RFC 8785 JSON Canonicalization Scheme sem
 - dependency definitions;
 - ontology locks/target pins;
 - mapping semantic records/digests;
-- executable/review readiness rules;
+- executable/review readiness state (`status` plus reviewed-digest match), not audit-only reviewer provenance;
 - applicability and publication semantics.
 
-`profile_version` must not affect `semantic_digest`. Release-navigation labels, rationale prose, local paths, CI IDs, build **timestamps**, generated-at fields and MCP transport/session metadata also **must not affect** it.
+`profile_version` must not affect `semantic_digest`. Release-navigation labels, rationale prose, local paths, CI IDs, build **timestamps**, generated-at fields, audit-only review provenance and MCP transport/session metadata also **must not affect** it.
 
 Exact bundle identity is the tuple **profile_id + profile_version + semantic_digest** plus the release artifact digests. Thus two release labels can refer to identical semantic content while remaining distinct immutable release artifacts.
 
-A separate `ir_digest` may cover non-volatile evidence/documentation metadata for exact build reproduction.
+A separate `ir_digest` may cover non-volatile evidence/documentation/reviewer provenance for exact build reproduction.
 
 ## 17. Versioning and exact-parent rebase
 
@@ -534,13 +585,13 @@ The deterministic compiler stages are:
 3. **cross-artifact semantic validation**;
 4. **exact parent release validation**;
 5. **IR normalization/canonicalization**;
-6. **generated derivatives**;
+6. **generated static derivatives + release-validation report**;
 7. **determinism/drift verification**.
 
 Cross-artifact validation fails on at least:
 
 - duplicate IDs;
-- missing component/dependency/lock/evidence references;
+- missing component/dependency/lock/evidence/review references;
 - evidence digest mismatch;
 - any active mapping dependency outside authoritative `required_components`;
 - illegal assessment/external-target/ontology-lock or ambiguity combinations;
@@ -551,7 +602,7 @@ Cross-artifact validation fails on at least:
 - `reviewed_mapping_digest` mismatch;
 - profile data violating accepted normative TFont rules.
 
-Release validation recomputes the exact tested parent component manifest and requires `verified-exact` for the release target.
+Release validation recomputes the exact tested parent component manifest and requires a `verified-exact` release-validation report for the release target.
 
 ## 19. Runtime sidecar and compatibility handoff
 
@@ -576,7 +627,7 @@ compute observed parent component manifest
        -> known fail: incompatible
 ```
 
-Every activation returns/references the immutable compatibility report from §8.1. Runtime never rewrites canonical mappings from live ontology lookup.
+Every activation creates or validates the activation compatibility report from §8.2. Runtime never rewrites canonical mappings from live ontology lookup.
 
 ## 20. Capability and resolution plan contracts
 
@@ -584,7 +635,7 @@ A capability record includes:
 
 - `profile_id` / `profile_version` / `semantic_digest`;
 - compatibility state;
-- `compatibility_report_id` / `report_digest`;
+- activation `compatibility_report_id` / `report_digest`;
 - expected and observed component-manifest identities;
 - semantic domains;
 - mapping assessment support;
@@ -596,7 +647,7 @@ A **resolution plan** contains:
 
 - normalized-request fingerprint;
 - profile identity and semantic digest;
-- compatibility state and immutable compatibility report identity;
+- compatibility state and immutable activation compatibility report identity;
 - requested external concepts;
 - selected mapping IDs;
 - per-mapping `assessment`;
@@ -679,6 +730,7 @@ Semantic diff dimensions include at least:
 - required component/dependency change;
 - evidence digest change;
 - review binding/readiness change;
+- audit-only review provenance change;
 - ambiguity candidate-projection change;
 - **prose-only** change.
 
@@ -691,7 +743,7 @@ The first implementation fixtures must include positive and adversarial cases.
 | fixture | purpose | mandatory assertion |
 |---|---|---|
 | BHSA positive morphology | happy path | reviewed exact `sp`/`gn`/`nu` style mapping compiles and resolves |
-| changed-parent | compatibility | changed component set with complete closure → `verified-compatible` plus immutable report |
+| changed-parent | compatibility | changed component set with complete closure → `verified-compatible` plus activation report |
 | changed sidecar with unchanged TF | identity negative | must not remain `verified-exact` |
 | ORACC-like zero-span | non-TF semantics | zero-span component is addressed without fake slots |
 | TLHdig technical-anchor | extent semantics | anchor-only does not become semantic occurrence extent |
@@ -702,6 +754,8 @@ The first implementation fixtures must include positive and adversarial cases.
 | ambiguous cross-lock | ambiguity | candidate targets from different ontology locks retain candidate-specific lock binding |
 | stale-review | review binding | material mapping edit with old reviewed digest becomes non-executable |
 | changed-evidence | evidence binding | changed evidence content digest invalidates review |
+| audit-only review edit | identity negative | reviewer display/provenance edit does not change semantic digest |
+| activation report | lifecycle | changed observed parent produces reproducible runtime compatibility report, not a rewritten release report |
 
 ## 25. Reproducible build and CI contract
 
@@ -713,13 +767,14 @@ For every future profile change CI must eventually:
 4. recompute mapping semantic digests and review bindings;
 5. validate exact release parent manifest;
 6. compile normalized IR;
-7. regenerate runtime/reference/publication derivatives;
+7. generate release-validation report and static runtime/reference/publication derivatives;
 8. run generation twice or otherwise verify deterministic canonical digests;
 9. fail stale committed generated artifacts;
 10. execute positive and negative fixtures;
 11. produce semantic diff dimensions from §23;
 12. fail on unreviewed/stale-review executable mappings;
-13. preserve explicit four-state compatibility evidence and report shape.
+13. preserve explicit four-state compatibility evidence and report shape;
+14. test activation compatibility report reproducibility against changed-parent fixtures.
 
 Source digest and semantic digest are both reported so formatting-only source changes are distinguishable from semantic behavior changes.
 
@@ -730,12 +785,12 @@ Every ticket below follows **research -> plan -> implement -> test** as applicab
 ### `I-001` — structural schemas and source validator
 
 **Dependency order:** first.  
-Create JSON Schema 2020-12 contracts for profile, parent components, ontology lock, evidence, mapping source and compatibility report plus parser/structural validator. Include duplicate-key, no-independent-`required`, evidence-shape and candidate-lock regressions.
+Create JSON Schema 2020-12 contracts for profile, parent components, ontology lock, evidence, review, mapping source and compatibility report plus parser/structural validator. Include duplicate-key, no-independent-`required`, evidence-shape, review-shape and candidate-lock regressions.
 
 ### `I-002` — canonicalization and digest library
 
 Depends on `I-001`.  
-Implement UTF-8 source digest, RFC 8785 canonical JSON, evidence content digest helpers, `mapping_semantic_digest`, profile `semantic_digest`, source digest and test vectors proving `profile_version` exclusion.
+Implement UTF-8 source digest, RFC 8785 canonical JSON, evidence content digest helpers, `mapping_semantic_digest`, profile `semantic_digest`, source digest and test vectors proving `profile_version` and audit-only review provenance exclusion.
 
 ### `I-003` — parent component identity
 
@@ -750,7 +805,7 @@ Validate required-component authority, all eight assessment shapes, candidate-sp
 ### `I-005` — compatibility validator/report
 
 Depends on `I-003`, `I-004`.  
-Implement `verified-exact | verified-compatible | unverified | incompatible`, immutable report identity/shape, complete dependency closure and changed-parent fixtures.
+Implement `verified-exact | verified-compatible | unverified | incompatible`, shared immutable report schema/digest, release-validation report, activation compatibility report, runtime-cache keys, complete dependency closure and changed-parent fixtures.
 
 ### `I-006` — normalized IR compiler
 
@@ -760,7 +815,7 @@ Compile deterministic semantic IR and semantic/source digests; reject stale revi
 ### `I-007` — runtime sidecar and capability index
 
 Depends on `I-006`.  
-Generate deterministic runtime index plus capability records including negative states, compatibility report identity and provenance.
+Generate deterministic runtime index plus capability records including negative states, activation compatibility report identity and provenance.
 
 ### `I-008` — semantic resolver core
 
@@ -784,8 +839,10 @@ Required layers:
 - canonicalization/digest fixed vectors;
 - evidence content-addressing and changed-evidence stale-review regression;
 - mapping digest/review-binding stale-review regression;
+- audit-only review-provenance semantic-digest negative regression;
 - component-manifest fixed vectors;
 - exact/compatible/unverified/incompatible compatibility matrix plus immutable report vectors;
+- release-validation vs activation-report lifecycle and cache-key regressions;
 - ambiguous same-target/different-assessment regression;
 - ambiguous candidate targets from different ontology locks;
 - no-target native-only/unsupported regressions;
