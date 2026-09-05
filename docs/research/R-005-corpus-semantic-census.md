@@ -131,17 +131,17 @@ The committed `tf/0.2.8` feature inventory contains:
 |---|---|---|---|
 | `sign` | string | Latin/transliteration representation of the sign | `sign` |
 | `usign` | string | Ugaritic Unicode representation when available | `sign` |
-| `g_cons` | string | consonantal value | sign/word according to source encoding |
-| `trailer`, `utrailer`, `trailer_emen` | string | following spacing/punctuation/editorial rendering | `sign` |
-| `language` | string/categorical | encoded language | textual nodes |
+| `g_cons` | string | consonantal value | `word` |
+| `trailer`, `utrailer`, `trailer_emen` | string | following spacing/punctuation/editorial rendering | `word` |
+| `language` | string/categorical | encoded language | `word` |
 | `tablet`, `tablet_info` | string | tablet identity and metadata | `tablet` |
 | `column` | string/int-like | column label/number | `column` |
 | `line` | string/int-like | line label/number | `line` |
-| `side` | string/categorical | physical side | physical structure |
+| `side` | string/categorical | physical side | `line` |
 | `emen` | string/categorical | emendation/editorial state; source documentation covers restoration, missing/excised/redundant material | `sign` |
 | `cert` | string/categorical | certainty corresponding to KTU editorial typography | `sign` |
 | `alt` | string | alternative reading | `sign` |
-| `cont` | string/flag-like | line-continuation information | line/sign context |
+| `cont` | string/flag-like | line-continuation information | `sign` |
 
 There are no corpus-specific semantic edge feature files in `0.2.8`; containment is represented through `oslots` and section hierarchy.
 
@@ -448,8 +448,8 @@ Legend: **S** candidate `same`; **C** `close`; **B/N** broader/narrower; **R** r
 | semantic cluster | BHSA | CUC | Syriac 0.9 | Peshitta | SyrNT | ExtraBiblical | TLHdig-TF | Pseudepigrapha-TF | ORACC-TF target |
 |---|---|---|---|---|---|---|---|---|---|
 | TF slot | word | sign | word | word | word | word | sign | word | sign |
-| word/token | S word slot | C word over signs | S word slot | S word slot | S word slot | S word slot | C word over signs | S word slot / variant token overlay | C word over signs |
-| sign/grapheme | U | S primary slot | U | U | U | U | S primary slot + cuneiform alignment | U | S primary slot/GDL |
+| word/token | S word slot | S word over signs | S word slot | S word slot | S word slot | S word slot | S word over signs | S word slot / variant token overlay | S word over signs |
+| sign/grapheme | U | C primary alphabetic sign | U | U | U | U | C primary cuneiform sign + alignment | U | C semantic GDL sign |
 | lexical entry | `lex` node | U | word feature | word text only | `lexeme` node | word feature | `lex` node anchored + edge | word `lex` feature | `lex` node + many-to-many edge |
 | lemma/root/gloss | rich lexical features | U | lex/gloss | U | lexeme/root/stem | lex/ls | lemma/gloss on analysis+lex | lexical annotation on `<w>` where present | cf/gw/sense/norm/sig |
 | POS | rich | U | `sp` | U | `sp` SEDRA values | rich | `pos` on analysis | source annotation where present | `pos`/`epos` |
