@@ -47,6 +47,14 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("pseudepigrapha-tf", text.lower())
         self.assertIn("second independent corpus", text.lower())
 
+    def test_main_report_records_r005_as_accepted_dependency(self):
+        text = REPORT.read_text(encoding="utf-8")
+        self.assertNotIn(
+            "merge is blocked on independent acceptance of R-005 (#7)", text
+        )
+        self.assertIn("R-005 accepted", text)
+        self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
+
 
 if __name__ == "__main__":
     unittest.main()
