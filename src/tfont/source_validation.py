@@ -164,6 +164,7 @@ def validate_source(
     schema_name: str,
     *,
     schema_root: str | Path | None = None,
+    source_name: str | None = None,
 ) -> None:
     filename = SCHEMA_FILES.get(schema_name)
     if filename is None:
@@ -212,7 +213,7 @@ def validate_source(
             ValidationProblem(
                 category="schema_validation",
                 message=error.message,
-                source_name=schema_name,
+                source_name=schema_name if source_name is None else source_name,
                 instance_path=_problem_path(error.absolute_path),
                 schema_path=_problem_path(error.absolute_schema_path),
             )
@@ -225,6 +226,12 @@ def load_and_validate(
     *,
     schema_root: str | Path | None = None,
 ) -> JSONValue:
-    data = load_source(path)
-    validate_source(data, schema_name, schema_root=schema_root)
+    source_path = Path(path)
+    data = load_source(source_path)
+    validate_source(
+        data,
+        schema_name,
+        schema_root=schema_root,
+        source_name=str(source_path),
+    )
     return data
