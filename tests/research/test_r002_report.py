@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REPORT = ROOT / "docs" / "research" / "R-002-ontology-governance.md"
 REGISTRY = ROOT / "docs" / "research" / "data" / "R-002-ontology-registry.json"
+WORKFLOW = ROOT / ".github" / "workflows" / "r002-report-validation.yml"
 
 
 class R002AuthoritativeReportTests(unittest.TestCase):
@@ -88,6 +89,10 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertNotIn("minimal tfont apparatus vocabulary", cao["overlap"].lower())
         self.assertIn("native/profile-local", cao["overlap"].lower())
         self.assertIn("second independent corpus", cao["overlap"].lower())
+
+    def test_validation_workflow_tracks_machine_registry(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("docs/research/data/R-002-ontology-registry.json", workflow)
 
 
 if __name__ == "__main__":
