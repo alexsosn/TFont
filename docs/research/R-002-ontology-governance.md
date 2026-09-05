@@ -1,6 +1,6 @@
 # R-002: ontology governance and supported semantic profiles
 
-**Status:** research complete as a draft; merge is blocked on independent acceptance of R-005 (#7)  
+**Status:** research complete; R-005 accepted; pending exact-head independent review  
 **Issue:** #2  
 **Recorded:** 2026-09-05
 
@@ -217,7 +217,7 @@ Scores are qualitative: `5` strong, `1` poor. `maintenance` reflects governance/
 **Governance:** W3C Recommendation process.  
 **Role in TFont:** mapping strength and local concept schemes.
 
-SKOS supplies the exact/close/broad/narrow/related mapping vocabulary needed by R-005 without asserting stronger OWL identity. It is therefore a core mapping dependency.
+SKOS supplies exact/close/broad/narrow/related publication relations for genuine concept-scheme mappings. TFont's runtime mapping assessment remains formalism-neutral and does not require every target ontology term to be represented as a SKOS concept.
 
 TFont should not make every ontology class into a SKOS concept. SKOS is used for TFont's own concept schemes and for mappings where the external resource is appropriately treated as a concept scheme. OWL class/property relations remain OWL relations.
 
@@ -513,14 +513,14 @@ The line → fragment `witness` edge is not equivalent to Pseudepigrapha reading
 
 ### 13.6 Pseudepigrapha-TF
 
-This is the strongest driver for the minimal TFont apparatus vocabulary.
+This is the strongest apparatus stress case, but R-005 did not establish recurrence in a second independent corpus, so apparatus domain concepts remain native/profile-local in the foundation POC.
 
 Use:
 
 - LRMoo/CIDOC CRM/CRMtex for bibliographic, witness and textual entities where definitions fit;
 - PROV-O for source/conversion/editorial provenance;
 - Web Annotation for target/locus publication;
-- TFont local apparatus concepts for variation units, readings, attestation and explicit absence;
+- native/profile-local apparatus concepts for variation units, readings, attestation and explicit absence;
 - CAO/SAWS only as documented alignments/prior art.
 
 The existence of an external `Reading` class is not enough to import CAO wholesale when its remaining model/release constraints are unsuitable.
@@ -614,7 +614,7 @@ Rejected. TFont already has native TF/Context-Fabric graphs, and R-001 recommend
 
 ### SAWS or CAO as the normative apparatus ontology
 
-Rejected for the POC. SAWS licensing is non-commercial and its model is tied to older FRBRoo. CAO is open and semantically close to the problem, but remains a 0.9/draft model with limited recent maintenance and legacy dependencies. Both remain explicit prior art.
+Rejected for the POC. SAWS reusable ontology licensing was not established from the authoritative distribution inspected, and its model is tied to older FRBRoo. CAO is open and semantically close to the problem, but remains a 0.9/draft model with limited recent maintenance and legacy dependencies. Both remain explicit prior art.
 
 ### Draft OntoLex Morph/FrAC as supported dependencies
 
@@ -641,15 +641,15 @@ These questions refine implementation. They do not reopen the support-tier, open
 
 ## 18. Acceptance-criteria trace
 
-- **Current status/version/governance/license checked:** all proposed supported candidates and all required candidates are classified above; draft/stale/non-commercial cases are explicitly downgraded.
+- **Current status/version/governance/license checked:** all proposed supported candidates and all required candidates are classified above; draft/stale/licensing-uncertain cases are explicitly downgraded.
 - **Support policy:** four tiers — core, supported, external, reference — with optional domain profiles.
-- **Exact versus approximate mappings:** OWL identity/equivalence is exceptional; SKOS exact/close/broad/narrow/related relations are the default concept-mapping vocabulary.
+- **Exact versus approximate mappings:** runtime mapping assessment is formalism-neutral; SKOS exact/close/broad/narrow/related publication relations are used only for genuine SKOS concepts/concept schemes, while OWL/RDFS relations require their own logical justification.
 - **Local concepts:** native-only first; corpus-local for source-specific categories; TFont-local only for recurrent interoperability gaps.
 - **Version/deprecation:** stable URI plus tested release/snapshot/content digest; no silent migration.
 - **Runtime versus publication:** runtime uses the compiled sidecar from R-001; RDF vocabularies are validated source/publication semantics and need not imply a triplestore.
 - **Corpus coverage:** BHSA, CUC, all three Syriac profiles, ExtraBiblical, TLHdig-TF, Pseudepigrapha-TF and ORACC-TF are exercised explicitly.
 - **Domain coverage:** linguistic, lexical-semantic, textological/codicological, physical/material and archaeological/scientific optional domains are covered.
-- **Recurrent gap:** a deliberately small TFont apparatus vocabulary is justified; mapping strength/provenance/targeting are delegated to existing standards rather than reimplemented.
+- **Apparatus gap:** recurrence is not yet established across a second independent corpus, so apparatus domain terms remain native/profile-local; mapping strength/provenance/targeting use existing standards/contracts.
 
 ## 19. Authoritative sources and inspected snapshots
 
@@ -676,4 +676,4 @@ Primary sources used for the decision include:
 - SAWS ontology: `http://purl.org/saws/ontology`
 - Critical Apparatus Ontology: `https://github.com/fgiovannetti/cao`; checked repo head `7a96094092123d5f53358cd3311c583495d9cd8e`, ontology IRI `https://w3id.org/cao/`, version 0.9.
 
-R-005 / PR #7 remains the empirical dependency for corpus semantics. If its independent review materially changes the census, this report must be reconciled before merge.
+R-005 / PR #7 was accepted at exact reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb` and merged as `a9c4d74d4de2f9a15eb1464dce341ecd2f92f898`. This report has been reconciled against that empirical dependency; any future material census revision requires a new R-002 reconciliation.
