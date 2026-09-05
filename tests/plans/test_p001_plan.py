@@ -104,6 +104,13 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("tfont-compatibility-sha256-v1", self.lower)
         self.assertIn("derived from `report_digest`", self.lower)
 
+    def test_compatibility_report_lifecycle_separates_release_and_activation(self):
+        self.assertIn("release-validation report", self.lower)
+        self.assertIn("activation compatibility report", self.lower)
+        self.assertIn("validated ir + observed parent component manifest", self.lower)
+        self.assertIn("same report schema", self.lower)
+        self.assertIn("runtime cache", self.lower)
+
     def test_mapping_object_preserves_r002_contract(self):
         for assessment in (
             "exact",
@@ -197,6 +204,22 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("review record itself", self.lower)
         self.assertIn("stale review", self.lower)
         self.assertIn("non-executable", self.lower)
+
+    def test_review_record_has_offline_auditable_provenance(self):
+        for field in (
+            "review_id",
+            "status",
+            "reviewed_mapping_digest",
+            "reviewer_id",
+            "reviewed_at",
+            "review_source",
+            "review_method",
+        ):
+            self.assertIn(f"`{field}`", self.text)
+        self.assertIn("executable readiness", self.lower)
+        self.assertIn("audit-only", self.lower)
+        self.assertIn("forge username", self.lower)
+        self.assertIn("not part of semantic identity", self.lower)
 
     def test_review_binding_includes_content_addressed_evidence(self):
         self.assertIn("`evidence_id`", self.text)
