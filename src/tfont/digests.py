@@ -198,7 +198,10 @@ def _require_nonempty_string(value: Any, *, path: tuple[str | int, ...]) -> str:
 
 
 def _utf16_sort_key(value: str) -> bytes:
-    return value.encode("utf-16be")
+    try:
+        return value.encode("utf-16be")
+    except UnicodeEncodeError as exc:
+        _fail("unicode_domain", str(exc))
 
 
 def evidence_record_projection(record: dict[str, Any]) -> dict[str, Any]:
