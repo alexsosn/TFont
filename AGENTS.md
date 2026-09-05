@@ -35,6 +35,8 @@ For implementation work that changes architecture or a public mapping contract:
 - state which semantics are corpus-native, standardized, inferred, or intentionally unsupported;
 - record the plan in `docs/plans/` before implementation.
 
+The first POC architecture and any later change to distribution, manifest/schema shape, mapping semantics, or MCP-facing behavior always require this gate.
+
 ### 3. TDD implementation gate
 
 Implementation tickets follow test-driven development:
@@ -51,6 +53,8 @@ Do not use tests that merely mirror implementation internals. Prefer contract te
 
 Every PR that changes research conclusions, architecture, mappings, schemas, runtime behavior, or public documentation requires an independent skeptical review before merge.
 
+**Independent means the final review is performed by a different person or a separately instantiated review agent/context that did not author the PR changes.** The authoring agent must not count its own reread or self-audit as the required independent review.
+
 The reviewer must check the PR against:
 
 - the parent issue acceptance criteria;
@@ -63,11 +67,11 @@ The reviewer must check the PR against:
 
 A review that only summarizes the PR is insufficient. The reviewer should actively look for semantic overclaiming, lossy mappings, accidental ontology equivalence, unsupported inferences, stale upstream assumptions, and coupling that makes corpus modules hard to distribute independently.
 
-If review finds a material defect, revise and repeat independent review until the PR is mergeable.
+If review finds a material defect, revise and repeat independent review until the PR is mergeable. Any material change after the final independent review invalidates that review and requires another independent pass over the new head.
 
 ## Phase discipline
 
-The initial phase is **research only**. Do not open or implement production ontology/mapping code until the architecture research tickets defining distribution, ontology governance, ergonomics, and documentation have been completed and reconciled into an approved design ticket.
+The initial phase is **research only**. Do not open or implement production ontology/mapping code until research tickets R-001 through R-005 (distribution, ontology governance, ergonomics, documentation, and empirical corpus census) have been completed and reconciled into an approved design ticket.
 
 ## Artifact conventions
 
@@ -92,5 +96,7 @@ At minimum, research and later POC tests must cover structurally and linguistica
 - Syriac TF corpora (evaluate ETCBC `syriac`, `peshitta`, and `syrnt` and choose representative targets explicitly);
 - ETCBC `extrabiblical`;
 - TLHdig-TF.
+
+Pseudepigrapha-TF and ORACC-TF are secondary stress corpora for textological/codicological and archaeological/lexical-semantic coverage respectively.
 
 Do not assume that identical feature names have identical semantics, or that different feature names imply different semantics.
