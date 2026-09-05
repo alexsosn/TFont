@@ -137,6 +137,23 @@ If generator logic, pins, or generated evidence change, the developer must regen
 
 A separate lightweight read-only workflow, `r005-generated-validation.yml`, additionally validates the already committed inventory set (pins, node counts, metadata/value accounting, semantic edge subset, CUC regressions and known edge directions). It complements but does not replace the full pinned-source regeneration gate.
 
+## Finding 4 — one-time report reconciliation CI remained write-enabled
+
+### Review finding
+
+After the report had already been reconciled, the branch still contained `.github/workflows/r005-report-reconcile.yml` with `contents: write` and a `git push`, plus the one-time migration script `scripts/research/r005_reconcile_report.py`. A future edit to either file could therefore move the PR head from CI and recreate the same class of exact-head race eliminated in Finding 3.
+
+### RED → GREEN resolution
+
+A regression was added first in `tests/research/test_r005_generated.py`. It requires:
+
+- the one-time reconciliation workflow to be absent;
+- the one-time migration script to be absent;
+- both remaining R-005 verification workflows to declare `contents: read`;
+- neither remaining verification workflow to contain `contents: write` or `git push`.
+
+The regression failed on head `69db8578ac4597b15a4f8349ca784f8c71d49b8a`, proving the stale mutating scaffold was still present. The workflow and script were then removed. The authoritative report already contains the migrated text, so no persistent write-enabled migration mechanism is required.
+
 ## Final review gate
 
 A fresh independent skeptical reviewer must inspect the exact stable head after:
@@ -145,7 +162,8 @@ A fresh independent skeptical reviewer must inspect the exact stable head after:
 2. all generated inventories are present in the branch;
 3. workflow regression assertions pass;
 4. the candidate-strength matrix remains unchanged or any later change is included in that review;
-5. this reconciliation amendment and its exact-head CI rule are part of the reviewed tree.
+5. this reconciliation amendment and its exact-head CI rule are part of the reviewed tree;
+6. no write-enabled R-005 CI remains in the branch.
 
 The reviewer should verify the generated inventories against at least several pinned upstream feature files and explicitly check that the prior blocking findings are closed. An author-side reread or approval attached to an earlier head does not satisfy this gate.
 
@@ -159,5 +177,6 @@ The reviewer should verify the generated inventories against at least several pi
 - [x] The stale CUC deferral statement is explicitly superseded by the generated R-005 evidence contract.
 - [x] Exact-head verification is non-mutating and compares regenerated inventories byte-for-byte with committed evidence.
 - [x] Verification CI requires only read access to repository contents.
+- [x] The one-time write-enabled reconciliation workflow/script have been removed and are regression-protected against reintroduction.
 - [ ] The resulting exact stable head must finish green.
 - [ ] A fresh independent reviewer who did not author these fixes must review that stable head before merge.
