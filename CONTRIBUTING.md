@@ -18,7 +18,7 @@ Every PR must:
 3. list acceptance criteria and evidence that each is satisfied;
 4. preserve native corpus semantics and provenance;
 5. document unsupported or approximate mappings rather than hiding them;
-6. receive independent skeptical review before merge when it changes public conclusions or behavior.
+6. receive independent skeptical review before merge when it changes research conclusions, architecture, mappings, schemas, runtime behavior, or public documentation.
 
 ## Research PRs
 
@@ -41,6 +41,8 @@ Each research document should contain:
 
 Designs belong in `docs/plans/`. They must define stable contracts before code, including version compatibility, error behavior, provenance, extensibility, serialization, and how approximate mappings are represented.
 
+The initial POC architecture always requires a design PR after R-001 through R-005 are complete. Later changes to distribution, public mapping semantics, manifests/schemas, or MCP-facing behavior also require design first.
+
 ## Implementation PRs
 
 Use TDD. Tests should make semantic compatibility claims executable. For corpus mappings, include negative tests proving that non-equivalent native concepts are not accidentally treated as exact equivalents.
@@ -48,3 +50,5 @@ Use TDD. Tests should make semantic compatibility claims executable. For corpus 
 ## Review
 
 The final reviewer should work from the issue, research/design artifact, diff, and upstream evidence rather than trusting the PR description. A mergeable review must address semantic fidelity, licensing, versioning, distribution, ergonomics, and test adequacy where applicable.
+
+The required independent reviewer must be a different person or a separately instantiated review agent/context that did not author the changes. An authoring agent's self-audit does not satisfy this gate. Material changes after the final review require another independent review of the new PR head.
