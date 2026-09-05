@@ -1,0 +1,166 @@
+name: R-005 research inventory
+
+on:
+  push:
+    branches:
+      - research/r-005-corpus-semantic-census
+    paths:
+      - .github/workflows/r005-research-inventory.yml
+      - scripts/research/r005_inventory.py
+      - tests/research/test_r005_inventory.py
+      - docs/research/R-005-corpus-semantic-census.md
+      - docs/research/R-005-candidate-strength-matrix.md
+      - docs/research/R-005-review-reconciliation.md
+      - docs/research/data/R-005-corpus-pins.json
+      - docs/research/data/generated/r005/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out TFont research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric research baseline
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run research-tool unit tests
+        run: python -m unittest discover -s tests/research -v
+
+      - name: Check out BHSA 2021
+        uses: actions/checkout@v4
+        with:
+          repository: ETCBC/bhsa
+          ref: 4db00e2157915495e1a4d3d57e41223df24775da
+          path: upstream/bhsa
+          sparse-checkout: tf/2021
+          sparse-checkout-cone-mode: false
+
+      - name: Check out CUC 0.2.8
+        uses: actions/checkout@v4
+        with:
+          repository: DT-UCPH/cuc
+          ref: ad69400f5446e1c8217af01659c7c10ab00c015b
+          path: upstream/cuc
+          sparse-checkout: tf/0.2.8
+          sparse-checkout-cone-mode: false
+
+      - name: Check out ETCBC Syriac 0.9
+        uses: actions/checkout@v4
+        with:
+          repository: ETCBC/syriac
+          ref: bb0eaa7e21b020a26b7566d2e495da9b1f84a919
+          path: upstream/syriac
+          sparse-checkout: tf/0.9
+          sparse-checkout-cone-mode: false
+
+      - name: Check out Peshitta 0.2
+        uses: actions/checkout@v4
+        with:
+          repository: ETCBC/peshitta
+          ref: 9850f5addade26f681334aa475570bef9b0b440a
+          path: upstream/peshitta
+          sparse-checkout: tf/0.2
+          sparse-checkout-cone-mode: false
+
+      - name: Check out SyrNT 0.1
+        uses: actions/checkout@v4
+        with:
+          repository: ETCBC/syrnt
+          ref: dae3eb6ff62b9b272fb503646796c25d248175ce
+          path: upstream/syrnt
+          sparse-checkout: tf/0.1
+          sparse-checkout-cone-mode: false
+
+      - name: Check out ExtraBiblical 0.2
+        uses: actions/checkout@v4
+        with:
+          repository: ETCBC/extrabiblical
+          ref: 9a56288e6777bad6328856acf055c780e65dd5d9
+          path: upstream/extrabiblical
+          sparse-checkout: tf/0.2
+          sparse-checkout-cone-mode: false
+
+      - name: Check out TLHdig-TF 0.2.0
+        uses: actions/checkout@v4
+        with:
+          repository: alexsosn/TLHdig-TF
+          ref: 4309cf3318c682282c1480b233786362a3083471
+          path: upstream/tlhdig
+          sparse-checkout: tf/0.2.0
+          sparse-checkout-cone-mode: false
+
+      - name: Generate exact pinned inventories
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=docs/research/data/generated/r005
+          mkdir -p "$out"
+          python scripts/research/r005_inventory.py upstream/bhsa/tf/2021 \
+            --corpus-id bhsa --repository ETCBC/bhsa \
+            --revision 4db00e2157915495e1a4d3d57e41223df24775da --tf-version 2021 \
+            --output "$out/bhsa.json"
+          python scripts/research/r005_inventory.py upstream/cuc/tf/0.2.8 \
+            --corpus-id cuc --repository DT-UCPH/cuc \
+            --revision ad69400f5446e1c8217af01659c7c10ab00c015b --tf-version 0.2.8 \
+            --output "$out/cuc.json"
+          python scripts/research/r005_inventory.py upstream/syriac/tf/0.9 \
+            --corpus-id syriac --repository ETCBC/syriac \
+            --revision bb0eaa7e21b020a26b7566d2e495da9b1f84a919 --tf-version 0.9 \
+            --output "$out/syriac.json"
+          python scripts/research/r005_inventory.py upstream/peshitta/tf/0.2 \
+            --corpus-id peshitta --repository ETCBC/peshitta \
+            --revision 9850f5addade26f681334aa475570bef9b0b440a --tf-version 0.2 \
+            --output "$out/peshitta.json"
+          python scripts/research/r005_inventory.py upstream/syrnt/tf/0.1 \
+            --corpus-id syrnt --repository ETCBC/syrnt \
+            --revision dae3eb6ff62b9b272fb503646796c25d248175ce --tf-version 0.1 \
+            --output "$out/syrnt.json"
+          python scripts/research/r005_inventory.py upstream/extrabiblical/tf/0.2 \
+            --corpus-id extrabiblical --repository ETCBC/extrabiblical \
+            --revision 9a56288e6777bad6328856acf055c780e65dd5d9 --tf-version 0.2 \
+            --output "$out/extrabiblical.json"
+          python scripts/research/r005_inventory.py upstream/tlhdig/tf/0.2.0 \
+            --corpus-id tlhdig-tf --repository alexsosn/TLHdig-TF \
+            --revision 4309cf3318c682282c1480b233786362a3083471 --tf-version 0.2.0 \
+            --output "$out/tlhdig-tf.json"
+
+      - name: Assert reviewer regression examples from generated CUC inventory
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('docs/research/data/generated/r005/cuc.json')
+          d = json.loads(p.read_text())
+          cert = d['node_features']['cert']
+          emen = d['node_features']['emen']
+          assert cert['observed_values'] == ['False', 'True'], cert
+          assert set(emen['observed_values']) == {
+              'restored', 'redundant', 'excised', 'missing', 'remark'
+          }, emen
+          assert cert['empty_observation_count'] > 0, cert
+          assert emen['empty_observation_count'] > 0, emen
+          print('CUC regression domains:', cert['observed_values'], emen['observed_values'])
+          PY
+
+      - name: Verify committed inventories are byte-for-byte current
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --exit-code -- docs/research/data/generated/r005; then
+            echo 'Committed generated inventories exactly match regeneration on this head.'
+          else
+            echo 'Generated R-005 inventories are stale. Regenerate and commit them before review.' >&2
+            exit 1
+          fi

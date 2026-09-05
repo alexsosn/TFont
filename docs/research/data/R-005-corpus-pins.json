@@ -1,0 +1,188 @@
+{
+  "generated_for": "R-005",
+  "recorded_at": "2026-09-05",
+  "classification_vocabulary": ["same", "close", "broader/narrower", "related", "unknown", "local-only"],
+  "corpora": {
+    "bhsa": {
+      "repository": "ETCBC/bhsa",
+      "commit": "4db00e2157915495e1a4d3d57e41223df24775da",
+      "tf_version": "2021",
+      "slot_type": "word",
+      "node_counts": {
+        "word": 426590,
+        "book": 39,
+        "chapter": 929,
+        "clause": 88131,
+        "clause_atom": 90704,
+        "half_verse": 45179,
+        "phrase": 253203,
+        "phrase_atom": 267532,
+        "sentence": 63717,
+        "sentence_atom": 64514,
+        "subphrase": 113850,
+        "verse": 23213,
+        "lex": 9230
+      },
+      "custom_edges": ["mother", "distributional_parent", "functional_parent"],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["tf/2021/otype.tf", "docs/features/0_home.md", "docs/features/mother.md", "docs/features/distributional_parent.md", "app/config.yaml"]
+    },
+    "cuc": {
+      "repository": "DT-UCPH/cuc",
+      "commit": "ad69400f5446e1c8217af01659c7c10ab00c015b",
+      "tf_version": "0.2.8",
+      "slot_type": "sign",
+      "node_counts": {
+        "sign": 146017,
+        "column": 334,
+        "line": 7616,
+        "tablet": 279,
+        "word": 27770
+      },
+      "custom_edges": [],
+      "sections": ["tablet", "column", "line"],
+      "evidence": ["tf/0.2.8/otype.tf", "tf/0.2.8/otext.tf", "tf/0.2.8/*.tf headers", "README.md", "app/config.yaml"]
+    },
+    "syriac": {
+      "repository": "ETCBC/syriac",
+      "commit": "bb0eaa7e21b020a26b7566d2e495da9b1f84a919",
+      "tf_version": "0.9",
+      "slot_type": "word",
+      "node_counts": {
+        "word": 360193,
+        "book": 29,
+        "chapter": 676,
+        "verse": 16072
+      },
+      "custom_edges": [],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["tf/0.9/otype.tf", "tf/0.9 feature inventory", "README.md", "app/config.yaml"]
+    },
+    "peshitta": {
+      "repository": "ETCBC/peshitta",
+      "commit": "9850f5addade26f681334aa475570bef9b0b440a",
+      "tf_version": "0.2",
+      "slot_type": "word",
+      "node_counts": {
+        "word": 426835,
+        "book": 65,
+        "chapter": 1269,
+        "verse": 31341
+      },
+      "custom_edges": [],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["tf/0.2/otype.tf", "tf/0.2/witness.tf", "tf/0.2 feature inventory", "app/config.yaml"]
+    },
+    "syrnt": {
+      "repository": "ETCBC/syrnt",
+      "commit": "dae3eb6ff62b9b272fb503646796c25d248175ce",
+      "tf_version": "0.1",
+      "slot_type": "word",
+      "node_counts": {
+        "word": 109640,
+        "book": 27,
+        "chapter": 260,
+        "lexeme": 3038,
+        "verse": 7957
+      },
+      "custom_edges": [],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["tf/0.1/otype.tf", "tf/0.1 feature inventory", "docs/transcription-0.1.md", "README.md", "app/config.yaml"]
+    },
+    "extrabiblical": {
+      "repository": "ETCBC/extrabiblical",
+      "commit": "9a56288e6777bad6328856acf055c780e65dd5d9",
+      "tf_version": "0.2",
+      "slot_type": "word",
+      "node_counts": {
+        "word": 39862,
+        "book": 13,
+        "chapter": 79,
+        "clause": 8908,
+        "clause_atom": 9160,
+        "half_verse": 1800,
+        "phrase": 22770,
+        "phrase_atom": 23370,
+        "sentence": 6429,
+        "sentence_atom": 6665,
+        "subphrase": 15351,
+        "verse": 1800
+      },
+      "custom_edges": ["mother", "distributional_parent", "functional_parent"],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["tf/0.2/otype.tf", "tf/0.2 feature inventory", "README.md"]
+    },
+    "tlhdig_tf": {
+      "repository": "alexsosn/TLHdig-TF",
+      "commit": "4309cf3318c682282c1480b233786362a3083471",
+      "tf_version": "0.2.0",
+      "source_version": "0.3",
+      "slot_type": "sign",
+      "node_counts": {
+        "sign": 3386344,
+        "analysis": 1626932,
+        "cluster": 656389,
+        "colon": 98008,
+        "column": 43434,
+        "docgroup": 23734,
+        "document": 23884,
+        "edit": 170955,
+        "fragment": 23150,
+        "layout": 407762,
+        "lex": 28282,
+        "line": 412637,
+        "note": 12152,
+        "paragraph": 108466,
+        "surface": 32909,
+        "word": 1234497
+      },
+      "custom_edges": ["edition", "lexeme", "startsAt", "endsAt", "witness", "noteref", "edits", "analyses", "selected"],
+      "valued_edges": ["selected"],
+      "sections": ["document", "column", "line"],
+      "evidence": ["tf/0.2.0/otype.tf", "reports/census.md", "programs/tlhdig/convert.py", "README.md", "docs/TF-CONVERSION-PLAN.md"]
+    },
+    "pseudepigrapha_tf": {
+      "repository": "alexsosn/Pseudepigrapha-TF",
+      "commit": "d098845043897957efee7a42ae4854deddd5a1bd",
+      "tf_version": "0.1 (converter output contract; generated corpus is not committed)",
+      "upstream_commit": "2d1d14d23434a784d377ff7f4409ccdb2d18aafb",
+      "slot_type": "word",
+      "node_types": ["book", "chapter", "verse", "div", "unit", "reading", "variant_word", "manuscript", "version_metadata", "ellipsis", "orphan_reading", "resource"],
+      "custom_edges": ["parent", "witness", "reading_of", "variant_word_of", "manuscript_of", "resource_of"],
+      "sections": ["book", "chapter", "verse"],
+      "evidence": ["README.md", "converter/audit contracts documented at pinned repository commit"]
+    },
+    "oracc_tf": {
+      "repository": "alexsosn/ORACC-TF",
+      "commit": "ab92001191844b1b0ee656490f0b5c8a66e65b4a",
+      "tf_version": "P-001 implementation schema at pinned repository commit; distributable target still under implementation",
+      "slot_type": "sign",
+      "measured_target": "assyrian-royal-inscriptions (RIAO 1-5 + RINAP 1-5/5p1)",
+      "node_counts_source": {
+        "document": 2078,
+        "face": 2312,
+        "column": 758,
+        "line": 56226,
+        "chunk": 13644,
+        "phrase": 4499,
+        "word": 320975,
+        "lex": 8025,
+        "sign": 792651
+      },
+      "node_counts_tf_warp": {
+        "document": 1842,
+        "face": 2036,
+        "column": 723,
+        "line": 56084,
+        "chunk": 13388,
+        "phrase": 4499,
+        "word": 320680,
+        "lex": 8023,
+        "sign": 792651
+      },
+      "zero_span_sidecar_nodes": 1242,
+      "sections": ["document", "face", "line"],
+      "evidence": ["docs/plans/P-001-riao-rinap-tf.md", "datasets.toml", "repository data snapshot at pinned commit"]
+    }
+  }
+}
