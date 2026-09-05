@@ -142,7 +142,7 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("must not affect", self.lower)
 
     def test_semantic_digest_excludes_release_label_but_bundle_identity_includes_it(self):
-        self.assertIn("profile_version must not affect `semantic_digest`", self.lower)
+        self.assertIn("`profile_version` must not affect `semantic_digest`", self.lower)
         self.assertIn("profile_id + profile_version + semantic_digest", self.lower)
         self.assertIn("exact-parent rebase", self.lower)
         self.assertIn("does not by itself require a major version", self.lower)
