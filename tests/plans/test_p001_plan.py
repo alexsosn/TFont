@@ -169,7 +169,7 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("`profile_version` must not affect `semantic_digest`", self.lower)
         self.assertIn("profile_id + profile_version + semantic_digest", self.lower)
         self.assertIn("exact-parent rebase", self.lower)
-        self.assertIn("does not by itself require a major version", self.lower)
+        self.assertIn("changed exact parent need not automatically force major versioning", self.lower)
 
     def test_versioning_rule_is_deterministic_for_changed_semantic_digest(self):
         self.assertIn("a changed `semantic_digest` can never be a patch", self.lower)
