@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tfont.dev/schema/v1/profile.schema.json",
+  "type": "object",
+  "required": ["schema_version", "profile_id", "profile_version", "semantic_domains", "parent_component_manifest", "required_components", "ontology_locks", "mapping_sources", "dependency_contract_version", "minimum_tfont_runtime", "license"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "profile_id": {"type": "string", "minLength": 1},
+    "profile_version": {"type": "string", "minLength": 1},
+    "semantic_domains": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "parent_component_manifest": {"type": "string", "minLength": 1},
+    "required_components": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "ontology_locks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "mapping_sources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "dependency_contract_version": {"type": "integer", "minimum": 1},
+    "minimum_tfont_runtime": {"type": "string", "minLength": 1},
+    "license": {"type": "string", "minLength": 1},
+    "provenance": {"type": "object"}
+  },
+  "additionalProperties": false
+}
