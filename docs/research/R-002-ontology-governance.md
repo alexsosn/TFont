@@ -30,6 +30,21 @@ TFont must not infer semantic identity from similar labels. Formal equivalence i
 
 The directional assessment values are always interpreted from the native/source concept toward the external target: **`broader` means the target is broader than the native/source concept**, while **`narrower` means the target is narrower than the native/source concept**. This runtime direction is part of the TFont assessment contract and does not imply any particular RDF predicate.
 
+### Mapping-assessment semantics
+
+The TFont assessment vocabulary has the following governance meanings, independent of any RDF publication predicate:
+
+- **`exact` — the external target and native/source concept are judged semantically coextensive** for the reviewed TFont projection. This is a mapping-level assessment, not RDF identity or OWL equivalence.
+- **`close` — the external target and native/source concept are substantially overlapping or near-equivalent**, but the evidence does not justify coextensiveness/interchangeability.
+- **`broader` — the external target is broader than the native/source concept**.
+- **`narrower` — the external target is narrower than the native/source concept**.
+- **`related` — the external target is semantically related but neither coextensive nor ordered as broader/narrower**.
+- **`ambiguous` — available evidence does not justify one unambiguous external-target assessment**; multiple plausible targets or relations remain unresolved.
+- **`native-only` — the native/source concept is intentionally supported without an external ontology target** because preserving the native semantics is the reviewed outcome.
+- **`unsupported` — the active TFont profile does not provide a supported semantic projection for the native/source concept** under the current ontology/profile policy.
+
+Mapping-level **`exact` is distinct from R-001 `verified-exact`**: the former describes a reviewed semantic relation between a native/source concept and a target concept, while the latter proves exact identity of the loaded parent component set. **`native-only` and `unsupported` have no external target** and therefore cannot acquire a publication mapping relation. `ambiguous` likewise does not authorize an automatic cross-ontology projection; R-003 may refine runtime presentation and query-planning behavior without changing these governance meanings.
+
 A mapping records both a **stable term URI** and the **tested ontology release/snapshot**. Versionless namespaces alone are not enough for reproducibility. Existing mapping releases never change meaning merely because an upstream ontology publishes a new release or deprecates a term.
 
 When no external term fits, TFont should prefer, in order:
@@ -653,7 +668,7 @@ These questions refine implementation. They do not reopen the support-tier, open
 
 - **Current status/version/governance/license checked:** all proposed supported candidates and all required candidates are classified above; draft/stale/licensing-uncertain cases are explicitly downgraded.
 - **Support policy:** four tiers — core, supported, external, reference — with optional domain profiles.
-- **Exact versus approximate mappings:** runtime mapping assessment is formalism-neutral and directionally defined from native/source to target; SKOS exact/close/broad/narrow/related publication relations are used only for genuine SKOS concepts/concept schemes, while OWL/RDFS relations require their own logical justification.
+- **Exact versus approximate mappings:** runtime mapping assessment is formalism-neutral and directionally defined from native/source to target; all eight assessment values are defined independently of publication predicates; SKOS exact/close/broad/narrow/related publication relations are used only for genuine SKOS concepts/concept schemes, while OWL/RDFS relations require their own logical justification.
 - **Local concepts:** native-only first; corpus-local for source-specific categories; TFont-local only for recurrent interoperability gaps.
 - **Version/deprecation:** stable URI plus tested release/snapshot/content digest; no silent migration.
 - **Runtime versus publication:** runtime uses the compiled sidecar from accepted R-001; RDF vocabularies are validated source/publication semantics and need not imply a triplestore.
