@@ -81,6 +81,23 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("`unverified`", self.text)
         self.assertIn("non-executable", self.lower)
 
+    def test_compatibility_evidence_has_machine_report_shape(self):
+        for field in (
+            "compatibility_report_id",
+            "report_digest",
+            "profile_semantic_digest",
+            "expected_parent_manifest_digest",
+            "observed_parent_manifest_digest",
+            "changed_components",
+            "dependency_results",
+            "evaluator_version",
+            "incomplete_reasons",
+            "failure_reasons",
+        ):
+            self.assertIn(f"`{field}`", self.text)
+        self.assertIn("runtime provenance", self.lower)
+        self.assertIn("immutable compatibility report", self.lower)
+
     def test_mapping_object_preserves_r002_contract(self):
         for assessment in (
             "exact",
@@ -126,6 +143,13 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("different candidate assessments", self.lower)
         self.assertIn("external_target: null", self.lower)
 
+    def test_ambiguous_candidates_bind_their_own_ontology_locks(self):
+        self.assertIn("each candidate projection", self.lower)
+        self.assertIn("`ontology_lock`", self.text)
+        self.assertIn("candidate targets from different ontology locks", self.lower)
+        self.assertIn("top-level `ontology_lock: null`", self.lower)
+        self.assertIn("top-level `publication_relation: null`", self.lower)
+
     def test_canonicalization_and_digest_rules_are_concrete(self):
         required = (
             "utf-8",
@@ -147,6 +171,13 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("exact-parent rebase", self.lower)
         self.assertIn("does not by itself require a major version", self.lower)
 
+    def test_versioning_rule_is_deterministic_for_changed_semantic_digest(self):
+        self.assertIn("a changed `semantic_digest` can never be a patch", self.lower)
+        self.assertIn("exact-parent rebase", self.lower)
+        self.assertIn("is a minor release", self.lower)
+        self.assertIn("removes previously supported behavior", self.lower)
+        self.assertIn("major", self.lower)
+
     def test_required_components_have_one_authority(self):
         self.assertIn("`required_components` is authoritative", self.lower)
         self.assertIn("component records do not carry an independent `required` flag", self.lower)
@@ -160,6 +191,15 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("review record itself", self.lower)
         self.assertIn("stale review", self.lower)
         self.assertIn("non-executable", self.lower)
+
+    def test_review_binding_includes_content_addressed_evidence(self):
+        self.assertIn("`evidence_id`", self.text)
+        self.assertIn("`content_digest`", self.text)
+        self.assertIn("evidence_id, content_digest", self.lower)
+        self.assertIn("mapping_semantic_digest", self.text)
+        self.assertIn("evidence content changes", self.lower)
+        self.assertIn("invalidates", self.lower)
+        self.assertIn("review", self.lower)
 
     def test_ir_and_runtime_handoff_are_defined(self):
         required = (
