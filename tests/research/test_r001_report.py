@@ -18,7 +18,7 @@ class R001AuthoritativeReportTests(unittest.TestCase):
 
         self.assertIn("profile source", text)
         self.assertIn("runtime sidecar", text)
-        self.assertIn("artifact digest", text.lower())
+        self.assertIn("component manifest", text.lower())
         self.assertIn("profile dependency closure", text.lower())
         self.assertIn("`verified-compatible`", text)
         self.assertIn("`unverified`", text)
