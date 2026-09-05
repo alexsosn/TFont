@@ -104,13 +104,15 @@ The matrix pins several negative cases that later design/runtime tests must pres
 
 ### Review finding
 
-The inventory workflow can regenerate JSON and commit it back to the PR branch. Before this fix, generated inventory paths did not trigger the workflow. A successful run could therefore create a **new PR head** containing the generated evidence while the green run remained attached only to its parent SHA.
+The inventory workflow previously regenerated JSON and committed it back to the PR branch. A successful run could therefore verify one SHA and then mutate the branch to a different final SHA. Relying on that workflow's own `GITHUB_TOKEN` push to trigger a recursive verification run is also not a sound gate because GitHub suppresses most workflow recursion caused by `GITHUB_TOKEN` events.
 
 That violates the repository's exact-head review discipline: the final reviewed tree must itself be verified.
 
 ### Resolution
 
-The workflow trigger now covers the entire R-005 evidence contract, including:
+The R-005 research inventory workflow is now **read-only and non-mutating**.
+
+It triggers for the complete R-005 evidence contract:
 
 - `.github/workflows/r005-research-inventory.yml`
 - `scripts/research/r005_inventory.py`
@@ -121,21 +123,25 @@ The workflow trigger now covers the entire R-005 evidence contract, including:
 - `docs/research/data/R-005-corpus-pins.json`
 - `docs/research/data/generated/r005/**`
 
-The resulting gate is deliberately two-stage when generation changes committed evidence:
+For the exact checked-out PR head the workflow:
 
-1. a relevant source/research change runs the pinned census, regressions and deterministic generation;
-2. if JSON inventories differ, CI commits only the regenerated inventories;
-3. that generated-output commit itself triggers the workflow because generated paths are included;
-4. the second run must regenerate byte-for-byte identical inventories, produce no commit, and finish green;
-5. the stable final PR head therefore has a green R-005 run attached to that exact tree.
+1. checks out every exact pinned upstream corpus;
+2. reruns the research-tool unit tests;
+3. regenerates all seven inventories in place;
+4. reruns the CUC editorial-domain regressions;
+5. executes `git diff --exit-code -- docs/research/data/generated/r005`;
+6. succeeds only when the committed inventories are byte-for-byte identical to regeneration from the pinned sources on **that same head**;
+7. never commits or pushes from verification CI.
 
-A no-diff run on a source/research head is already exact-head verification. A generated-data commit is not considered final evidence until its follow-up run is green.
+If generator logic, pins, or generated evidence change, the developer must regenerate and commit those artifacts as part of the PR before the verification gate can become green. This makes the tested tree and reviewed tree identical and removes recursive-workflow behavior from the correctness model.
+
+A separate lightweight read-only workflow, `r005-generated-validation.yml`, additionally validates the already committed inventory set (pins, node counts, metadata/value accounting, semantic edge subset, CUC regressions and known edge directions). It complements but does not replace the full pinned-source regeneration gate.
 
 ## Final review gate
 
 A fresh independent skeptical reviewer must inspect the exact stable head after:
 
-1. the pinned inventory workflow is green on that exact head;
+1. the non-mutating pinned inventory workflow is green on that exact head;
 2. all generated inventories are present in the branch;
 3. workflow regression assertions pass;
 4. the candidate-strength matrix remains unchanged or any later change is included in that review;
@@ -151,6 +157,7 @@ The reviewer should verify the generated inventories against at least several pi
 - [x] Candidate mapping strengths are explicit in the companion matrix rather than inferred from representation prose.
 - [x] Generated inventories are committed reviewable artifacts.
 - [x] The stale CUC deferral statement is explicitly superseded by the generated R-005 evidence contract.
-- [x] Workflow path coverage makes a generated-output head trigger its own verification run.
+- [x] Exact-head verification is non-mutating and compares regenerated inventories byte-for-byte with committed evidence.
+- [x] Verification CI requires only read access to repository contents.
 - [ ] The resulting exact stable head must finish green.
 - [ ] A fresh independent reviewer who did not author these fixes must review that stable head before merge.
