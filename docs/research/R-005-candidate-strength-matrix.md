@@ -40,7 +40,8 @@ cross-corpus concept is defensible for discovery/query planning; it does not lic
 | phrase | `S` functional phrase | `U` | `U` | `U` | `U` | `S` ETCBC functional phrase | `U` | `U` unless explicitly sourced as linguistic phrase | `C` explicit `c type=phrase` source chunk only |
 | clause | `S` functional clause | `U` | `U` | `U` | `U` | `S` ETCBC functional clause | `U` | `U` | `U` |
 | linguistic sentence | `S` functional sentence | `U` | `U` | `U` | `U` | `S` ETCBC functional sentence | `U` | `U` | `U` source `c type=sentence` is implicit chunking, not established linguistic sentence |
-| syntactic dependency | `S` `mother`/parent hierarchies with documented linguistic semantics | `U` | `U` | `U` | `U` | `S` ETCBC dependency/parent features | `U` | `R` source structural `parent` is not automatically linguistic dependency | `U` unless a source relation is independently documented as syntactic |
+| syntactic dependency | `S` `mother` | `U` | `U` | `U` | `U` | `S` `mother` | `U` | `R` source structural `parent` is not automatically linguistic dependency | `U` unless a source relation is independently documented as syntactic |
+| hierarchical parent relation | `S` `functional_parent` / `distributional_parent` | `U` | `U` | `U` | `U` | `S` `functional_parent` / `distributional_parent` | `U` | `C` source structural `parent`; semantics differ from ETCBC functional/distributional hierarchy | `U` |
 | discourse / text category | `S` `domain/txt` etc. | `U` | `U` | `U` | `U` | `S` ETCBC discourse/text features | `R` project/language/editorial metadata is not BHSA discourse | `R` structural/editorial grouping may be relevant but is not a shared discourse taxonomy | `C` source `discourse`/genre metadata when present |
 | biblical book/chapter/verse structure | `S` | `U` | `S` | `S` | `S` | `S` | `U` | `S` where converter source hierarchy is book/chapter/verse | `U` |
 | physical document / tablet | `U` textual books are not physical manuscripts | `C` physical `tablet` | `U` | `U` | `U` | `U` | `C` `document` can represent manuscript/tablet records | `R` edition/work/version nodes require source-specific interpretation | `C` corpusjson `document`/object record |
@@ -61,5 +62,6 @@ cross-corpus concept is defensible for discovery/query planning; it does not lic
 3. **TLHdig lexical containment is not occurrence extent.** The lexical entity itself can be `S`, while its `oslots` is explicitly anchor-only; occurrence queries must use `analysis -> lexeme -> lex`.
 4. **Verbal systems remain `L`.** Shared English labels such as “stem” or historical relationships between Hebrew/Syriac categories do not license value equivalence.
 5. **Damage, omission and uncertainty remain separate rows.** CUC `emen`, CUC `cert`, TLHdig clusters, ORACC break/damage, and Pseudepigrapha omission/attestation states cannot be collapsed into one generic boolean.
+6. **Dependency and hierarchy remain separate rows.** ETCBC `mother` is the native linguistic-dependency edge; `functional_parent` and `distributional_parent` are hierarchical parent relations. Pseudepigrapha structural `parent` is related to hierarchy but is not silently reclassified as syntactic dependency.
 
 This matrix is the required initial classification. Final ontology mappings belong to later design/implementation tickets and require term-level evidence and independent review.
