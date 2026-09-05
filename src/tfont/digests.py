@@ -1,0 +1,425 @@
+from __future__ import annotations
+
+import hashlib
+import math
+import re
+from dataclasses import dataclass
+from typing import Any, Iterable
+
+import rfc8785
+
+JCS_FORMAT = "rfc8785-jcs"
+SOURCE_FILE_ALGORITHM = "tfont-source-file-sha256-v1"
+SOURCE_BUNDLE_ALGORITHM = "tfont-source-bundle-sha256-v1"
+EVIDENCE_PAYLOAD_ALGORITHM = "tfont-evidence-payload-sha256-v1"
+EVIDENCE_RECORD_ALGORITHM = "tfont-evidence-record-sha256-v1"
+MAPPING_SEMANTIC_ALGORITHM = "tfont-mapping-semantic-sha256-v1"
+PROFILE_SEMANTIC_ALGORITHM = "tfont-profile-semantic-sha256-v1"
+
+_SAFE_INT_MIN = -(2**53) + 1
+_SAFE_INT_MAX = 2**53 - 1
+_PORTABLE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
+
+
+@dataclass(frozen=True)
+class DigestProblem:
+    category: str
+    message: str
+    path: tuple[str | int, ...] = ()
+
+
+class DigestError(ValueError):
+    def __init__(self, problem: DigestProblem):
+        self.problem = problem
+        super().__init__(f"{problem.category}: {problem.message}")
+
+
+def _fail(category: str, message: str, path: tuple[str | int, ...] = ()) -> None:
+    raise DigestError(DigestProblem(category=category, message=message, path=path))
+
+
+def _validate_json(
+    value: Any,
+    *,
+    path: tuple[str | int, ...] = (),
+    active: set[int] | None = None,
+) -> None:
+    if active is None:
+        active = set()
+
+    value_type = type(value)
+    if value is None or value_type is bool:
+        return
+    if value_type is int:
+        if value < _SAFE_INT_MIN or value > _SAFE_INT_MAX:
+            _fail("integer_domain", f"integer outside safe JCS domain: {value}", path)
+        return
+    if value_type is float:
+        if not math.isfinite(value):
+            _fail("float_domain", f"non-finite float: {value}", path)
+        return
+    if value_type is str:
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            _fail("unicode_domain", str(exc), path)
+        return
+
+    if value_type is list:
+        identity = id(value)
+        if identity in active:
+            _fail("non_json_value", "recursive list is outside the TFont JSON model", path)
+        active.add(identity)
+        try:
+            for index, item in enumerate(value):
+                _validate_json(item, path=path + (index,), active=active)
+        finally:
+            active.remove(identity)
+        return
+
+    if value_type is dict:
+        identity = id(value)
+        if identity in active:
+            _fail("non_json_value", "recursive object is outside the TFont JSON model", path)
+        active.add(identity)
+        try:
+            for key, item in value.items():
+                if type(key) is not str:
+                    _fail("non_json_value", "object keys must be exact strings", path)
+                try:
+                    key.encode("utf-8")
+                except UnicodeEncodeError as exc:
+                    _fail("unicode_domain", str(exc), path + (key,))
+                _validate_json(item, path=path + (key,), active=active)
+        finally:
+            active.remove(identity)
+        return
+
+    _fail("non_json_value", f"unsupported TFont JSON value type: {value_type.__name__}", path)
+
+
+def canonical_json_bytes(value: Any) -> bytes:
+    _validate_json(value)
+    try:
+        return rfc8785.dumps(value)
+    except rfc8785.IntegerDomainError as exc:
+        _fail("integer_domain", str(exc))
+    except rfc8785.FloatDomainError as exc:
+        _fail("float_domain", str(exc))
+    except rfc8785.CanonicalizationError as exc:
+        message = str(exc)
+        category = "unicode_domain" if "UTF-8" in message or "codepoint" in message else "non_json_value"
+        _fail(category, message)
+
+
+def _sha256_digest(data: bytes) -> str:
+    return f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+def normalize_source_bytes(raw: bytes) -> bytes:
+    if type(raw) is not bytes:
+        _fail("projection_error", "source payload must be exact bytes")
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raw = raw[3:]
+    try:
+        text = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        _fail("invalid_utf8", str(exc))
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
+def source_file_digest(raw: bytes) -> str:
+    return _sha256_digest(normalize_source_bytes(raw))
+
+
+def _validate_logical_path(path: Any) -> str:
+    if type(path) is not str or not path or not _PORTABLE_PATH.fullmatch(path):
+        _fail("projection_error", "logical path must use portable ASCII repository-path characters")
+    if path.startswith("/") or "\\" in path:
+        _fail("projection_error", "logical path must be relative and use forward slashes")
+    segments = path.split("/")
+    if any(segment in {"", ".", ".."} for segment in segments):
+        _fail("projection_error", "logical path contains an empty/dot traversal segment")
+    return path
+
+
+def source_bundle_digest(files: Iterable[tuple[str, bytes]]) -> str:
+    records: list[dict[str, str]] = []
+    seen: set[str] = set()
+    try:
+        iterator = iter(files)
+    except TypeError:
+        _fail("projection_error", "source bundle must be an iterable of (logical_path, bytes) pairs")
+    for index, entry in enumerate(iterator):
+        if type(entry) is not tuple or len(entry) != 2:
+            _fail("projection_error", "source bundle entry must be an exact 2-tuple", (index,))
+        path = _validate_logical_path(entry[0])
+        if path in seen:
+            _fail("duplicate_logical_path", f"duplicate logical path: {path}", (index, 0))
+        seen.add(path)
+        raw = entry[1]
+        if type(raw) is not bytes:
+            _fail("projection_error", "source bundle payload must be exact bytes", (index, 1))
+        records.append({"logical_path": path, "file_sha256": source_file_digest(raw)})
+    records.sort(key=lambda record: record["logical_path"])
+    return _sha256_digest(canonical_json_bytes(records))
+
+
+def evidence_payload_digest(payload: bytes) -> str:
+    if type(payload) is not bytes:
+        _fail("projection_error", "evidence payload must be exact bytes")
+    return _sha256_digest(payload)
+
+
+def _exact_dict(value: Any, *, path: tuple[str | int, ...] = ()) -> dict[str, Any]:
+    if type(value) is not dict:
+        _fail("projection_error", "projection source must be an exact object", path)
+    return value
+
+
+def _check_source_keys(
+    source: dict[str, Any],
+    *,
+    allowed: set[str],
+    required: set[str],
+    path: tuple[str | int, ...] = (),
+) -> None:
+    missing = sorted(required - source.keys())
+    if missing:
+        _fail("projection_error", f"missing required projection fields: {', '.join(missing)}", path)
+    unknown = sorted(source.keys() - allowed)
+    if unknown:
+        _fail("projection_error", f"unknown projection fields: {', '.join(unknown)}", path)
+
+
+def evidence_record_projection(record: dict[str, Any]) -> dict[str, Any]:
+    source = _exact_dict(record)
+    allowed = {
+        "evidence_id",
+        "kind",
+        "source_uri",
+        "source_revision",
+        "content_mode",
+        "reviewed_content",
+        "content_digest",
+        "license_ref",
+        "citation",
+    }
+    required = {"evidence_id", "kind", "source_uri", "content_mode", "reviewed_content"}
+    _check_source_keys(source, allowed=allowed, required=required)
+    if source["content_mode"] != "normalized-record":
+        _fail("projection_error", "evidence record digest requires content_mode=normalized-record", ("content_mode",))
+    projection = {
+        "evidence_id": source["evidence_id"],
+        "kind": source["kind"],
+        "source_uri": source["source_uri"],
+        "reviewed_content": source["reviewed_content"],
+    }
+    if "source_revision" in source:
+        projection["source_revision"] = source["source_revision"]
+    if "license_ref" in source:
+        projection["license_ref"] = source["license_ref"]
+    _validate_json(projection)
+    return projection
+
+
+def evidence_record_digest(record: dict[str, Any]) -> str:
+    return _sha256_digest(canonical_json_bytes(evidence_record_projection(record)))
+
+
+def _normalize_unique_strings(value: Any, *, path: tuple[str | int, ...]) -> list[str]:
+    if type(value) is not list:
+        _fail("projection_error", "expected an exact list", path)
+    result: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(value):
+        if type(item) is not str or not item:
+            _fail("projection_error", "set-like identifier must be a non-empty exact string", path + (index,))
+        if item in seen:
+            _fail("projection_error", f"duplicate set-like identifier: {item}", path + (index,))
+        seen.add(item)
+        result.append(item)
+    return sorted(result)
+
+
+def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> list[dict[str, str]]:
+    if type(value) is not list:
+        _fail("projection_error", "evidence bindings must be an exact list", path)
+    result: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, binding in enumerate(value):
+        obj = _exact_dict(binding, path=path + (index,))
+        _check_source_keys(
+            obj,
+            allowed={"evidence_id", "content_digest"},
+            required={"evidence_id", "content_digest"},
+            path=path + (index,),
+        )
+        evidence_id = obj["evidence_id"]
+        content_digest = obj["content_digest"]
+        if type(evidence_id) is not str or not evidence_id or type(content_digest) is not str or not content_digest:
+            _fail("projection_error", "evidence binding values must be non-empty exact strings", path + (index,))
+        key = (evidence_id, content_digest)
+        if key in seen:
+            _fail("projection_error", "duplicate evidence binding", path + (index,))
+        seen.add(key)
+        result.append({"evidence_id": evidence_id, "content_digest": content_digest})
+    result.sort(key=lambda item: (item["evidence_id"], item["content_digest"]))
+    return result
+
+
+def _normalize_candidates(value: Any) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        _fail("projection_error", "candidate_projections must be an exact list", ("candidate_projections",))
+    normalized: list[tuple[bytes, dict[str, Any]]] = []
+    seen: set[bytes] = set()
+    required = {"external_target", "ontology_lock", "assessment_candidate", "evidence"}
+    for index, candidate in enumerate(value):
+        obj = _exact_dict(candidate, path=("candidate_projections", index))
+        _check_source_keys(
+            obj,
+            allowed=required,
+            required=required,
+            path=("candidate_projections", index),
+        )
+        item = {
+            "external_target": obj["external_target"],
+            "ontology_lock": obj["ontology_lock"],
+            "assessment_candidate": obj["assessment_candidate"],
+            "evidence": _normalize_evidence_bindings(
+                obj["evidence"], path=("candidate_projections", index, "evidence")
+            ),
+        }
+        encoded = canonical_json_bytes(item)
+        if encoded in seen:
+            _fail("projection_error", "duplicate candidate projection", ("candidate_projections", index))
+        seen.add(encoded)
+        normalized.append((encoded, item))
+    normalized.sort(key=lambda pair: pair[0])
+    return [item for _, item in normalized]
+
+
+def mapping_semantic_projection(mapping: dict[str, Any]) -> dict[str, Any]:
+    source = _exact_dict(mapping)
+    semantic = {
+        "mapping_id",
+        "profile_id",
+        "native_selector",
+        "native_dependencies",
+        "external_target",
+        "candidate_projections",
+        "assessment",
+        "publication_relation",
+        "applicability",
+        "ontology_lock",
+        "evidence",
+    }
+    excluded = {"review", "mapping_semantic_digest", "rationale", "introduced_in", "changed_in"}
+    _check_source_keys(source, allowed=semantic | excluded, required=semantic)
+    projection = {
+        "mapping_id": source["mapping_id"],
+        "profile_id": source["profile_id"],
+        "native_selector": source["native_selector"],
+        "native_dependencies": _normalize_unique_strings(
+            source["native_dependencies"], path=("native_dependencies",)
+        ),
+        "external_target": source["external_target"],
+        "candidate_projections": _normalize_candidates(source["candidate_projections"]),
+        "assessment": source["assessment"],
+        "publication_relation": source["publication_relation"],
+        "applicability": source["applicability"],
+        "ontology_lock": source["ontology_lock"],
+        "evidence": _normalize_evidence_bindings(source["evidence"], path=("evidence",)),
+    }
+    _validate_json(projection)
+    return projection
+
+
+def mapping_semantic_digest(mapping: dict[str, Any]) -> str:
+    return _sha256_digest(canonical_json_bytes(mapping_semantic_projection(mapping)))
+
+
+def _normalize_record_set(
+    value: Any,
+    *,
+    id_field: str,
+    path: tuple[str | int, ...],
+) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        _fail("projection_error", "set-like record collection must be an exact list", path)
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, record in enumerate(value):
+        obj = _exact_dict(record, path=path + (index,))
+        identifier = obj.get(id_field)
+        if type(identifier) is not str or not identifier:
+            _fail("projection_error", f"record requires non-empty {id_field}", path + (index, id_field))
+        if identifier in seen:
+            _fail("projection_error", f"duplicate {id_field}: {identifier}", path + (index, id_field))
+        seen.add(identifier)
+        _validate_json(obj, path=path + (index,))
+        result.append(dict(obj))
+    result.sort(key=lambda item: item[id_field])
+    return result
+
+
+def _normalize_review_readiness(value: Any) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        _fail("projection_error", "review_readiness must be an exact list", ("review_readiness",))
+    allowed = {"mapping_id", "status", "reviewed_digest_matches"}
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, record in enumerate(value):
+        obj = _exact_dict(record, path=("review_readiness", index))
+        _check_source_keys(
+            obj,
+            allowed=allowed,
+            required=allowed,
+            path=("review_readiness", index),
+        )
+        mapping_id = obj["mapping_id"]
+        if type(mapping_id) is not str or not mapping_id:
+            _fail("projection_error", "review readiness requires mapping_id", ("review_readiness", index, "mapping_id"))
+        if mapping_id in seen:
+            _fail("projection_error", f"duplicate mapping_id: {mapping_id}", ("review_readiness", index, "mapping_id"))
+        seen.add(mapping_id)
+        if obj["status"] not in {"reviewed", "provisional", "disputed"}:
+            _fail("projection_error", "invalid review readiness status", ("review_readiness", index, "status"))
+        if type(obj["reviewed_digest_matches"]) is not bool:
+            _fail("projection_error", "reviewed_digest_matches must be boolean", ("review_readiness", index, "reviewed_digest_matches"))
+        result.append(dict(obj))
+    result.sort(key=lambda item: item["mapping_id"])
+    return result
+
+
+def profile_semantic_digest(projection: dict[str, Any]) -> str:
+    source = _exact_dict(projection)
+    required = {
+        "profile_id",
+        "schema_version",
+        "semantic_contract_version",
+        "semantic_domains",
+        "expected_parent_manifest_digest",
+        "dependencies",
+        "ontology_locks",
+        "mappings",
+        "review_readiness",
+        "applicability",
+        "publication_semantics",
+    }
+    _check_source_keys(source, allowed=required, required=required)
+    normalized = {
+        "profile_id": source["profile_id"],
+        "schema_version": source["schema_version"],
+        "semantic_contract_version": source["semantic_contract_version"],
+        "semantic_domains": _normalize_unique_strings(source["semantic_domains"], path=("semantic_domains",)),
+        "expected_parent_manifest_digest": source["expected_parent_manifest_digest"],
+        "dependencies": _normalize_record_set(source["dependencies"], id_field="dependency_id", path=("dependencies",)),
+        "ontology_locks": _normalize_record_set(source["ontology_locks"], id_field="lock_id", path=("ontology_locks",)),
+        "mappings": _normalize_record_set(source["mappings"], id_field="mapping_id", path=("mappings",)),
+        "review_readiness": _normalize_review_readiness(source["review_readiness"]),
+        "applicability": source["applicability"],
+        "publication_semantics": source["publication_semantics"],
+    }
+    _validate_json(normalized)
+    return _sha256_digest(canonical_json_bytes(normalized))
