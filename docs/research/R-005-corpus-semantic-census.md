@@ -26,6 +26,8 @@ The POC should therefore expose **native facts first**, optional semantic projec
 
 This census inspected corpus data, generated TF feature files, generated census reports, converter contracts and feature documentation at exact Git commits. Repository front pages were used only as supplementary explanation. The reproducible pins are also recorded in [`data/R-005-corpus-pins.json`](data/R-005-corpus-pins.json).
 
+For every released minimum corpus, `scripts/research/r005_inventory.py` loads the exact pinned TF artifact and preserves an exhaustive non-warp node/edge feature inventory under `docs/research/data/generated/r005/`. Those JSON artifacts record feature metadata/value types, empirical node-type applicability, observed non-empty domains or large-domain samples/cardinalities, edge direction/value status, corpus pins, and a deterministic digest over the inspected TF files. Dense empty-string/`None` records are counted diagnostically but are not semantic domain members or applicability evidence.
+
 | corpus | repository | commit inspected | TF/schema version | slot type |
 |---|---|---|---|---|
 | BHSA | `ETCBC/bhsa` | `4db00e2157915495e1a4d3d57e41223df24775da` | `2021` | `word` |
@@ -569,7 +571,7 @@ Generated per-corpus reference should include pins, slot type, node types/counts
 ## 7. Open uncertainties to carry forward
 
 - BHSA documentation itself notes that the full linguistic interpretation/domain of `mother` for all object-type combinations needs further explanation. TFont should preserve the native relation and avoid stronger universal semantics until profiled.
-- CUC's editorial feature value domains should be regenerated from the exact TF release when a production mapping is designed; README descriptions establish the categories, but final mapping must enumerate the actual release values rather than infer them from typography descriptions.
+- CUC's exact-release observed feature domains are generated and preserved by R-005 in `docs/research/data/generated/r005/cuc.json`. At pinned 0.2.8, the non-empty `cert` values are `False` and `True`; the non-empty `emen` values are `excised`, `missing`, `redundant`, `remark`, and `restored`. The generator records these as an observed small domain rather than claiming permanent categorical closure. A later production mapping must separately justify domain closure and ontology relations while preserving the native release values.
 - `ETCBC/syriac` 0.9 and SyrNT 0.1 use different generations of Syriac morphology. Similar categories require value-level philological review before `same` claims.
 - Pseudepigrapha-TF does not commit generated corpus data, so node counts are deliberately not invented here. The converter's parity audit and pinned upstream checkout make the schema inspectable; a later integration test should generate the corpus and freeze counts for the exact upstream pin.
 - ORACC-TF is still under active implementation. Its measured P-001 schema is valuable stress evidence but should not be registered as a released TFont profile until its own release/schema version is final.
@@ -579,6 +581,8 @@ Generated per-corpus reference should include pins, slot type, node types/counts
 
 - [x] Used actual TF files/generated reports/source-data measurements, not repository descriptions alone.
 - [x] Recorded exact commits and TF/schema versions.
+- [x] Generated exhaustive node/edge feature inventories for every released minimum corpus at the pinned revisions, including metadata/value type, empirical applicability, observed non-empty domains/cardinalities, and edge direction/value status.
+- [x] Classified every relevant apparent cross-corpus match explicitly in `R-005-candidate-strength-matrix.md` using the required candidate relationship vocabulary.
 - [x] Covered BHSA, CUC, Syriac, Peshitta, SyrNT, ExtraBiblical and TLHdig-TF.
 - [x] Covered Pseudepigrapha-TF and ORACC-TF as secondary stress profiles with their release/implementation status stated explicitly.
 - [x] Compared all three ETCBC Syriac schemas and chose `syriac` as primary representative with independent compatibility profiles.
