@@ -1,0 +1,469 @@
+{
+  "corpus_id": "peshitta",
+  "domain_policy": {
+    "empty_string_and_none_records_are_not_domain_members": true,
+    "observed_small_domain_is_not_automatically_categorical": true,
+    "small_domain_limit": 64
+  },
+  "edge_features": {},
+  "evidence_kind": "loaded_tf_artifact",
+  "excluded_warp_features": {
+    "edge": [
+      "oslots"
+    ],
+    "node": [
+      "otype"
+    ]
+  },
+  "node_features": {
+    "book": {
+      "applies_to": [
+        "book",
+        "chapter",
+        "verse"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:19Z",
+        "description": "book name",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 32675,
+      "nodes_with_value": 32675,
+      "observation_count": 32675,
+      "observed_unique_count": 65,
+      "raw_observation_count": 32675,
+      "sample_values": [
+        "Ps",
+        "Gn",
+        "Jr",
+        "Is",
+        "Nm",
+        "Ez",
+        "Sir",
+        "Ex",
+        "Jb",
+        "Dt",
+        "Pr",
+        "Mc1_B",
+        "Chr1",
+        "Lv",
+        "Mc1_A",
+        "Sm1",
+        "Rg1",
+        "Chr2",
+        "Rg2",
+        "Esr4"
+      ]
+    },
+    "book@en": {
+      "applies_to": [
+        "book"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:19Z",
+        "description": "?",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "language": "English",
+        "languageCode": "en",
+        "languageEnglish": "English",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 65,
+      "nodes_with_value": 65,
+      "observation_count": 65,
+      "observed_unique_count": 65,
+      "raw_observation_count": 65,
+      "sample_values": [
+        "Amos",
+        "Apocalypse_of_Baruch",
+        "Apocryphal_Psalms",
+        "Apocryphal_Psalms_A",
+        "Apocryphal_Psalms_B",
+        "Baruch",
+        "Bel_and_the_Dragon",
+        "Chronicles_1",
+        "Chronicles_2",
+        "Daniel",
+        "Deuteronomy",
+        "Ecclesiastes",
+        "Esdras_3",
+        "Esdras_4",
+        "Esther",
+        "Exodus",
+        "Ezekiel",
+        "Ezra",
+        "Genesis",
+        "Habakkuk"
+      ]
+    },
+    "chapter": {
+      "applies_to": [
+        "chapter",
+        "verse"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:19Z",
+        "description": "chapter number",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "int",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 32610,
+      "nodes_with_value": 32610,
+      "observation_count": 32610,
+      "observed_unique_count": 155,
+      "raw_observation_count": 32610,
+      "sample_values": [
+        1,
+        2,
+        3,
+        7,
+        4,
+        5,
+        8,
+        6,
+        9,
+        10,
+        11,
+        14,
+        12,
+        13,
+        15,
+        16,
+        18,
+        17,
+        22,
+        19
+      ]
+    },
+    "trailer": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:19Z",
+        "description": "after-word material in syriac script",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 426835,
+      "nodes_with_value": 426835,
+      "observation_count": 426835,
+      "observed_frequencies": {
+        " ": 400882,
+        "  . ": 1072,
+        "  .  . ": 3,
+        "  .  .  . ": 1,
+        ". ": 24617,
+        ".  . ": 65,
+        ".  .  . ": 2,
+        ".  .  .  . ": 1,
+        ": ": 39,
+        "܃ ": 1,
+        "܆ ": 103,
+        "܇ ": 42,
+        "܈ ": 4,
+        "܉ ": 3
+      },
+      "observed_unique_count": 14,
+      "observed_values": [
+        " ",
+        "  . ",
+        "  .  . ",
+        "  .  .  . ",
+        ". ",
+        ".  . ",
+        ".  .  . ",
+        ".  .  .  . ",
+        ": ",
+        "܃ ",
+        "܆ ",
+        "܇ ",
+        "܈ ",
+        "܉ "
+      ],
+      "raw_observation_count": 426835
+    },
+    "trailer_etcbc": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:20Z",
+        "description": "after-word material in ETCBC transcription",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 426835,
+      "nodes_with_value": 426835,
+      "observation_count": 426835,
+      "observed_frequencies": {
+        " ": 400882,
+        "  =. ": 1072,
+        "  =.  =. ": 3,
+        "  =.  =.  =. ": 1,
+        "#\\ ": 3,
+        "=. ": 24617,
+        "=.  =. ": 65,
+        "=.  =.  =. ": 2,
+        "=.  =.  =.  =. ": 1,
+        "=/ ": 42,
+        "=: ": 39,
+        "=\\ ": 103,
+        "^: ": 1,
+        "^\\ ": 4
+      },
+      "observed_unique_count": 14,
+      "observed_values": [
+        " ",
+        "  =. ",
+        "  =.  =. ",
+        "  =.  =.  =. ",
+        "#\\ ",
+        "=. ",
+        "=.  =. ",
+        "=.  =.  =. ",
+        "=.  =.  =.  =. ",
+        "=/ ",
+        "=: ",
+        "=\\ ",
+        "^: ",
+        "^\\ "
+      ],
+      "raw_observation_count": 426835
+    },
+    "verse": {
+      "applies_to": [
+        "verse"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:20Z",
+        "description": "verse number",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "int",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 31341,
+      "nodes_with_value": 31341,
+      "observation_count": 31341,
+      "observed_unique_count": 177,
+      "raw_observation_count": 31341,
+      "sample_values": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        1,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    },
+    "witness": {
+      "applies_to": [
+        "book",
+        "chapter",
+        "verse"
+      ],
+      "domain_observation": "observed_small_domain",
+      "empty_observation_count": 0,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:20Z",
+        "description": "book witness (A or B)",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 2385,
+      "nodes_with_value": 2385,
+      "observation_count": 2385,
+      "observed_frequencies": {
+        "A": 1230,
+        "B": 1155
+      },
+      "observed_unique_count": 2,
+      "observed_values": [
+        "A",
+        "B"
+      ],
+      "raw_observation_count": 2385
+    },
+    "word": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 1,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:20Z",
+        "description": "full form of the word in syriac script",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 426835,
+      "nodes_with_value": 426834,
+      "observation_count": 426834,
+      "observed_unique_count": 59930,
+      "raw_observation_count": 426835,
+      "sample_values": [
+        "ܡܢ",
+        "ܥܠ",
+        "ܡܪܝܐ",
+        "ܠܐ",
+        "ܡܛܠ",
+        "ܘܠܐ",
+        "ܐܝܟ",
+        "ܠܗ",
+        "ܐܢܘܢ",
+        "ܗܘܐ",
+        "ܐܢܐ",
+        "ܗܘ",
+        "ܘܐܡܪ",
+        "ܠܗܘܢ",
+        "ܕܠܐ",
+        "ܕܡܪܝܐ",
+        "ܡܠܟܐ",
+        "ܩܕܡ",
+        "ܒܪ",
+        "ܐܢܬ"
+      ]
+    },
+    "word_etcbc": {
+      "applies_to": [
+        "word"
+      ],
+      "domain_observation": "open_or_large_observed_domain",
+      "empty_observation_count": 1,
+      "kind": "node",
+      "metadata": {
+        "dataset": "peshitta",
+        "datasetName": "Peshitta",
+        "dateWritten": "2021-03-11T13:29:21Z",
+        "description": "full form of the word in ETCBC transcription",
+        "email1": "dirk.roorda@dans.knaw.nl",
+        "encoders": "Eep Talstra Centre for Bible and Computer. LinkSyr project (CLARIAH research pilot). Hannes Vlaardingerbroek, Constantijn Sikkel (PIL) and Dirk Roorda (TF)",
+        "source": "SEDRA",
+        "sourceUrl": "https://sedra.bethmardutho.org/about/contributors",
+        "valueType": "str",
+        "writtenBy": "Text-Fabric"
+      },
+      "node_records_seen": 426835,
+      "nodes_with_value": 426834,
+      "observation_count": 426834,
+      "observed_unique_count": 59930,
+      "raw_observation_count": 426835,
+      "sample_values": [
+        "MN",
+        "<L",
+        "MRJ>",
+        "L>",
+        "MVL",
+        "WL>",
+        ">JK",
+        "LH",
+        ">NWN",
+        "HW>",
+        ">N>",
+        "HW",
+        "W>MR",
+        "LHWN",
+        "DL>",
+        "DMRJ>",
+        "MLK>",
+        "QDM",
+        "BR",
+        ">NT"
+      ]
+    }
+  },
+  "node_types": {
+    "book": 65,
+    "chapter": 1269,
+    "verse": 31341,
+    "word": 426835
+  },
+  "repository": "ETCBC/peshitta",
+  "revision": "9850f5addade26f681334aa475570bef9b0b440a",
+  "schema_version": 1,
+  "slot_type": "word",
+  "tf_files_sha256": "7ccf9952a3f867d6005aab12154602f6fa454cfe89b8c5e6c0c1d2e76ba9bc36",
+  "tf_version": "0.2"
+}

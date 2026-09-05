@@ -19,3 +19,7 @@ Start #5 immediately. Tickets #1–#4 may gather external/architectural evidence
 All five research tickets must be complete before the first POC design is approved. The later design ticket will reconcile their conclusions into one coherent architecture rather than treating each research recommendation as independently normative.
 
 Each completed ticket should produce `R-XXX-*.md` with a recommendation and rejected alternatives.
+
+## Research artifacts ready for review
+
+- [R-005 corpus semantic census](R-005-corpus-semantic-census.md) — pinned empirical inventory of the initial TF corpus family, cross-corpus semantic matrix, Syriac compatibility decision, stress cases, and interoperability-query probes. Machine-readable pins and core counts are in [`data/R-005-corpus-pins.json`](data/R-005-corpus-pins.json).
