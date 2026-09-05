@@ -24,6 +24,17 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         self.assertIn("genuinely", text.lower())
         self.assertIn("skos", text.lower())
 
+    def test_owl_targets_are_not_shown_with_skos_mapping_predicates(self):
+        text = REPORT.read_text(encoding="utf-8")
+        self.assertNotIn("skos:broadMatch olia:", text)
+        self.assertIn("publication_relation: none", text)
+        self.assertIn("target: olia:", text)
+
+    def test_mapping_assessment_direction_is_explicit(self):
+        text = REPORT.read_text(encoding="utf-8").lower()
+        self.assertIn("`broader` means the target is broader than the native/source concept", text)
+        self.assertIn("`narrower` means the target is narrower than the native/source concept", text)
+
     def test_saws_license_is_not_invented(self):
         text = REPORT.read_text(encoding="utf-8")
         self.assertNotIn("SAWS | v2.1 model; CC BY-NC-SA 3.0 project licensing", text)
@@ -69,6 +80,12 @@ class R002AuthoritativeReportTests(unittest.TestCase):
         )
         self.assertIn("R-005 accepted", text)
         self.assertIn("48c8bd78d0c3a0501b2fdec6946db5df90517bdb", text)
+
+    def test_main_report_records_r001_as_accepted_dependency(self):
+        text = REPORT.read_text(encoding="utf-8")
+        self.assertIn("R-001 accepted", text)
+        self.assertIn("68b88a820f5519ad65d46b732679a6278e9ca3c9", text)
+        self.assertIn("a22a95084a1518882d1e3e87d10e9757121f106d", text)
 
     def test_machine_registry_matches_reconciled_policy(self):
         data = json.loads(REGISTRY.read_text(encoding="utf-8"))
