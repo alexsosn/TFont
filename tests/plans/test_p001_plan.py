@@ -119,6 +119,13 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("must not", self.lower)
         self.assertIn("automatically executable", self.lower)
 
+    def test_ambiguity_represents_target_and_relation_candidates(self):
+        self.assertIn("candidate_projections", self.text)
+        self.assertIn("assessment_candidate", self.text)
+        self.assertIn("same external target", self.lower)
+        self.assertIn("different candidate assessments", self.lower)
+        self.assertIn("external_target: null", self.lower)
+
     def test_canonicalization_and_digest_rules_are_concrete(self):
         required = (
             "utf-8",
@@ -133,6 +140,26 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         for phrase in required:
             self.assertIn(phrase, self.lower)
         self.assertIn("must not affect", self.lower)
+
+    def test_semantic_digest_excludes_release_label_but_bundle_identity_includes_it(self):
+        self.assertIn("profile_version must not affect `semantic_digest`", self.lower)
+        self.assertIn("profile_id + profile_version + semantic_digest", self.lower)
+        self.assertIn("exact-parent rebase", self.lower)
+        self.assertIn("does not by itself require a major version", self.lower)
+
+    def test_required_components_have_one_authority(self):
+        self.assertIn("`required_components` is authoritative", self.lower)
+        self.assertIn("component records do not carry an independent `required` flag", self.lower)
+        self.assertIn("every active mapping dependency", self.lower)
+        self.assertIn("must reference one of those components", self.lower)
+
+    def test_review_is_bound_to_mapping_semantic_content(self):
+        self.assertIn("mapping_semantic_digest", self.text)
+        self.assertIn("reviewed_mapping_digest", self.text)
+        self.assertIn("must match", self.lower)
+        self.assertIn("review record itself", self.lower)
+        self.assertIn("stale review", self.lower)
+        self.assertIn("non-executable", self.lower)
 
     def test_ir_and_runtime_handoff_are_defined(self):
         required = (
