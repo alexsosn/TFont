@@ -1,6 +1,6 @@
 # R-004: documentation architecture and generated reference design
 
-**Status:** research complete as a draft; final merge is blocked on reconciliation with accepted R-001/R-002/R-003/R-005  
+**Status:** research complete; R-005 accepted; R-001 accepted; R-002 accepted; R-003 accepted; pending exact-head independent review  
 **Issue:** #4  
 **Recorded:** 2026-09-05
 
@@ -8,44 +8,39 @@
 
 TFont should use a **source-first, generated-reference documentation architecture**.
 
-The canonical semantic mapping data must not be duplicated manually into prose tables. Human-readable reference pages, agent-facing capability indexes, RDF publication views, coverage tables and compatibility matrices should be generated from the same validated mapping/profile source that the runtime consumes. Hand-authored documentation explains architecture, scholarly rationale, workflows and examples; it does not become a second source of mapping truth.
+Canonical machine-readable profile/mapping data, approved normative TFont rules, parent-corpus evidence, and external ontology definitions have different authority domains. They must be validated together; none is a universal precedence layer that can silently redefine the others.
 
-The POC should publish three documentation surfaces from one repository:
+The POC should expose three documentation surfaces from one repository:
 
-1. **normative project documentation** — architecture, mapping/governance rules and versioning contracts;
-2. **scholarly/user guides** — explanations, tutorials, mapping methodology and contribution/review guidance;
-3. **generated semantic reference** — exact per-profile, per-native-feature and per-ontology-concept documentation derived from machine-readable profile sources and locks.
+1. **normative project documentation** — approved architecture, mapping/governance, compatibility, and versioning rules;
+2. **scholarly/user documentation** — methodology, rationale, tutorials, contribution and review guidance;
+3. **generated semantic reference** — deterministic per-profile, per-native-selector, per-mapping, per-concept, compatibility, coverage, ontology-lock, and compact agent-facing reference derived from validated sources.
 
-A static documentation site should be built from committed Markdown plus generated Markdown/JSON. Plain repository Markdown remains usable without the site. The POC should use a conventional static-site generator such as MkDocs rather than invent a custom documentation application; the exact theme is not a semantic contract.
+Plain repository Markdown remains reviewable and usable offline. A static site may add navigation/search. Generated JSON is the machine-facing reference. None is maintained as an independent semantic database.
 
-The source-of-truth rule is deliberately strict:
+## 1. Accepted foundation contracts
 
-> If generated documentation and canonical mapping/profile data disagree, the generated documentation is wrong and CI must fail. If hand-authored prose makes a mapping claim that disagrees with canonical mapping data, the prose is wrong and must be corrected; prose never silently overrides the mapping.
+R-005 accepted empirical corpus evidence at reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb`, merged as `a9c4d74d4de2f9a15eb1464dce341ecd2f92f898`.
 
-## 1. Research execution plan
+R-001 accepted distribution and compatibility semantics at reviewed head `68b88a820f5519ad65d46b732679a6278e9ca3c9`, merged as `a22a95084a1518882d1e3e87d10e9757121f106d`.
 
-This research followed four steps.
+R-002 accepted ontology governance and mapping-assessment semantics at reviewed head `d82e6ef2726f149f903eb43ddbfb615faf399cd5`, merged as `a554d4fdc36c8854519064f3a7611b80efa29622`.
 
-1. Inspect documentation patterns in the standards and corpus ecosystems TFont depends on: OLiA, CIDOC CRM, OntoLex, Text-Fabric/BHSA, Context-Fabric and Agora.
-2. Separate four kinds of information that are easy to conflate: native corpus facts, TFont mapping assertions, normative project rules and explanatory prose.
-3. Design bidirectional human/agent navigation over those layers without duplicating mapping rows.
-4. Turn the result into an exact repository layout and CI drift contract suitable for the first POC design ticket.
+R-003 accepted agent/human ergonomics and protocol-portability semantics at reviewed head `6747379a4aa68c17c156344f3ed3b0c2cb29d423`, merged as `02abd89b5b7d4c83027e1e8503a02eef23cab91e`.
 
-This is a research-only ticket. It does not introduce production schemas, a site generator, runtime code or corpus mappings.
+R-004 treats those contracts as fixed dependencies unless a later reviewed change explicitly reopens them.
 
-## 2. Evidence and useful prior patterns
+## 2. Research basis
 
-### 2.1 OLiA: separate native annotation models, reference terminology and links
+### 2.1 OLiA
 
-OLiA documents three conceptually distinct artifacts:
+OLiA separates native annotation models, a reference model, and linking models. That pattern supports TFont's need to keep three distinct objects visible: native corpus semantics, external terminology, and the reviewed mapping between them.
 
-- Annotation Models formalize an individual corpus/tagset;
-- the Reference Model provides shared linguistic terminology;
-- Linking Models state the mappings between the two.
+Useful documentation patterns:
 
-The public site separately documents the architecture, available models and instructions for building new annotation/linking models. The OWL artifacts remain machine-readable sources while the website gives humans overview and navigation.
-
-This is directly relevant to TFont: a BHSA native feature/value must remain distinguishable from the external OLiA concept to which TFont maps it, and the mapping assertion itself is another object with provenance and strength.
+- architecture is described separately from model instances;
+- machine-readable ontology/linking artifacts remain primary data;
+- human pages provide navigation and explanation rather than becoming another editable mapping store.
 
 Inspected sources:
 
@@ -53,159 +48,113 @@ Inspected sources:
 - <https://acoli-repo.github.io/olia/models.html>
 - <https://acoli-repo.github.io/olia/overview.html>
 
-### 2.2 CIDOC CRM: explicit release/status documentation
+### 2.2 CIDOC CRM
 
-CIDOC CRM publishes version-specific specification documents and a release index that distinguishes **Official**, **Stable** and **Draft** model versions. As of 2026-09-05, CRM 7.1.3 is the official ISO-correspondence release while 7.4, published in August 2026, is marked Draft. Compatible extension families likewise publish their own version/status tables.
+CIDOC CRM publishes explicit version/status pages that distinguish official, stable, and draft releases. TFont should likewise display the exact ontology release/status against which a mapping/profile was reviewed. A convenient “latest” link must never replace immutable provenance.
 
-Two lessons matter for TFont documentation:
+R-002 remains authoritative for supported ontology releases; R-004 only defines how their status and locks are rendered.
 
-1. a user must be able to see the exact ontology release/status against which a profile was reviewed, rather than only a timeless ontology name;
-2. `latest` is useful navigation but must not replace immutable release identity in provenance.
+### 2.3 OntoLex
 
-Inspected sources:
+OntoLex documents a core plus optional modules. TFont should mirror this ergonomically: each profile page lists the semantic modules/locks it actually uses rather than presenting every ontology supported globally.
 
-- <https://cidoc-crm.org/versions-of-the-cidoc-crm>
-- <https://cidoc-crm.org/Version/version-7.4>
-- <https://cidoc-crm.org/crminf/fm_releases>
+### 2.4 Text-Fabric corpora
 
-R-002 remains authoritative for which exact ontology releases TFont will support; this ticket only defines how those choices are documented.
+BHSA and other TF corpora demonstrate the value of feature-specific native pages: feature description, applicable node types, value codes, and corpus-specific cautions. Those pages remain native evidence. TFont links to them and renders the TFont projection beside the pinned native selector/path rather than copying upstream prose as a new authority.
 
-### 2.3 OntoLex: modular specification and optional profiles
+### 2.5 Context-Fabric MCP and R-003
 
-OntoLex documents a minimal core plus optional modules such as VarTrans and Lexicog. Lexicog explicitly recommends using the simpler OntoLex model when additional dictionary-specific structure is unnecessary.
+R-003 retains Context-Fabric's progressive-disclosure principle: compact capability discovery first, detailed mapping/native evidence on demand.
 
-TFont should mirror that documentation ergonomically: a profile page should state its active semantic modules rather than forcing a user to read documentation for every ontology in the global supported set.
+The **current host implementation** inspected by R-003 is Context-Fabric `cfabric-mcp 0.1.7`, whose package metadata declares `mcp>=1.0,<2`. The **current protocol target** is MCP `2026-07-28`. These are distinct operational facts.
 
-Inspected sources:
+Documentation must therefore distinguish:
 
-- <https://ontolex.github.io/ontolex/specification.html>
-- <https://ontolex.github.io/lexicog/>
+- host implementation/version;
+- current protocol target;
+- actually negotiated protocol for a running integration when reported diagnostically;
+- immutable semantic profile/mapping identity.
 
-### 2.4 Text-Fabric and BHSA: native feature pages are useful but must remain native
+Negotiated protocol and transport/session state **must not become part of semantic identity**. Semantic provenance is based on profile/mapping source, parent component identity/evidence, ontology locks, and reviewed mapping semantics. Host/protocol metadata may explain an integration environment but must not cause two semantically identical resolutions to receive different semantic meaning merely because one host is handshake-era and another is stateless.
 
-Text-Fabric exposes feature metadata through the corpus API even when a feature is not loaded. BHSA publishes human feature pages containing:
+### 2.6 Agora
 
-- feature name;
-- native description;
-- applicable node types;
-- value/code tables;
-- corpus-specific notes and cautions.
+Agora owns discovery/install/integration metadata. It should link to TFont profiles and reference pages but not host a fork of semantic mapping documentation. TFont owns mapping semantics; Context-Fabric owns native query/MCP host behavior; parent corpora own native semantics.
 
-Examples inspected:
+## 3. Information objects documentation must not collapse
 
-- <https://etcbc.github.io/bhsa/features/sp/>
-- <https://etcbc.github.io/bhsa/features/gn/>
-- <https://etcbc.github.io/bhsa/features/nu/>
-- <https://etcbc.github.io/bhsa/features/vs/>
-- <https://etcbc.github.io/bhsa/features/vt/>
-- <https://etcbc.github.io/bhsa/features/otype/>
-- <https://annotation.github.io/text-fabric/tf/core/fabric.html>
+### 3.1 Native corpus semantics
 
-This native documentation is evidence, not something TFont should copy wholesale. TFont reference pages should link to native documentation and show the TFont projection beside it.
+Examples include BHSA `sp=subs`, CUC `emen`, TLHdig `analysis -> lex`, and Pseudepigrapha reading→manuscript witness attestation.
 
-A particularly important example is BHSA `vs`: the native page itself warns that the Hebrew/Aramaic stem division and functions need clarification. TFont documentation must preserve such uncertainty; a generated semantic page must not make the external mapping look more certain than its evidence.
+Authority: exact parent corpus artifact plus authoritative native documentation/source evidence.
 
-### 2.5 Context-Fabric MCP: progressive disclosure
+### 3.2 Research candidate evidence
 
-R-003 inspected Context-Fabric MCP at `Context-Fabric/context-fabric@3a38ca80e617d872ce1664e0f0740486d0e7e8ac`. The MCP already separates corpus discovery, feature discovery and actual search. TFont documentation should support the same progressive-disclosure principle:
+R-005 `S/C/B/N/R/U/L` classifications are **research candidate** evidence only. They can be linked from research/review pages but **cannot appear as an approved released mapping** unless an independently reviewed canonical mapping assertion exists.
 
-- compact agent capability metadata by default;
-- native/mapping details on request;
-- full rationale and references only when requested.
+### 3.3 Approved TFont mapping assertions
 
-The docs site should therefore not be the only machine interface. It should publish a compact generated JSON reference that mirrors the conceptual capability data used by the semantic resolver.
+An **approved mapping** contains stable mapping ID, native selector/path, external target where applicable, TFont mapping assessment, applicability, review status, rationale/evidence, profile binding, and ontology lock.
 
-### 2.6 Agora: normative architecture separate from generated marketplace data
+Authority: canonical mapping source, provided it validates against normative TFont rules and external/native evidence.
 
-Agora keeps a normative architecture boundary in hand-authored documentation while registry/generated artifacts are machine-managed. That separation is useful for TFont as well.
+### 3.4 Publication relations
 
-The ownership rule remains:
+A **publication relation** is an optional RDF/OWL/SKOS formalization. It is independent of the TFont mapping assessment. An approved `exact` assessment to an OWL class does not automatically create `owl:equivalentClass`, `owl:sameAs`, or a SKOS mapping predicate.
 
-- TFont documents semantic mappings and their scholarly evidence;
-- Context-Fabric documents native query execution/MCP behavior;
-- Agora documents discovery/install/integration metadata;
-- parent corpus repositories document their own native semantics.
+### 3.5 Profile identity and compatibility
 
-TFont may link to those sources but must not fork their mutable documentation into its own prose.
+R-001 compatibility is represented with:
 
-## 3. Four information layers that documentation must not collapse
+- `verified-exact`;
+- `verified-compatible`;
+- `unverified`;
+- `incompatible`.
 
-### 3.1 Native corpus facts
+Authority: profile manifest plus the parent component manifest, component identities, and complete dependency closure/evidence used to establish the state.
 
-Examples:
+### 3.6 Normative interpretation rules
 
-- BHSA `sp=subs` is a native feature/value;
-- CUC `emen` and `cert` are independent source/editorial features;
-- TLHdig-TF `lexeme` is an `analysis -> lex` edge;
-- Pseudepigrapha-TF `witness` links a reading to a manuscript.
+Approved TFont architecture/specifications define what mapping assessments mean, which states execute, how compatibility is proven, how dense empties are interpreted, and which publication formalizations are legal.
 
-Authority: parent corpus artifact and its documentation.
+A canonical mapping file is not allowed to override those rules.
 
-TFont records the exact native selector/path necessary to identify the fact, but does not redefine it.
+### 3.7 Explanatory prose
 
-### 3.2 TFont mapping assertions
+Research, tutorials, release narratives, and long scholarly notes explain decisions and evidence. They do not activate mappings or redefine normative rules.
 
-Generated documentation distinguishes three objects that must not be collapsed: **research candidate** evidence such as the R-005 `S/C/B/N/R/U/L` matrix, an **approved mapping** with a reviewed TFont assessment, and any optional **formal publication** relation in RDF/OWL/SKOS. Research candidates may be linked as evidence but never rendered as released mappings merely because they appear semantically plausible.
+## 4. Scoped authority domains
 
-Examples:
+TFont should use **scoped authority domains**, not a numeric precedence hierarchy.
 
-- native `sp=subs` maps to an external noun concept with relation `exact`;
-- a corpus-specific verbal-stem value has no approved cross-language external equivalent and is `native-only`;
-- two witness-like relations are only `related`, not interchangeable.
+| authority domain | authoritative artifact | responsibility |
+|---|---|---|
+| **native corpus semantics** | pinned parent corpus artifact + authoritative native docs/source | native node/edge/feature/value/path meaning |
+| **external ontology semantics** | pinned ontology release/specification | external term meaning and formal vocabulary |
+| **TFont mapping assertions** | canonical reviewed mapping source | native→external projection, assessment, applicability, rationale |
+| **profile identity and compatibility** | profile manifest + R-001 compatibility evidence | profile release identity, parent component manifest, component identities, complete dependency closure |
+| **ontology lock identity** | ontology lock | exact tested ontology versions/snapshots/digests/status |
+| **normative interpretation rules** | approved TFont architecture/specification | legality and interpretation of mappings, compatibility, execution, provenance and publication |
+| **generated derivatives** | deterministic build from validated sources | runtime index, RDF/JSON, generated Markdown/HTML/reference JSON |
+| **explanation/history** | guides, research, notes, release prose | rationale, pedagogy, historical context |
 
-Authority: canonical TFont mapping source for the exact profile version.
+The domains constrain one another through validation rather than precedence.
 
-Every assertion needs a stable mapping ID, relation strength, source/target, applicability, review state and evidence/rationale reference.
+### 4.1 Conflict rules
 
-### 3.3 Normative TFont rules
+- **mapping source vs generated derivative** → generation/drift defect; CI fails;
+- **mapping source vs runtime index** → compiler/cache defect; released bundle invalid;
+- **mapping source vs native corpus evidence** → substantive mapping defect; mapping must be revised/reviewed;
+- **mapping source vs external ontology definition/lock** → mapping or lock defect; review/activation fails;
+- **mapping/profile data vs approved normative TFont rule** → **invalid mapping/profile**; **CI and profile activation fail**. The normative rule constrains the data rather than being overridden by it;
+- **profile manifest vs observed parent components** → recompute R-001 state from component identity/dependency evidence; no schema-name shortcut;
+- **guide/tutorial factual claim vs canonical validated mapping** → explanatory prose defect; fix the guide;
+- **generated reference vs canonical validated source** → generated output is stale/incorrect; never hand-edit the generated page to hide the conflict.
 
-Examples:
+This preserves both machine-readable source-of-truth and the authority of normative interpretation rules.
 
-- `related` mappings are never executable substitutions by default;
-- generated docs never override canonical mapping data;
-- compatibility is documented with R-001 evidence states (`verified-exact`, `verified-compatible`, `unverified`, `incompatible`); only verified states may activate, and the page exposes parent artifact/dependency evidence rather than a generic stale-schema flag.
-
-Authority: approved architecture/specification documents produced through the design gate.
-
-Normative documents define interpretation rules for mapping data; they should not enumerate every corpus mapping row.
-
-### 3.4 Explanatory/research prose
-
-Research documents, tutorials and essays explain why a decision exists and preserve rejected alternatives and unresolved questions.
-
-Authority: historical/explanatory only. A research note may motivate a mapping change but does not activate it.
-
-## 4. Source-of-truth hierarchy
-
-The POC should use the following precedence.
-
-| rank | artifact | authority |
-|---:|---|---|
-| external | parent corpus artifact/docs | native corpus semantics and native values |
-| external | ontology release/specification | external term semantics |
-| 1 | canonical TFont mapping source | TFont mapping assertions and strengths |
-| 2 | profile manifest | profile identity, parent compatibility, release coordinates and artifact digests |
-| 3 | ontology lock | exact tested ontology namespaces/releases/digests/status |
-| 4 | approved TFont normative specs | how mappings/manifests/locks are interpreted |
-| derived | compiled runtime index | deterministic derivative of ranks 1-3 |
-| derived | RDF/Turtle/JSON semantic export | deterministic publication derivative |
-| derived | generated reference Markdown/HTML/JSON | deterministic documentation derivative |
-| explanatory | guides/research/release prose | explanation; never overrides semantic source |
-
-Ranks 1-3 must be mutually consistent and validated together. “Rank” does not mean a manifest can redefine a mapping; each artifact has a non-overlapping responsibility.
-
-### Conflict rules
-
-- **mapping source vs generated reference:** generation bug/drift; CI fails;
-- **mapping source vs runtime index:** compiler/cache bug; runtime bundle invalid;
-- **mapping source vs hand-authored guide:** guide bug; fix prose;
-- **mapping source vs external corpus evidence:** substantive mapping defect; mapping must be reviewed/revised;
-- **mapping source vs ontology definition:** substantive mapping defect or ontology-version mismatch; fail review/activation;
-- **manifest vs actual parent artifact:** compatibility failure; profile must not activate normally.
-
-## 5. Exact POC repository layout
-
-R-001 recommends a central source repository with independently releasable corpus profiles. Documentation should fit that structure rather than invent another hierarchy.
+## 5. POC repository documentation layout
 
 ```text
 TFont/
@@ -213,168 +162,165 @@ TFont/
 ├── CONTRIBUTING.md
 ├── profiles/
 │   ├── bhsa/
-│   │   ├── manifest.yaml              # future canonical profile metadata
-│   │   ├── mappings/                  # future canonical mapping source
-│   │   ├── notes/                     # optional long scholarly notes, linked by IDs
+│   │   ├── manifest.yaml
+│   │   ├── mappings/
+│   │   ├── notes/
 │   │   └── tests/
 │   ├── cuc/
 │   ├── syriac/
 │   ├── peshitta/
 │   ├── syrnt/
 │   ├── extrabiblical/
-│   └── tlhdig-tf/
+│   ├── tlhdig-tf/
+│   └── pseudepigrapha-tf/
 ├── ontology/
-│   ├── lock.yaml                      # future exact external ontology locks
-│   └── local/                         # future TFont-local ontology terms if R-002 permits
-├── schemas/                            # future machine contracts after design
+│   ├── lock.yaml
+│   └── local/
+├── schemas/
 ├── docs/
-│   ├── research/                       # R-XXX evidence/recommendations
-│   ├── plans/                          # P-XXX design artifacts
-│   ├── architecture/                   # approved stable normative docs after POC design
-│   ├── guides/                         # hand-authored user/scholar/contributor guides
+│   ├── research/
+│   ├── plans/
+│   ├── architecture/
+│   ├── guides/
 │   │   ├── querying.md
 │   │   ├── mapping-review.md
 │   │   └── versioning-and-provenance.md
-│   ├── reference/                      # GENERATED; do not hand edit
-│   │   ├── index.json                  # compact machine navigation index
-│   │   ├── profiles/
-│   │   │   └── <profile-id>/
-│   │   │       ├── index.md
-│   │   │       ├── compatibility.md
-│   │   │       ├── coverage.md
-│   │   │       └── native/
-│   │   ├── concepts/
-│   │   │   └── <stable-concept-key>.md
-│   │   ├── mappings/
-│   │   │   └── <stable-mapping-id>.md
-│   │   └── ontologies/
-│   │       └── <ontology-id>.md
-│   └── releases/
-│       └── <profile-id>/               # hand prose + generated semantic-diff section
+│   ├── reference/                      # GENERATED; do not edit
+│   │   ├── index.json
+│   │   ├── profiles/<profile-id>/
+│   │   │   ├── index.md
+│   │   │   ├── compatibility.md
+│   │   │   ├── coverage.md
+│   │   │   └── native/
+│   │   ├── concepts/<stable-concept-key>.md
+│   │   ├── mappings/<stable-mapping-id>.md
+│   │   └── ontologies/<ontology-id>.md
+│   └── releases/<profile-id>/
 ├── scripts/
-│   └── ...                             # future generator/validator tooling
 └── tests/
-    └── ...
 ```
 
-The exact canonical YAML filenames remain a design decision. The **documentation directories and source/derived distinction** should survive that decision.
+Exact future schema filenames remain a design decision. The source/derived boundary and reference navigation layout are the research contract.
 
-## 6. What is hand-authored and what is generated
+## 6. Authored versus generated material
 
 ### Hand-authored
 
 - research reports and rejected alternatives;
 - approved normative architecture/specification prose;
 - tutorials/cookbooks;
-- contribution and review guidance;
-- long-form scholarly notes that cannot fit cleanly in a mapping assertion;
-- release narrative describing scholarly intent/change context.
+- contribution/review guidance;
+- scholarly rationale notes linked by stable mapping IDs;
+- release narrative and migration explanation.
 
-Long-form notes must be linked from a stable mapping ID. They may elaborate rationale but cannot change machine semantics.
+Hand-authored notes may explain but cannot change machine semantics.
 
 ### Generated
 
-- profile reference index;
-- compatibility table from manifest bindings;
-- native feature/value -> semantic mapping tables;
-- semantic concept -> corpus/native realization tables;
+- profile and compatibility references;
+- native selector → semantic mapping tables;
+- semantic concept → corpus/native realization tables;
 - mapping-detail pages;
 - coverage/gap reports;
-- mapping-strength counts;
-- ontology term/version pages for terms actually used;
-- license/provenance summaries that are already present in locks/manifests;
-- machine `reference/index.json`;
-- semantic mapping diff for releases;
+- mapping-assessment distributions;
+- ontology term/version/status pages for terms actually used;
+- license/provenance summaries already encoded in locks/manifests;
+- compact `reference/index.json` and detail JSON;
+- semantic diff sections;
 - RDF/Turtle/JSON publication exports;
+- runtime/index documentation;
 - optional generated TF-module documentation.
 
 ### Hybrid release notes
 
-A release note may contain hand-written motivation plus a generated semantic diff. The generated section must be visibly delimited and reproducible.
+Release notes may combine hand-written motivation with a visibly delimited generated semantic diff. The generated section is reproducible and must not be hand-edited independently.
 
-## 7. Bidirectional navigation model
+## 7. Bidirectional navigation
 
-A user must be able to start from either side.
+### 7.1 Native → semantic
 
-### 7.1 Native -> semantic
-
-Example path:
+A generated native entry links:
 
 ```text
-profile: bhsa@0.1.0
-  native: word / sp=subs
-    -> mapping ID: bhsa.word.sp.subs
-      -> external concept
-      -> relation: exact/close/...
-      -> applicability
-      -> rationale/evidence
-      -> tests
+profile + immutable release
+  -> native selector/path
+    -> stable mapping ID
+      -> approved external target (if any)
+      -> Mapping assessment
+      -> Publication relation (if any)
+      -> applicability/review/evidence
+      -> compatibility/provenance
 ```
 
-The generated native page should show:
+The page shows:
 
-- exact parent corpus/version/revision;
-- node/edge kind and direction;
-- native feature/value description from the pinned inventory plus link to upstream docs;
-- every applicable TFont mapping assertion;
-- mapping strength and review status;
-- mapping ID and profile version;
-- no misleading “universal label” when no mapping exists.
+- parent component manifest and compatibility state;
+- native node/edge kind and direction/path;
+- authoritative upstream documentation link;
+- approved mappings only in released semantic reference;
+- mapping assessment and review state;
+- publication relation independently;
+- native-only/unsupported state where appropriate;
+- stable mapping/profile IDs.
 
-### 7.2 Semantic -> corpora
+Research candidates may be linked under evidence but are visually and structurally distinct from approved mappings.
 
-Example path:
+### 7.2 Semantic → corpora
+
+A concept page lists each evaluated profile independently, for example:
 
 ```text
-concept: olia:<noun-concept>
-  -> BHSA: exact -> word sp=subs
-  -> ExtraBiblical: exact/verified independently -> native selector
-  -> Syriac: exact/close according to reviewed profile -> native selector
-  -> Peshitta: unsupported in inspected TF release
-  -> CUC: unsupported
+external concept X
+  -> BHSA: <approved assessment> -> native selector
+  -> ExtraBiblical: <independently approved assessment> -> native selector
+  -> Syriac: <approved assessment or unsupported>
+  -> Peshitta: unsupported in inspected profile
 ```
 
-The generated concept page must distinguish:
+Each row exposes compatibility separately from mapping assessment.
 
-- supported exact;
-- executable approximate under an explicit policy;
-- ambiguous;
-- native-only related distinctions;
-- unsupported;
-- profile unavailable/incompatible.
+Explicit states include:
 
-An empty cell is forbidden where a profile has been evaluated. Empty means documentation failure, not semantic absence.
+- `exact`, `close`, `broader`, `narrower`, `related` assessment;
+- `ambiguous`;
+- `native-only`;
+- `unsupported`;
+- `verified-exact`, `verified-compatible`, `unverified`, `incompatible` profile compatibility where relevant.
+
+An **empty cell is forbidden** for an evaluated profile: a negative/unknown state must be named explicitly.
 
 ### 7.3 Mapping-detail page
 
-One stable mapping ID gets one generated detail page showing:
+One stable mapping ID gets one generated page containing:
 
-- source profile and native selector/path;
-- target term URI/CURIE;
-- TFont `assessment.strength` used by runtime/query planning;
-- optional formal publication relation/pattern, displayed separately from the assessment;
-- applicability conditions;
+- profile/release;
+- native selector/path;
+- external target URI/CURIE when one exists;
+- **Mapping assessment**;
+- **Publication relation** or explicit `none`;
+- applicability;
 - evidence/rationale;
 - review status;
-- profile/ontology/parent version locks;
-- tests/fixtures exercising it;
-- first-introduced and last-changed profile release;
-- links to both native and semantic indexes.
+- ontology lock;
+- parent compatibility evidence;
+- tests/fixtures;
+- first-introduced / last-changed release;
+- links to native and semantic indexes.
 
 ## 8. Stable identifiers and URLs
 
-Human labels change. URLs and anchors must therefore be derived from stable identifiers, not page titles.
+Labels and page titles are not semantic identifiers.
 
 Rules:
 
-1. Every mapping assertion has a stable mapping ID independent of repository hosting path.
-2. Every profile has a stable logical profile ID independent of GitHub organization/repository.
-3. External concepts are keyed by full URI internally; generated pages use a deterministic encoded key/CURIE only as a filesystem/URL convenience.
-4. Page anchors use stable IDs, not generated heading slugs.
-5. A `/latest/` or unversioned site view may exist for navigation, but provenance links in query results point to an immutable profile release/version.
-6. Redirects may preserve renamed documentation paths, but old release artifacts themselves remain immutable.
+1. mapping assertions have stable mapping IDs;
+2. profiles have stable logical IDs independent of GitHub paths;
+3. external concepts are keyed internally by full URI;
+4. page anchors derive from stable IDs rather than heading text;
+5. `/latest/` may exist for navigation, but provenance links identify immutable profile releases;
+6. redirects may preserve renamed site paths, while historical release reference remains immutable.
 
-Recommended public page identity is conceptually:
+Conceptual URLs:
 
 ```text
 /reference/<profile-id>/<profile-version>/...
@@ -382,459 +328,407 @@ Recommended public page identity is conceptually:
 /reference/mappings/<stable-mapping-id>/
 ```
 
-The deployment hostname is not part of the semantic identity.
+Deployment hostname is not semantic identity.
 
-## 9. How mapping strength and uncertainty appear
+## 9. Mapping assessment, approximation and uncertainty
 
-The UI/reference vocabulary should use the same machine states as the resolver wherever possible:
+Generated pages use the R-002/R-003 vocabulary exactly:
 
-- `exact`
-- `close`
-- `broader`
-- `narrower`
-- `related`
-- `ambiguous`
-- `native-only`
-- `unsupported`
-- `verified-exact` / `verified-compatible` compatibility evidence where relevant
-- `unverified`
-- `incompatible` / unavailable profile
+- `exact`;
+- `close`;
+- `broader`;
+- `narrower`;
+- `related`;
+- `ambiguous`;
+- `native-only`;
+- `unsupported`.
 
-Color may supplement but never replace these words.
+Assessment direction is native/source → external target.
 
-Every approximate mapping shows a short consequence statement such as:
+For an external-concept query:
 
-```text
-Relation: broader
-Effect on query: executing this mapping may include native cases outside the requested concept.
-Default exact mode: not executable.
-```
+- **`broader` can under-cover** because the native/source concept is narrower than the external target;
+- **`narrower` can over-cover** because the native/source concept is broader than the external target;
+- `close` may differ extensionally in either direction;
+- `related` is informational and not an automatic substitute.
 
-Do not hide approximate mappings behind a generic “mapped” badge.
+Generated pages must show that consequence and exact-mode executability separately. They must not describe approximation with an unqualified generic “relation” label.
 
-### Evidence uncertainty versus mapping strength
+Evidence uncertainty is separate again: a mapping may have an approved assessment while upstream/native documentation contains a scholarly caveat. The mapping page displays both.
 
-Mapping strength here means the TFont **assessment**, not automatically an RDF predicate. The generated page renders any **formal publication** relation separately. For an OWL-class target, `assessment: exact` does not by itself assert `owl:equivalentClass` or `skos:exactMatch`; genuine SKOS predicates are shown only for reviewed concept-scheme mappings.
+## 10. Compatibility and provenance
 
-These are separate fields.
+Generated compatibility and mapping pages use R-001 evidence rather than a repository/version/schema shorthand.
 
-A mapping can be semantically `exact` relative to a native category whose upstream interpretation is itself marked uncertain. The generated page must surface both:
-
-- mapping relation;
-- evidence/native-documentation caveat.
-
-This matters for BHSA verbal stems and many historical-language categories.
-
-## 10. Provenance block on every generated profile/mapping page
-
-Minimum compact provenance:
+Minimum profile provenance:
 
 ```text
-TFont profile:      tfont-bhsa 0.1.0
-Parent corpus:      ETCBC/bhsa 2021
-Parent revision:    <exact tested commit>
-Parent artifact:    <transport-independent semantic-content digest>
-Dependency fingerprint: <profile dependency evidence digest>
-Mapping source:     <source digest/revision>
-Ontology lock:      <lock ID/digest>
-Target ontology:    <term URI + tested release/status>
-Mapping relation:   exact
-Review status:      reviewed / provisional / disputed
-Generated by:       <generator version>
+TFont profile:            <profile ID + immutable version>
+Compatibility:            verified-exact | verified-compatible | unverified | incompatible
+Parent component manifest:<manifest algorithm + digest>
+Component identities:     <identities for semantically addressed native components>
+Dependency evidence:      <closure/report/fingerprint sufficient to justify state>
+Mapping source:           <source digest/revision>
+Ontology lock:            <lock ID/digest>
+Generated by:             <generator version>
 ```
 
-Where licensing is relevant, include:
+For `verified-compatible`, the page links or embeds evidence that the **complete dependency closure** validated against the changed component set. For `unverified`, it says which evidence is missing. For `incompatible`, it identifies the failed required dependency.
 
-- mapping artifact license;
-- ontology license/reference policy;
-- parent corpus license link;
-- restrictions on generated/materialized data if any.
+If licensing applies, the profile/ontology page also records mapping artifact license, parent-corpus license link, ontology licensing/reference policy, and any redistribution constraint relevant to generated/materialized data.
 
-A profile page may summarize parent/ontology licensing once; mapping pages can link to that summary unless a particular term/source has exceptional licensing.
+## 11. Research candidates, semantic values and empirical domains
 
-## 11. Agent-facing documentation
+### 11.1 Candidate versus released mapping
 
-Humans need narrative pages; agents need bounded structured discovery.
+R-005 candidate cells can appear in research/review evidence but cannot enter released reference/index data as mappings without stable canonical mapping IDs and review state.
 
-The generated `docs/reference/index.json` should be a **navigation/capability index**, not a dump of the entire ontology or all mappings.
+### 11.2 Dense storage empties
 
-Conceptual top level:
+Generated inventory/reference data distinguish:
+
+- `node_records_seen` — raw records encountered;
+- `nodes_with_value` — records carrying actual non-empty semantic values;
+- `empty_observation_count` — storage/API empty observations;
+- `observed_values` — non-empty values only.
+
+`""` and `None` are **storage-level empty** observations, not semantic values unless the parent corpus explicitly defines the literal as meaningful. Empty records do not establish feature applicability to a node type and do not become explicit absence/unknown/omission/non-attestation semantics.
+
+### 11.3 Observed versus bounded domains
+
+Documentation distinguishes:
+
+- **observed small domain** — finite non-empty values seen in the pinned artifact;
+- **documented bounded/categorical vocabulary** — authoritative source documentation establishes a bounded inventory;
+- **open/large domain**;
+- **unknown closure**.
+
+An observed finite release is not automatically a **closed vocabulary**.
+
+Concrete regression: pinned CUC 0.2.8 non-empty `emen` observations include `excised`, `missing`, `redundant`, `remark`, `restored`. This is an observed release domain, not a promise that future releases cannot add a value.
+
+## 12. Agent-facing documentation
+
+`docs/reference/index.json` is a bounded navigation/capability index, not a whole ontology/mapping dump.
+
+Conceptual profile entry:
 
 ```json
 {
-  "schema_version": 1,
-  "generated_from": "<source digest>",
-  "profiles": {
-    "bhsa": {
-      "version": "0.1.0",
-      "parent": {"id": "ETCBC/bhsa", "version": "2021", "revision": "..."},
-      "semantic_domains": ["morphology", "syntax", "lexical"],
-      "coverage_url": "...",
-      "concept_index_url": "..."
-    }
-  }
+  "profile": "tfont-bhsa@0.1.0",
+  "compatibility": "verified-exact",
+  "parent_component_manifest": "sha256:...",
+  "ontology_locks": ["olia:<lock>"],
+  "semantic_domains": ["morphology", "syntax", "lexical"],
+  "coverage_url": "...",
+  "concept_index_url": "..."
 }
 ```
 
-Detailed mapping rows are fetched by mapping/concept/profile ID when needed.
+Detailed mapping/evidence resources are fetched selectively by stable ID.
 
-R-003's provisional ergonomic target of a small default capability payload should constrain this design. The static reference JSON can be richer than a single MCP response, but it must support selective lookup rather than require loading one giant file.
-
-## 12. Human-facing documentation
-
-### First page for a corpus scholar
-
-A profile landing page should answer, without ontology expertise:
-
-- Which corpus release is this mapping for?
-- Which kinds of questions are interoperable?
-- Which native distinctions remain local?
-- Which mappings are approximate/disputed?
-- How do I query it through TFont/Context-Fabric?
-- How do I inspect the exact native constraints?
-
-### First page for an ontology/linked-data user
-
-A concept page should answer:
-
-- Which TFont corpus profiles map to this concept?
-- With what relation strength?
-- What native feature/value/node/edge realizes it?
-- What corpus/version was tested?
-- What evidence/reviewer status supports the assertion?
-
-### First page for a contributor
-
-Contribution docs should explain:
-
-1. find the native corpus evidence;
-2. find/verify the external ontology definition/version;
-3. change canonical mapping source;
-4. add/adjust positive and negative semantic fixtures;
-5. run validation/generation;
-6. inspect semantic diff and generated docs;
-7. obtain independent skeptical review.
-
-## 13. Concrete documentation prototypes
-
-These examples are **documentation shapes**, not final R-002 ontology decisions.
-
-### 13.1 BHSA POS and agreement
-
-Generated native entry:
+Operational integration metadata is documented separately from semantic identity. Agent/runtime diagnostics may report:
 
 ```text
-BHSA / word / sp=subs
-Native meaning: noun/substantive according to BHSA documentation
-Applies to: word and lex where present in the pinned schema
-TFont mapping: <external noun concept>
-Relation: candidate exact, subject to accepted R-002 mapping policy
-Evidence: BHSA sp feature documentation + pinned corpus inventory
-Native query: word sp=subs
+Current host implementation: cfabric-mcp 0.1.7
+Host SDK constraint: mcp>=1.0,<2
+Current protocol target: 2026-07-28
+Negotiated protocol: <runtime value when known>
 ```
 
-`gn=f` and `nu=pl` should have analogous pages. A combined guide example may show a semantic query resolving to:
+The negotiated protocol, transport, and MCP session state must not become part of semantic identity or alter mapping/profile provenance. Documentation for protocol-specific behavior links to Context-Fabric/MCP rather than copying their manuals.
+
+## 13. Human-facing documentation
+
+### Corpus scholar landing page
+
+Answers:
+
+- Which immutable profile and parent component set were evaluated?
+- Is compatibility exact, compatible, unverified, or incompatible?
+- Which kinds of semantic questions are supported?
+- Which native distinctions remain local?
+- Which mappings are approximate/ambiguous?
+- What native constraints/path does a semantic query use?
+
+### Ontology/linked-data user concept page
+
+Answers:
+
+- Which profiles map to this concept?
+- With which mapping assessment?
+- Is there a separate publication relation?
+- What native selector realizes it?
+- Which ontology lock/profile/parent evidence was tested?
+- What review/evidence supports the assertion?
+
+### Contributor guide
+
+Explains:
+
+1. locate native evidence;
+2. verify external ontology definition/lock;
+3. change canonical mapping/profile source;
+4. add positive and negative fixtures;
+5. run validation/generation;
+6. inspect semantic diff and generated reference;
+7. obtain exact-head independent skeptical review.
+
+## 14. Concrete documentation prototypes
+
+These are shapes, not new mapping approvals.
+
+### 14.1 BHSA `sp`, `gn`, `nu`
+
+A native page for `word / sp=subs` should show native BHSA meaning, upstream feature-doc link, applicability from the pinned native contract, reviewed mapping target/assessment if one is eventually approved, and the exact native query selector.
+
+A guide may show a reviewed high-level `Noun + Feminine + Plural` semantic request compiling to native constraints such as:
 
 ```text
 word sp=subs gn=f nu=pl
 ```
 
-but the generated reference remains one mapping assertion per reviewed native semantic unit.
+The generated reference remains one reviewed semantic assertion per stable mapping ID.
 
-### 13.2 BHSA `vt` and `vs`: do not over-document English labels
+### 14.2 BHSA `vt` / `vs`
 
-BHSA `vt=perf` is natively labelled “perfect”; `vs=qal` is a Hebrew verbal stem. Documentation must not silently turn those labels into universal `PastTense` or a cross-language “basic stem”.
+BHSA stem/verbal-form labels do not automatically become universal tense/stem categories. If no reviewed external projection exists, the released page says `native-only` or `unsupported` as appropriate rather than fabricating equivalence.
 
-Until R-002 approves an external projection, a generated page may state:
+### 14.3 Syriac
 
-```text
-Native concept: BHSA verbal form/stem value
-External mapping: native-only / unresolved
-Reason: language-specific analysis; no reviewed equivalence
-```
+ETCBC Syriac and SyrNT may share high-level concepts while using different native structures/vocabularies. Semantic concept pages show each realization independently rather than presenting schema aliases.
 
-That is useful documentation, not a deficiency to hide.
+### 14.4 CUC
 
-### 13.3 Syriac
+`cert`, `emen`, and `alt` remain separate native/editorial assertions. Generated pages use actual non-empty values and distinguish observed domains from documented bounded vocabularies.
 
-For the primary `ETCBC/syriac` 0.9 profile, generated pages should expose `sp`, `gn`, `nu`, `ps`, `st`, `vs`, `vt`, lexical `lex/gloss` and morpheme families from the exact inventory.
+### 14.5 TLHdig-TF lexical path
 
-A second page for SyrNT demonstrates why profile identity matters: SyrNT `sp=noun`, `nu=p`, `st=emphatic`, roots/stems and separate `lexeme` nodes are native structures with different value vocabularies even when high-level concepts overlap.
-
-The semantic concept page can show both realizations without pretending the schemas are aliases.
-
-### 13.4 CUC editorial and physical semantics
-
-A CUC page for `cert` must document it separately from `emen` and `alt`.
-
-```text
-Native selector: sign cert=<observed value>
-Semantic family: editorial certainty
-Not equivalent to: emendation state; alternative reading
-```
-
-The exact observed domains should be generated from the accepted R-005 inventory, not typed manually into this guide.
-
-At pinned CUC 0.2.8 the generated non-empty `emen` observations are `excised`, `missing`, `redundant`, `remark`, and `restored`. Generated reference must keep `node_records_seen`, `nodes_with_value`, and `empty_observation_count` distinct: empty-string/`None` storage records are not semantic values and do not establish feature applicability. A finite **observed small domain** is also not automatically a **documented bounded** or **closed vocabulary**; closure requires parent-corpus evidence.
-
-Physical pages should separately document `tablet`, `column`, `line`, `side` and sign-slot semantics.
-
-### 13.5 TLHdig-TF lexical relation
-
-A generated edge page should make direction and extent semantics explicit:
+Generated edge page:
 
 ```text
 Native edge: lexeme
 Direction: analysis -> lex
-Meaning: this analysis resolves to the lexical (lemma, gloss) entity
-Semantic attestation extent: use analysis/lexeme relation and occurrence paths
-Caution: lex.oslots is a technical anchor, not the lexeme's full occurrence extent
+Occurrence semantics: follow analysis/lexeme relation and documented occurrence path
+Caution: lex.oslots is a technical anchor, not full lexical occurrence extent
 ```
 
-This caution should be emitted from profile semantics, not buried only in a tutorial.
+### 14.6 TLHdig-TF cluster/surface/witness
 
-### 13.6 TLHdig-TF editorial cluster
+Cluster range semantics, surface/document structure, and line→fragment witness links are documented natively. A witness label alone never turns that relation into Pseudepigrapha reading attestation.
 
-For `cluster`, documentation should show range semantics (`startsAt`, `endsAt`, offsets, width, type) and distinguish the cluster entity from derived sign flags such as `missing`.
+### 14.7 ExtraBiblical versus BHSA
 
-### 13.7 ExtraBiblical versus BHSA
+Shared ETCBC spelling/family motivates reuse research but not automatic reuse. A concept page shows separate approved assertions and separate compatibility bindings.
 
-When both profiles map a shared ETCBC-family relation such as a grammatical feature or `mother` edge to the same external concept, the semantic concept page still shows two separately reviewed assertions and two parent bindings.
+### 14.8 Local-only example
 
-Shared feature spelling is evidence for reuse investigation, not proof that one mapping row can silently cover both corpora.
+A conversion/alignment-specific value such as TLHdig-TF `cu_aligned` remains visible as `native-only` if no reviewed external projection exists.
 
-### 13.8 Deliberately local-only example
+## 15. Markdown, static site and JSON
 
-TLHdig-TF `cu_aligned` is an alignment-evidence mechanism with levels/methods specific to that conversion. It should be visible in the native reference and capability/gap view even if no external ontology term is suitable.
-
-```text
-Mapping status: native-only
-Why retained: required to assess sign-level cuneiform evidence quality
-External projection: none approved
-```
-
-This demonstrates that TFont documentation values native distinctions rather than treating unmapped categories as failures.
-
-## 14. Static site versus Markdown versus JSON
-
-Use all three, with one build graph.
+Use all three from one build graph.
 
 ### Repository Markdown
 
-Required because:
-
-- works in GitHub/code review;
-- versioned with source;
-- readable offline;
-- no hosting dependency.
+Required for code review, versioning, offline use and release bundles.
 
 ### Static site
 
-Recommended because:
+Recommended for cross-links/search. A conventional generator such as MkDocs is sufficient; HTML is a build product, not semantic source.
 
-- cross-links and search make the generated reference usable;
-- concept/native bidirectional navigation is cumbersome in raw directory browsing;
-- pages can expose tables, warnings and provenance consistently.
+### Generated JSON
 
-A conventional generator such as MkDocs is sufficient for the POC. Site HTML should be treated as a build product; source Markdown/JSON is the reviewable artifact.
+Required for agents/tooling so they do not scrape HTML. JSON and Markdown derive from the same deterministic normalized semantic intermediate representation.
 
-### JSON reference
+## 16. Documentation ownership boundaries
 
-Required for agents/tooling and to avoid scraping HTML. JSON reference files are generated from the same normalized semantic intermediate representation as Markdown/RDF.
-
-No format is manually synchronized with another.
-
-## 15. Documentation ownership boundaries
-
-| information | authoritative owner | TFont action |
+| information | authority/owner | TFont behavior |
 |---|---|---|
-| meaning of BHSA/CUC/TLHdig native feature | parent corpus | link and identify exact native selector/version; do not rewrite as authority |
-| mapping native selector -> ontology term | TFont | document fully, including strength/evidence/review |
-| ontology term definition | ontology project | link URI/release; cache lock metadata, not copied normative definition |
-| semantic query/resolution contract | TFont design/runtime | normative TFont architecture + generated API reference |
-| native Context-Fabric query syntax | Context-Fabric | link; TFont examples show generated native template but do not fork syntax manual |
-| profile discovery/install coordinates | Agora/TFont distribution metadata | link/show compatibility coordinates; do not duplicate marketplace implementation docs |
-| corpus data-quality caveat | parent corpus or TFont mapping evidence where relevant | link authoritative source; only record the consequence for a TFont assertion |
+| native feature/node/edge meaning | parent corpus | link exact selector/evidence; do not fork native authority |
+| external term definition | ontology project | link/pin lock metadata; do not copy as normative redefinition |
+| TFont native→external mapping | TFont canonical mapping | generated reference renders assessment/evidence/review |
+| TFont normative mapping/compatibility rules | TFont approved specs | constrain canonical data and generated output |
+| semantic resolver/query contract | TFont R-003/design/runtime | normative TFont docs + generated API/capability reference |
+| native query/MCP host implementation | Context-Fabric | link host/query docs; do not fork implementation manual |
+| MCP protocol specification | MCP project | link exact protocol revision; do not imply host support from protocol recency |
+| discovery/install coordinates | Agora/TFont distribution metadata | publish/link coordinates, not semantic mapping rules |
 
-## 16. CI drift and release contract
+R-004 may state compatibility assumptions needed by TFont, but mutable host/protocol implementation details remain owned upstream.
 
-A documentation build is part of semantic validation, not a cosmetic afterthought.
+## 17. Canonical CI drift and release contract
 
-For every profile/mapping PR, CI should eventually perform:
+A documentation build is semantic validation. The following is the **single canonical CI contract** for later implementation:
 
-1. validate canonical mapping source against schema;
+1. validate **canonical mapping source against schema**;
 2. validate profile manifest and ontology lock;
-3. validate parent artifact identity and the complete profile dependency contract, including mapped values/invariants;
-4. compile one deterministic normalized semantic intermediate representation;
-5. generate runtime sidecar, RDF/JSON exports and reference Markdown/JSON from that IR;
-6. run generation twice or otherwise verify deterministic output/digests;
-7. fail if `git diff --exit-code` shows committed generated reference is stale;
-8. build the static documentation site in strict mode;
-9. fail broken internal links and duplicate/stale stable anchors;
-10. verify generated pages carry source/profile/ontology/parent fingerprints;
-11. run representative documentation assertions for required examples (`sp=subs`, CUC editorial distinction, TLHdig technical-anchor caution, etc.);
-12. produce a **semantic diff** that separately reports mapping relation changes, native selector changes, compatibility changes and prose-only changes;
-13. require a release note/review attention when semantic API changes occur even if generated prose still builds;
-14. ensure generated files carry a clear generated/do-not-edit marker.
+3. validate **parent component manifest**, required **component identities**, and **complete dependency closure**, producing one of the four R-001 compatibility states;
+4. validate canonical mapping/profile data against approved normative TFont rules; any conflict fails CI/profile activation;
+5. enforce **research candidate** vs approved mapping separation so R-005 candidate evidence cannot leak into released mapping reference;
+6. validate **mapping assessment and publication relation** as independent fields and validate any formal publication relation against R-002 rules;
+7. exclude **storage-level empty** observations from semantic values/applicability unless explicitly defined meaningful by native source;
+8. distinguish **observed small domain** from **documented bounded** vocabulary and closed/unknown-closure status;
+9. ensure compatibility references use the **four R-001 compatibility states** and expose component/dependency evidence;
+10. ensure evaluated **negative states** (`native-only`, `unsupported`, `ambiguous`, `unverified`, `incompatible`) are rendered explicitly rather than as blank cells;
+11. compile one **deterministic normalized semantic intermediate representation** from validated sources;
+12. generate runtime sidecar/index, RDF/JSON publication, reference Markdown/JSON, and static-site inputs from that IR;
+13. run generation twice or compare canonical digests to prove deterministic output;
+14. fail `git diff --exit-code` or equivalent when committed generated reference is stale;
+15. build static documentation in strict mode and fail broken internal links, duplicate/stale stable anchors, or unresolved generated references;
+16. verify generated profile/mapping pages carry profile/mapping source, ontology lock, parent component manifest/component identities, compatibility/dependency evidence, and generator identity;
+17. verify current-host/protocol documentation separates the pinned host implementation, **negotiated protocol**, and protocol target; protocol/transport/session metadata must not enter semantic identity;
+18. run representative documentation regressions for BHSA, Syriac, CUC, TLHdig-TF, ExtraBiblical, local-only semantics, and negative capability states;
+19. produce a **semantic diff** that independently classifies mapping assessment, publication relation, native selector/path, target/lock, compatibility evidence, review status, and prose-only changes;
+20. require release-note/reviewer attention for semantic API changes even when generated prose still builds;
+21. ensure every generated file carries a clear **generated/do-not-edit marker** where the format permits;
+22. verify release reference and compact agent index identify the same immutable profile/mapping/ontology/parent semantic inputs as runtime artifacts.
 
-The implementation should follow TDD after the design gate. This research ticket specifies the observable contract only.
+The design/implementation phase should convert these observable checks into TDD fixtures; this research PR does not implement the generator.
 
-## 17. Semantic diff as documentation
+## 18. Semantic diff as documentation
 
-Ordinary text diff is not enough for mapping review.
-
-A generated semantic diff should classify at least:
+A generated semantic diff classifies at least:
 
 - mapping added/removed;
-- relation strengthened/weakened (`close -> exact`, `exact -> close`);
-- native selector/path changed;
-- external ontology term changed;
-- parent compatibility changed;
-- ontology lock/release changed;
-- review status changed;
+- **mapping assessment changed** (`close`→`exact`, `exact`→`close`, etc.);
+- **publication relation changed** independently;
+- **native selector/path changed**;
+- external target or **ontology lock/release changed**;
+- **parent compatibility evidence changed**;
+- review state changed;
 - rationale/prose-only change.
 
-This diff should feed both PR review and release notes. A relation-strength change is a public semantic behavior change even if no Python code changes.
+Assessment changes are public semantic behavior changes even when no Python code changes. Publication-formalization changes are separately visible so RDF changes are not confused with runtime query semantics.
 
-## 18. Documentation of unsupported semantics
+## 19. Unsupported and negative semantics
 
-Unsupported capability must be explicit when the profile has evaluated the concept/domain.
+For every evaluated concept/domain, generated references explicitly distinguish:
 
-Generated coverage tables should distinguish:
+- `not-evaluated` — research has not decided;
+- `unsupported` — active profile has no supported projection/capability;
+- `native-only` — relevant native distinction intentionally has no external target;
+- `ambiguous` — evidence does not support one unambiguous projection;
+- `unverified` — parent/profile evidence incomplete; inspection allowed, semantic execution not;
+- `incompatible` — required parent dependency failed;
+- approximation-required assessments (`close`, `broader`, `narrower`, etc.) with exact-mode consequence.
 
-- **not evaluated** — mapping research has not decided;
-- **unsupported** — corpus cannot answer the semantic request from available native data;
-- **native-only** — relevant native distinction exists but lacks an approved external projection;
-- **ambiguous** — several incompatible projections exist;
-- **incompatible** — profile cannot activate for this parent version.
+An **empty cell** is **forbidden** once a profile/concept combination has been evaluated; blank output is documentation failure, not a semantic state.
 
-This prevents an agent/human from treating absence of a row as evidence of absence in the corpus.
+## 20. Documentation versioning
 
-## 19. Documentation versioning
+Generated semantic reference is versioned with the TFont profile release, not only the parent corpus release.
 
-### Profile-scoped reference
-
-Generated semantic reference is versioned with the **TFont profile release**, not only with the parent corpus version.
-
-A stable profile page records both:
+Each immutable profile reference identifies:
 
 ```text
-TFont profile version  -> semantic assertion set
-Parent corpus revision -> native evidence target
-Ontology lock           -> external terminology target
+TFont profile/mapping source -> semantic assertions
+Parent component manifest     -> native evidence target
+Compatibility/dependency evidence -> executable state
+Ontology lock                 -> external terminology target
 ```
 
-### Current/latest view
+A current/latest site view may exist for navigation. Query provenance and released references point to immutable profile/mapping identity.
 
-A site may expose a convenient current view, but every page should display and link its immutable profile version. Query provenance must reference immutable identifiers.
+Historical reference pages are never rewritten merely because an ontology later deprecates a term; new releases add migration/deprecation notices.
 
-### Historical mappings
+## 21. Independent documentation-review checklist
 
-Do not rewrite old release reference pages when ontology projects deprecate terms. Publish migration/deprecation notices in new profile releases and retain old provenance.
+A final reviewer should be able to answer:
 
-## 20. Documentation review criteria
+1. Can every displayed approved mapping be reconstructed from canonical validated source?
+2. Does each native selector link to exact pinned native evidence?
+3. Can research candidates be mistaken for released mappings?
+4. Are mapping assessment and publication relation rendered independently?
+5. Are all four compatibility states and their component/dependency evidence visible?
+6. Are storage empties excluded from semantic domains/applicability?
+7. Are observed release domains distinguished from documented closed/bounded vocabularies?
+8. Are `native-only`, `unsupported`, `ambiguous`, `unverified`, and `incompatible` visible rather than blank?
+9. Can a corpus scholar and ontology user navigate to the same stable mapping assertion from opposite directions?
+10. Does semantic diff expose every semantic dimension changed by a PR?
+11. Are host/protocol operational details separated from semantic identity/provenance?
+12. Can the reference be used offline from a released profile bundle?
+13. Do generated/runtime artifacts identify the same canonical semantic inputs?
 
-An independent reviewer should be able to answer:
+## 22. Rejected alternatives
 
-1. Can I reconstruct every displayed semantic mapping from canonical source?
-2. Does every native selector link back to exact corpus/version evidence?
-3. Are approximate/native-only/unsupported states visible rather than normalized away?
-4. Is mapping review status distinct from ontology standard status and parent corpus status?
-5. Are technical TF anchors/implementation details prevented from masquerading as semantic extents?
-6. Can both a corpus scholar and ontology user navigate to the same mapping assertion from opposite directions?
-7. Does a changed semantic assertion produce an obvious semantic diff/release impact?
-8. Is any mutable upstream documentation copied in a way that TFont would have to maintain as a fork?
-9. Can the reference be used offline from a released profile bundle?
-10. Do generated and runtime artifacts identify the same source/lock/parent digests?
+### Numeric source-of-truth precedence
 
-## 21. Rejected alternatives
+Rejected. Authority is scoped. Canonical mapping data cannot override normative interpretation rules, native source semantics, or external ontology definitions.
 
-### Hand-maintain per-corpus mapping tables in Markdown
+### Hand-maintained mapping tables in Markdown
 
-Rejected. They become a second semantic database and will drift from runtime mappings.
+Rejected. They become a second semantic database and drift from runtime source.
 
-### RDF/Turtle as the documentation source
+### RDF/Turtle as sole documentation/authoring source
 
-Rejected as a documentation architecture requirement. RDF remains valuable publication/interchange, but R-003 found it inferior as the sole human mapping-review surface. Generated docs should derive from the canonical mapping source chosen by design.
+Rejected. RDF remains a generated publication surface; R-003 selected schema-validated YAML as the human review source for the POC.
 
-### Generate everything, including tutorials and research rationale
+### Generate tutorials/research rationale from mapping data
 
-Rejected. Generated reference is excellent for facts already in mapping/manifest data but poor for scholarly argument, rejected alternatives and pedagogical explanation.
+Rejected. Semantic facts can be generated; scholarly argument and pedagogy remain authored prose.
 
-### Put all documentation into the parent corpus repositories
+### Put mapping documentation in parent corpora or Agora
 
-Rejected as default. TFont profiles release independently and may use ontology stacks the parent project does not adopt. Link upstream native docs instead.
+Rejected. TFont profiles release independently and Agora is a thin discovery/install layer. Link upstream native evidence rather than fork it.
 
-### Put semantic mapping documentation in Agora
+### One giant JSON reference
 
-Rejected. That violates Agora's thin marketplace boundary and would turn registry documentation into a semantic fork.
+Rejected. Agent ergonomics require compact index + selectively fetched detail resources.
 
-### One giant generated JSON file containing every mapping and ontology term
+### Version documentation only by parent corpus release
 
-Rejected for agent ergonomics and incremental loading. Publish a compact index plus profile/concept/mapping detail resources.
+Rejected. Mapping semantics and ontology locks can change independently.
 
-### Version docs only by parent corpus version
+### Protocol/session identity as semantic identity
 
-Rejected. Mapping semantics and ontology locks can change independently of parent data.
+Rejected. R-003 requires equivalent semantic resolution across handshake-era and stateless hosts for identical semantic inputs.
 
-### Use labels/headings as persistent URLs
+## 23. Unresolved implementation choices
 
-Rejected because names and preferred labels change. Stable IDs drive anchors/paths.
+Design work still needs to choose:
 
-## 22. Unresolved design questions
+1. exact canonical mapping/profile JSON Schemas and file granularity;
+2. whether generated reference Markdown is committed or release-built only;
+3. exact static-site generator/theme configuration;
+4. stable URI namespace for TFont-local mapping/concept identifiers;
+5. how much upstream feature metadata to cache versus link;
+6. exact `reference/index.json` / detail schemas;
+7. semantic-diff presentation in GitHub checks/release notes;
+8. forge-independent reviewer provenance representation;
+9. central-site versus profile-bundle hosting/retention policy;
+10. exact runtime diagnostics schema for host implementation / negotiated protocol metadata.
 
-The first POC design must still decide:
+These choices do not reopen scoped authority, generated-reference derivation, component-aware compatibility, assessment/publication separation, explicit negative states, or protocol-independent semantic identity.
 
-1. exact canonical mapping serialization/schema (R-003 provisionally recommends YAML + JSON Schema);
-2. whether generated reference Markdown is committed or generated only in release/site builds; recommendation here is to commit it during the POC for reviewability, then revisit repository size after measurement;
-3. exact static-site generator/configuration;
-4. exact stable URI namespace for TFont-local mappings/concepts;
-5. how much upstream feature metadata to cache in generated pages versus link dynamically;
-6. exact schema for `reference/index.json` and concept/mapping detail JSON;
-7. how semantic diff integrates with GitHub review/check summaries;
-8. how reviewer identity/provenance is represented without making a forge account part of semantic identity;
-9. whether profile release reference is hosted centrally, inside per-profile release bundles, or both;
-10. retention policy for generated reference from unsupported historical profile releases.
+## 24. Acceptance trace
 
-None of these reopen the source-of-truth hierarchy or generated-reference principle.
-
-## 23. Acceptance-criteria trace
-
-- **Source-of-truth hierarchy:** defined in §4 with explicit conflict rules.
-- **Exact POC documentation layout:** defined in §5.
-- **Generated versus authored:** defined in §6 and throughout the build contract.
-- **Bidirectional navigation:** native -> semantic and semantic -> corpora defined in §7, with stable mapping-detail pages.
-- **Mapping strength, unsupported semantics, provenance, licenses and compatibility:** §§9-10, §18-19.
-- **TFont versus Context-Fabric/Agora/parent ownership:** §15.
-- **Agent and scholar surfaces:** §§11-12; compact JSON plus human static/Markdown reference.
-- **Update/release/CI drift:** §§16-17 and §19.
-- **Required concrete examples:** BHSA, Syriac, CUC, TLHdig-TF, ExtraBiblical and a local-only case in §13.
-
-## 24. Dependency reconciliation rule
-
-R-004 may be researched in parallel, but final merge must use the accepted conclusions of the other foundation research.
-
-Before final independent review:
-
-- replace provisional mapping-status examples if R-002 changes the supported relation vocabulary;
-- reconcile directory/release terminology if accepted R-001 changes profile distribution;
-- reconcile agent JSON/progressive-disclosure requirements if accepted R-003 changes its ergonomics contract;
-- regenerate/adjust native examples against accepted R-005 inventories and terminology.
-
-Material reconciliation invalidates any earlier review of this draft.
+- Source-of-truth hierarchy: scoped authority domains and explicit conflicts in §4.
+- Exact repository layout: §5.
+- Generated versus authored material: §6.
+- Bidirectional navigation: §7.
+- Mapping assessment, uncertainty, negative states: §§9, 19.
+- Compatibility/provenance/licenses: §§10, 20.
+- Agent and scholar documentation: §§12–13.
+- TFont / parent / Context-Fabric / MCP / Agora ownership: §16.
+- Update/release/CI drift: one canonical 22-step contract in §17 plus semantic diff §18.
+- Required concrete examples: §14.
+- Stable URLs/anchors/versioning: §§8, 20.
+- Current-host versus protocol target/negotiation portability: §§2.5, 12, 16–17.
 
 ## 25. Sources
 
-Primary sources inspected for this research:
+Primary sources/evidence used by this research:
 
-- OLiA documentation architecture and models: <https://acoli-repo.github.io/olia/>, <https://acoli-repo.github.io/olia/models.html>, <https://acoli-repo.github.io/olia/overview.html>
-- CIDOC CRM release/status documentation: <https://cidoc-crm.org/versions-of-the-cidoc-crm>
-- OntoLex core specification and Lexicog module: <https://ontolex.github.io/ontolex/specification.html>, <https://ontolex.github.io/lexicog/>
-- Text-Fabric feature metadata API: <https://annotation.github.io/text-fabric/tf/core/fabric.html>
-- BHSA native feature documentation: <https://etcbc.github.io/bhsa/features/0_home/>, individual feature pages cited above
-- Context-Fabric MCP at `Context-Fabric/context-fabric@3a38ca80e617d872ce1664e0f0740486d0e7e8ac`
-- Agora normative plugin boundary at `alexsosn/Agora` (`wiki/architecture/ref-plugin-boundary.md`)
-- TFont R-001 distribution research / PR #8
-- TFont R-002 ontology-governance research / PR #9
-- TFont R-003 ergonomics research / PR #10
-- TFont R-005 empirical corpus census / PR #7
+- OLiA documentation architecture: <https://acoli-repo.github.io/olia/>, <https://acoli-repo.github.io/olia/models.html>, <https://acoli-repo.github.io/olia/overview.html>;
+- CIDOC CRM release/status documentation: <https://cidoc-crm.org/versions-of-the-cidoc-crm>;
+- OntoLex core and Lexicog documentation: <https://ontolex.github.io/ontolex/specification.html>, <https://ontolex.github.io/lexicog/>;
+- Text-Fabric/BHSA native feature documentation and metadata API;
+- Context-Fabric MCP at `Context-Fabric/context-fabric@3a38ca80e617d872ce1664e0f0740486d0e7e8ac`;
+- MCP `2026-07-28` specification/release evidence as accepted by R-003;
+- Agora plugin-boundary architecture;
+- accepted TFont R-001 / PR #8;
+- accepted TFont R-002 / PR #9;
+- accepted TFont R-003 / PR #10;
+- accepted TFont R-005 / PR #7.
+
+Any future material change to those accepted contracts requires R-004 reconciliation and fresh exact-head review before release-documentation behavior changes.
