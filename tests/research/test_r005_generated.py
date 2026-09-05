@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PINS_PATH = ROOT / "docs" / "research" / "data" / "R-005-corpus-pins.json"
+REPORT_PATH = ROOT / "docs" / "research" / "R-005-corpus-semantic-census.md"
 GENERATED = ROOT / "docs" / "research" / "data" / "generated" / "r005"
 
 # Stress targets without a committed released TF artifact are intentionally absent.
@@ -25,6 +26,10 @@ CORPUS_ID = {
 }
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+STALE_CUC_DEFERRAL = (
+    "CUC's editorial feature value domains should be regenerated from the exact TF "
+    "release when a production mapping is designed"
+)
 
 
 class GeneratedInventoryContractTests(unittest.TestCase):
@@ -35,6 +40,14 @@ class GeneratedInventoryContractTests(unittest.TestCase):
             key: json.loads((GENERATED / filename).read_text(encoding="utf-8"))
             for key, filename in PIN_TO_FILE.items()
         }
+
+    def test_authoritative_report_describes_current_empirical_evidence_path(self):
+        report = REPORT_PATH.read_text(encoding="utf-8")
+        self.assertNotIn(STALE_CUC_DEFERRAL, report)
+        self.assertIn("docs/research/data/generated/r005/cuc.json", report)
+        self.assertIn("observed small domain", report.lower())
+        self.assertIn("remark", report)
+        self.assertIn("R-005-candidate-strength-matrix.md", report)
 
     def test_exact_generated_file_set(self):
         self.assertEqual(
