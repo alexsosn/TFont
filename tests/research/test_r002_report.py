@@ -28,6 +28,7 @@ class R002AuthoritativeReportTests(unittest.TestCase):
             "The published project materials are under **CC BY-NC-SA 3.0**, which conflicts",
             text,
         )
+        self.assertNotIn("SAWS licensing is non-commercial", text)
         self.assertIn("license", text.lower())
         self.assertIn("not established", text.lower())
 
@@ -43,9 +44,20 @@ class R002AuthoritativeReportTests(unittest.TestCase):
             text,
         )
         self.assertNotIn("Proposed conceptual scope for the later design ticket:", text)
+        self.assertNotIn(
+            "This is the strongest driver for the minimal TFont apparatus vocabulary.", text
+        )
+        self.assertNotIn(
+            "TFont local apparatus concepts for variation units, readings, attestation and explicit absence;",
+            text,
+        )
+        self.assertNotIn(
+            "a deliberately small TFont apparatus vocabulary is justified", text
+        )
         self.assertIn("do not mint", text.lower())
         self.assertIn("pseudepigrapha-tf", text.lower())
         self.assertIn("second independent corpus", text.lower())
+        self.assertIn("native/profile-local", text.lower())
 
     def test_main_report_records_r005_as_accepted_dependency(self):
         text = REPORT.read_text(encoding="utf-8")
