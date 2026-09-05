@@ -1,6 +1,6 @@
 # R-001: distribution and version-binding architecture
 
-**Status:** research complete as a draft; merge is blocked on independent acceptance of R-005 (#7)  
+**Status:** research complete; R-005 accepted; pending exact-head independent review  
 **Issue:** #1  
 **Recorded:** 2026-09-05
 
@@ -30,9 +30,9 @@ The distribution decision was checked against current upstream behavior at these
 | Text-Fabric | `annotation/text-fabric@1079c68e051947efd955b61ad499e3a9beb03b09`, TF `13.1.0` | `tf/docs/about/datasharing.md`, `tf/docs/about/usefunc.md`, `tf/parameters.py` |
 | Context-Fabric | `Context-Fabric/context-fabric@3a38ca80e617d872ce1664e0f0740486d0e7e8ac`, core `0.5.7` | `Fabric`, downloader, TF compatibility docs, corpus distribution implementation/plan |
 | Agora | `alexsosn/Agora@848c18afa83946b368da01866226f93c516739d5` | marketplace architecture, registry, `feature-modules.yaml`, registry validator |
-| target corpus semantics | R-005 branch/PR #7, head `14ba5919a283d11912f994036ad9495c0346a99a` at drafting time | empirical census of BHSA, CUC, Syriac variants, ExtraBiblical, TLHdig-TF, Pseudepigrapha-TF and ORACC-TF |
+| target corpus semantics | R-005 / PR #7, accepted reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb` (merged as `a9c4d74d4de2f9a15eb1464dce341ecd2f92f898`) | empirical census of BHSA, CUC, Syriac variants, ExtraBiblical, TLHdig-TF, Pseudepigrapha-TF and ORACC-TF |
 
-R-005 is a dependency for the final merge of this recommendation. If its independent review changes a material corpus-semantics conclusion, this document must be reconciled before R-001 can merge.
+R-005 accepted the empirical corpus-semantics dependency at exact reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb`. This report has been reconciled against that accepted evidence; any future material R-005 revision requires a new R-001 reconciliation.
 
 ## 2. Observed Text-Fabric constraints
 
@@ -589,7 +589,7 @@ These do not reopen the distribution decision:
 
 R-001's distribution question is resolved for design purposes: **central source repository, independently releasable exact-version-bound semantic sidecars, optional generated TF modules, thin Agora registration, and a non-RDF-specific runtime index**.
 
-This branch must not merge ahead of R-005. PR #7 is the empirical dependency and currently still awaits an independent review of its current head. If that review materially changes the corpus-census constraints used here, R-001 must be updated and then independently reviewed again.
+R-005 accepted the empirical dependency at exact reviewed head `48c8bd78d0c3a0501b2fdec6946db5df90517bdb` (merged as `a9c4d74d4de2f9a15eb1464dce341ecd2f92f898`). R-001 is therefore no longer dependency-blocked; merge now requires exact-head validation and fresh independent review of this R-001 head.
 
 ## Sources
 
