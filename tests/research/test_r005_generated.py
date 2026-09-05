@@ -49,6 +49,29 @@ class GeneratedInventoryContractTests(unittest.TestCase):
         self.assertIn("remark", report)
         self.assertIn("R-005-candidate-strength-matrix.md", report)
 
+    def test_r005_verification_ci_is_non_mutating(self):
+        # The report reconciliation was a one-time migration. Keeping its write-enabled
+        # workflow after the report is repaired can move the PR head from CI and recreate
+        # the exact-head race that the final verification contract is meant to prevent.
+        self.assertFalse(
+            (ROOT / ".github" / "workflows" / "r005-report-reconcile.yml").exists()
+        )
+        self.assertFalse(
+            (ROOT / "scripts" / "research" / "r005_reconcile_report.py").exists()
+        )
+
+        for filename in (
+            "r005-research-inventory.yml",
+            "r005-generated-validation.yml",
+        ):
+            workflow = (ROOT / ".github" / "workflows" / filename).read_text(
+                encoding="utf-8"
+            )
+            with self.subTest(workflow=filename):
+                self.assertIn("contents: read", workflow)
+                self.assertNotIn("contents: write", workflow)
+                self.assertNotIn("git push", workflow)
+
     def test_exact_generated_file_set(self):
         self.assertEqual(
             {path.name for path in GENERATED.glob("*.json")},
