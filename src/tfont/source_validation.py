@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,8 +24,6 @@ SCHEMA_FILES = {
     "mapping": "mapping.schema.json",
     "compatibility-report": "compatibility-report.schema.json",
 }
-
-_DEFAULT_SCHEMA_ROOT = Path(__file__).resolve().parents[2] / "schemas"
 
 
 @dataclass(frozen=True)
@@ -159,6 +158,26 @@ def _problem_path(path: Any) -> tuple[str | int, ...]:
     return tuple(path)
 
 
+def _read_schema_bytes(
+    filename: str,
+    *,
+    schema_root: str | Path | None,
+) -> tuple[bytes, str]:
+    if schema_root is not None:
+        schema_path = Path(schema_root) / filename
+        source_name = str(schema_path)
+        try:
+            return schema_path.read_bytes(), source_name
+        except OSError as exc:
+            _raise("invalid_schema", str(exc), source_name)
+
+    source_name = f"tfont:schemas/{filename}"
+    try:
+        return files("tfont").joinpath("schemas", filename).read_bytes(), source_name
+    except OSError as exc:
+        _raise("invalid_schema", str(exc), source_name)
+
+
 def validate_source(
     data: JSONValue,
     schema_name: str,
@@ -170,20 +189,26 @@ def validate_source(
     if filename is None:
         _raise("unknown_schema", f"unknown schema: {schema_name}", schema_name)
 
-    root = Path(schema_root) if schema_root is not None else _DEFAULT_SCHEMA_ROOT
-    schema_path = root / filename
+    schema_bytes, schema_source_name = _read_schema_bytes(
+        filename,
+        schema_root=schema_root,
+    )
     try:
-        schema_text = schema_path.read_bytes().decode("utf-8-sig")
+        schema_text = schema_bytes.decode("utf-8-sig")
         schema = json.loads(
             schema_text,
             object_pairs_hook=_json_pairs,
             parse_constant=_reject_json_constant,
         )
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        _raise("invalid_schema", str(exc), str(schema_path))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        _raise("invalid_schema", str(exc), schema_source_name)
 
     if not isinstance(schema, dict) or schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
-        _raise("invalid_schema", "schema must declare JSON Schema Draft 2020-12", str(schema_path))
+        _raise(
+            "invalid_schema",
+            "schema must declare JSON Schema Draft 2020-12",
+            schema_source_name,
+        )
 
     try:
         Draft202012Validator.check_schema(schema)
@@ -192,7 +217,7 @@ def validate_source(
             ValidationProblem(
                 category="invalid_schema",
                 message=exc.message,
-                source_name=str(schema_path),
+                source_name=schema_source_name,
                 instance_path=_problem_path(exc.path),
                 schema_path=_problem_path(exc.schema_path),
             )
