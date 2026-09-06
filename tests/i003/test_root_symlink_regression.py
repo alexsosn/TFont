@@ -22,7 +22,12 @@ class RootSymlinkRegressionTests(unittest.TestCase):
             self.skipTest(f"directory symlink creation unavailable: {exc}")
         return link
 
-    def test_recursive_directory_root_symlink_rejected_with_trailing_separator(self):
+    def assert_root_spellings_rejected(self, func, link: Path) -> None:
+        self.assert_symlink_rejected(func, link)
+        self.assert_symlink_rejected(func, str(link) + os.sep)
+        self.assert_symlink_rejected(func, str(link) + os.sep + ".")
+
+    def test_recursive_directory_root_symlink_rejected_for_equivalent_spellings(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             target = base / "target"
@@ -30,10 +35,9 @@ class RootSymlinkRegressionTests(unittest.TestCase):
             (target / "data.bin").write_bytes(b"payload")
             link = self.make_directory_symlink(base, target, "directory-link")
 
-            self.assert_symlink_rejected(directory_component_digest, link)
-            self.assert_symlink_rejected(directory_component_digest, str(link) + os.sep)
+            self.assert_root_spellings_rejected(directory_component_digest, link)
 
-    def test_tf_root_symlink_rejected_with_trailing_separator(self):
+    def test_tf_root_symlink_rejected_for_equivalent_spellings(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             target = base / "tf-target"
@@ -41,8 +45,7 @@ class RootSymlinkRegressionTests(unittest.TestCase):
             (target / "otype.tf").write_bytes(b"@node\n1\tword\n")
             link = self.make_directory_symlink(base, target, "tf-link")
 
-            self.assert_symlink_rejected(tf_payload_digest, link)
-            self.assert_symlink_rejected(tf_payload_digest, str(link) + os.sep)
+            self.assert_root_spellings_rejected(tf_payload_digest, link)
 
 
 if __name__ == "__main__":
