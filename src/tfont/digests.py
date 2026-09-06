@@ -183,6 +183,8 @@ def _check_source_keys(
     required: set[str],
     path: tuple[str | int, ...] = (),
 ) -> None:
+    if any(type(key) is not str for key in source):
+        _fail("projection_error", "projection object keys must be exact strings", path)
     missing = sorted(required - source.keys())
     if missing:
         _fail("projection_error", f"missing required projection fields: {', '.join(missing)}", path)
