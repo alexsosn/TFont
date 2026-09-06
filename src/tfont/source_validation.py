@@ -86,6 +86,13 @@ def _plain_json(value: Any, *, source_name: str, active: set[int] | None = None)
     _raise("non_json_value", f"unsupported value type: {type(value).__name__}", source_name)
 
 
+def _normalize_loaded(value: Any, *, source_name: str) -> JSONValue:
+    try:
+        return _plain_json(value, source_name=source_name)
+    except RecursionError as exc:
+        _raise("decode_error", str(exc), source_name)
+
+
 class _JSONDuplicateKey(ValueError):
     pass
 
@@ -118,9 +125,9 @@ def loads_source(
             )
         except _JSONDuplicateKey as exc:
             _raise("duplicate_key", f"duplicate mapping key: {exc}", source_name)
-        except (json.JSONDecodeError, ValueError) as exc:
+        except (json.JSONDecodeError, ValueError, RecursionError) as exc:
             _raise("decode_error", str(exc), source_name)
-        return _plain_json(parsed, source_name=source_name)
+        return _normalize_loaded(parsed, source_name=source_name)
 
     if format == "yaml":
         parser = YAML(typ="safe", pure=True)
@@ -129,9 +136,9 @@ def loads_source(
             parsed = parser.load(text)
         except DuplicateKeyError as exc:
             _raise("duplicate_key", str(exc), source_name)
-        except YAMLError as exc:
+        except (YAMLError, RecursionError) as exc:
             _raise("decode_error", str(exc), source_name)
-        return _plain_json(parsed, source_name=source_name)
+        return _normalize_loaded(parsed, source_name=source_name)
 
     _raise("decode_error", f"unsupported source format: {format}", source_name)
 
