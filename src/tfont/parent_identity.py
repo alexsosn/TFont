@@ -73,7 +73,7 @@ def _lstat(path: str) -> os.stat_result:
         return os.lstat(path)
     except FileNotFoundError:
         _fail("missing_path", "component path does not exist", path)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         _fail("filesystem_error", str(exc), path)
 
 
