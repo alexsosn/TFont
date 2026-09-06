@@ -11,7 +11,7 @@ if str(SRC) not in sys.path:
 
 from tfont.source_validation import validate_source  # noqa: E402
 
-SCHEMA_ROOT = ROOT / "schemas"
+SCHEMA_ROOT = ROOT / "src" / "tfont" / "schemas"
 
 
 def reviewed_record() -> dict:
