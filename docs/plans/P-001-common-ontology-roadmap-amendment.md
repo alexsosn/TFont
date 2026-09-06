@@ -7,7 +7,7 @@
 
 ## 1. Finding
 
-The accepted foundation research did not lose the original TFont objective. R-002 selected a common open semantic basis centered on **SKOS, OLiA, OntoLex-Lemon, CIDOC CRM, CRMtex, LRMoo, and CRMinf**, with optional domain profiles and external controlled vocabularies. R-003 likewise defined agent-facing cross-corpus semantic resolution as a primary use case.
+The accepted foundation research did not lose the original TFont objective. R-002 selected a common open semantic basis centered on **SKOS, OLiA, OntoLex-Lemon, CIDOC CRM, CRMtex, LRMoo, and CRMinf**, with optional domain profiles, provenance/validation/publication infrastructure, and external controlled vocabularies. R-003 likewise defined agent-facing cross-corpus semantic resolution as a primary use case.
 
 The loss occurred during reconciliation into P-001. P-001 correctly designed artifact integrity, ontology locking, evidence/review provenance, parent-corpus compatibility, deterministic compilation, and fail-closed runtime behavior, but reduced the semantic target model to a generic `external_target` plus `ontology_lock`. The implemented v1 schemas inherit that abstraction. They can establish that a reviewed URI is pinned; they do not establish that mappings from different corpora converge on a shared semantic profile that an agent can use as a compatibility pivot.
 
@@ -30,9 +30,9 @@ P-001 must **not** be treated as the final authority for the semantic target sha
 
 ## 3. Restored product invariant
 
-A released executable TFont mapping is intended to be a **semantic compatibility adapter** between a native Text-Fabric/Context-Fabric corpus and a reviewed common open ontology layer.
+A TFont mapping or capability that claims a **shared semantic projection** is intended to act as a semantic compatibility adapter between a native Text-Fabric/Context-Fabric corpus and a reviewed common open ontology layer.
 
-An arbitrary external URI, even when pinned and reviewed, is insufficient by itself. The mapping architecture must make it possible to answer both directions deterministically:
+An arbitrary external URI, even when pinned and reviewed, is insufficient by itself. Shared projections must make it possible to answer both directions deterministically:
 
 ```text
 native corpus feature/node/edge/value
@@ -42,7 +42,7 @@ shared semantic concept/relation
     -> supported native selector/path/query constraint per corpus
 ```
 
-The agent-facing objective is:
+The agent-facing objective for shared projections is:
 
 ```text
 corpus-neutral semantic request
@@ -52,13 +52,15 @@ corpus-neutral semantic request
     -> results with mapping/provenance explanation
 ```
 
+The accepted `native-only` state remains legitimate in a released profile. A reviewed native concept may intentionally have no external target when no defensible shared projection exists. Such a mapping is preserved and documented, but a corpus-neutral request cannot resolve through it as though it participated in the common pivot.
+
 No execution path may infer equivalence from labels, similar feature names, or ontology hierarchy alone.
 
 ## 4. Common semantic basis to preserve during reconsideration
 
-R-006 starts from the accepted R-002 basis rather than performing an unconstrained ontology search:
+R-006 starts from the accepted R-002 **seven-model semantic pivot** rather than performing an unconstrained ontology search:
 
-| role | accepted foundation model |
+| role | accepted semantic-pivot model |
 |---|---|
 | concept schemes and mapping vocabulary | SKOS — Simple Knowledge Organization System |
 | linguistic annotation | OLiA — Ontologies of Linguistic Annotation |
@@ -68,9 +70,15 @@ R-006 starts from the accepted R-002 basis rather than performing an unconstrain
 | works/expressions/manifestations/items and transmission | LRMoo — IFLA Library Reference Model, object-oriented formulation |
 | scholarly inference/argumentation | CRMinf — CIDOC CRM extension for inference and argumentation |
 
-Optional or domain-specific profiles remain subject to the accepted R-002 governance and new domain research: CRMarchaeo, CRMsci, LexInfo, OntoLex Lexicog, OntoLex VarTrans, Getty AAT, PeriodO, and other candidates only where evidence justifies them.
+These seven models are the semantic-domain pivot, **not the entirety of the accepted R-002 foundation/tooling policy**. R-002 also retains:
 
-A research ticket may recommend changing this basis, but only from authoritative ontology/corpus evidence and with an explicit migration consequence. The genericity of P-001 is not evidence for replacing the accepted basis.
+- **PROV-O** as core provenance infrastructure where its model is used;
+- **SHACL 1.0** as the accepted RDF validation standard/tooling layer;
+- **Web Annotation** as an optional publication/targeting profile.
+
+Optional or domain-specific semantic profiles remain subject to the accepted R-002 governance and new domain research: CRMarchaeo, CRMsci, LexInfo, OntoLex Lexicog, OntoLex VarTrans, Getty AAT, PeriodO, and other candidates only where evidence justifies them. This amendment does not downgrade or remove any R-002 support tier.
+
+A research ticket may recommend changing this basis or an accepted tooling role, but only from authoritative ontology/corpus evidence and with an explicit migration consequence. The genericity of P-001 is not evidence for replacing the accepted basis.
 
 ## 5. Research gates before the replacement design
 
@@ -96,7 +104,8 @@ At minimum P-003 must decide:
 - controlled semantic profiles/capabilities in place of or in addition to free-form `semantic_domains`;
 - bidirectional native-to-semantic and semantic-to-native indexes in normalized IR/runtime artifacts;
 - common-concept -> multi-corpus native query-plan resolution;
-- exact/approximate/ambiguous/unsupported execution gates;
+- preservation and runtime treatment of all eight accepted mapping assessments: `exact`, `close`, `broader`, `narrower`, `related`, `ambiguous`, `native-only`, and `unsupported`;
+- exact/approximate execution policy without making `native-only` or `unsupported` entries invalid profile content;
 - migration/versioning of v1 mapping/profile schemas and semantic digests;
 - the smallest necessary TFont-local vocabulary for recurrent gaps, if empirical research demonstrates one.
 
@@ -112,7 +121,7 @@ Until P-003 is accepted:
 
 ## 8. Revised POC success criterion
 
-The first meaningful semantic POC must prove an end-to-end vertical slice:
+The first meaningful shared-semantic POC must prove an end-to-end vertical slice:
 
 ```text
 one reviewed common ontology concept/relation
@@ -122,7 +131,9 @@ one reviewed common ontology concept/relation
     -> result/explanation containing mapping strength and provenance
 ```
 
-The broader POC acceptance suite must include multiple semantic domains and at least BHSA, CUC, one ETCBC Syriac corpus, Pseudepigrapha-TF, ORACC-TF, and TLHdig-TF, as required by P-003/R-011.
+The broader POC acceptance suite must include multiple semantic domains and all required pilots: **BHSA, CUC, one ETCBC Syriac corpus, ETCBC `extrabiblical`, Pseudepigrapha-TF, ORACC-TF, and TLHdig-TF**, as required consistently by AGENTS.md, P-003, and R-011.
+
+The suite must also preserve representative `native-only` and `unsupported` mappings and demonstrate that they fail closed for common-pivot resolution rather than being removed to improve coverage metrics.
 
 Infrastructure correctness remains necessary, but it is not evidence of semantic interoperability by itself.
 
