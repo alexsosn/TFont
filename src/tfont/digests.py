@@ -132,13 +132,17 @@ def source_file_digest(raw: bytes) -> str:
     return _sha256_digest(normalize_source_bytes(raw))
 
 
-def _validate_logical_path(path: Any) -> str:
+def _validate_logical_path(
+    path: Any,
+    *,
+    error_path: tuple[str | int, ...] = (),
+) -> str:
     if type(path) is not str or not path or not _PORTABLE_PATH.fullmatch(path):
-        _fail("projection_error", "logical path must use portable ASCII repository-path characters")
+        _fail("projection_error", "logical path must use portable ASCII repository-path characters", error_path)
     if path.startswith("/") or "\\" in path:
-        _fail("projection_error", "logical path must be relative and use forward slashes")
+        _fail("projection_error", "logical path must be relative and use forward slashes", error_path)
     if any(segment in {"", ".", ".."} for segment in path.split("/")):
-        _fail("projection_error", "logical path contains an empty/dot traversal segment")
+        _fail("projection_error", "logical path contains an empty/dot traversal segment", error_path)
     return path
 
 
@@ -152,7 +156,7 @@ def source_bundle_digest(files: Iterable[tuple[str, bytes]]) -> str:
     for index, entry in enumerate(iterator):
         if type(entry) is not tuple or len(entry) != 2:
             _fail("projection_error", "source bundle entry must be an exact 2-tuple", (index,))
-        path = _validate_logical_path(entry[0])
+        path = _validate_logical_path(entry[0], error_path=(index, 0))
         if path in seen:
             _fail("duplicate_logical_path", f"duplicate logical path: {path}", (index, 0))
         seen.add(path)
