@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -15,6 +16,8 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from tfont.source_validation import SCHEMA_FILES  # noqa: E402
+
+BUILD_AVAILABLE = importlib.util.find_spec("build") is not None
 
 
 def evidence_binding(evidence_id: str = "evidence:test") -> dict:
@@ -131,6 +134,7 @@ def minimal_valid_instances() -> dict[str, dict]:
 
 
 class WheelSchemaResourceTests(unittest.TestCase):
+    @unittest.skipUnless(BUILD_AVAILABLE, "packaging regression requires the build test tool")
     def test_non_editable_wheel_contains_and_uses_all_structural_schemas(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
