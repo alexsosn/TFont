@@ -65,7 +65,7 @@ def _path_string(value: str | os.PathLike[str]) -> str:
         _fail("filesystem_error", f"path is not path-like: {exc}")
     if type(path) is not str:
         _fail("filesystem_error", "path must resolve to an exact string")
-    return _root_inspection_path(path)
+    return path
 
 
 def _lstat(path: str) -> os.stat_result:
@@ -158,7 +158,7 @@ def file_component_digest(path: str | os.PathLike[str]) -> str:
 
 
 def directory_component_digest(path: str | os.PathLike[str]) -> str:
-    root = _path_string(path)
+    root = _root_inspection_path(_path_string(path))
     _require_real_directory(root)
     records: list[dict[str, str]] = []
 
@@ -193,7 +193,7 @@ def directory_component_digest(path: str | os.PathLike[str]) -> str:
 
 
 def tf_payload_digest(path: str | os.PathLike[str]) -> str:
-    root = _path_string(path)
+    root = _root_inspection_path(_path_string(path))
     _require_real_directory(root)
     records: list[dict[str, str]] = []
 
