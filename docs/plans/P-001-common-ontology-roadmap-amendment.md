@@ -114,7 +114,7 @@ At minimum P-003 must decide:
 Until P-003 is accepted:
 
 - existing I-001/I-002/I-003 infrastructure remains valid unless P-003 explicitly versions/amends it;
-- P-002 #37 may continue only on forward-compatible selector/dependency/review/evidence/namespace mechanics and must not cement the one-target model;
+- P-002 #37 may continue only on forward-compatible selector/dependency/review/evidence/namespace mechanics **and on the formalism-independent publication-relation validation boundary already required by #37**, provided that work does not cement the current single-target or per-mapping publication-relation shape;
 - I-004 #36 may research generic validator mechanics, but semantic-contract implementation/merge is blocked by P-003;
 - no new semantic compiler, resolver, corpus-profile, or MCP integration ticket should derive its semantic model from P-001's single `external_target` representation alone;
 - no final corpus mapping should be released until the common-pivot contract is accepted and exercised across heterogeneous corpora.
