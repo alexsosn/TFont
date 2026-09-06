@@ -1,0 +1,54 @@
+name: F-002 wheel schema resources
+
+on:
+  push:
+    branches:
+      - fix/package-schema-resources
+    paths:
+      - .github/workflows/f002-wheel-schema-resources.yml
+      - pyproject.toml
+      - src/tfont/**
+      - tests/packaging/**
+      - tests/i001/**
+      - docs/research/F-002-wheel-schema-resources.md
+      - docs/plans/F-002-wheel-schema-resources-plan.md
+  pull_request:
+    paths:
+      - .github/workflows/f002-wheel-schema-resources.yml
+      - pyproject.toml
+      - src/tfont/**
+      - tests/packaging/**
+      - tests/i001/**
+      - docs/research/F-002-wheel-schema-resources.md
+      - docs/plans/F-002-wheel-schema-resources-plan.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install package and build frontend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install build
+
+      - name: Run wheel packaging regression
+        run: python -m unittest tests.packaging.test_wheel_schema_resources -v
+
+      - name: Run I-001 structural validator suite
+        run: python -m unittest discover -s tests/i001 -v
+
+      - name: Run full repository suite
+        run: python -m unittest discover -s tests -v
