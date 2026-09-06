@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 import tarfile
@@ -14,8 +15,11 @@ if str(SRC) not in sys.path:
 
 from tfont.source_validation import SCHEMA_FILES  # noqa: E402
 
+BUILD_AVAILABLE = importlib.util.find_spec("build") is not None
+
 
 class SdistSchemaResourceTests(unittest.TestCase):
+    @unittest.skipUnless(BUILD_AVAILABLE, "packaging regression requires the build test tool")
     def test_sdist_contains_all_canonical_structural_schemas(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
