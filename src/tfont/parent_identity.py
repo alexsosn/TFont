@@ -31,6 +31,33 @@ def _fail(category: str, message: str, path: str | None = None) -> None:
     raise IdentityError(IdentityProblem(category=category, message=message, path=path))
 
 
+def _native_separators() -> set[str]:
+    separators = {os.sep}
+    if os.altsep is not None:
+        separators.add(os.altsep)
+    return separators
+
+
+def _strip_terminal_separators(path: str) -> str:
+    separators = _native_separators()
+    if path and all(character in separators for character in path):
+        return path
+    drive, tail = os.path.splitdrive(path)
+    while len(tail) > 1 and tail[-1] in separators:
+        tail = tail[:-1]
+    return drive + tail
+
+
+def _root_inspection_path(path: str) -> str:
+    candidate = _strip_terminal_separators(path)
+    while os.path.basename(candidate) == ".":
+        parent = os.path.dirname(candidate)
+        if not parent or parent == candidate:
+            break
+        candidate = _strip_terminal_separators(parent)
+    return candidate
+
+
 def _path_string(value: str | os.PathLike[str]) -> str:
     try:
         path = os.fspath(value)
@@ -38,7 +65,7 @@ def _path_string(value: str | os.PathLike[str]) -> str:
         _fail("filesystem_error", f"path is not path-like: {exc}")
     if type(path) is not str:
         _fail("filesystem_error", "path must resolve to an exact string")
-    return path
+    return _root_inspection_path(path)
 
 
 def _lstat(path: str) -> os.stat_result:
