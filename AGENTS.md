@@ -5,12 +5,12 @@ TFont is a semantic interoperability layer for Text-Fabric / Context-Fabric corp
 ## Non-negotiable principles
 
 1. **Native corpus semantics remain authoritative.** Never rewrite or simplify an upstream annotation merely to make two corpora look equivalent.
-2. **Mappings are explicit and qualified.** Exact, close, broader, narrower, related, unsupported, and local-only correspondences must remain distinguishable.
+2. **Mappings are explicit and qualified.** `exact`, `close`, `broader`, `narrower`, `related`, `ambiguous`, `native-only`, and `unsupported` correspondences must remain distinguishable. A reviewed `native-only` mapping is a legitimate no-target state and must not be deleted or weakened merely to increase shared-ontology coverage.
 3. **No silent inference.** A semantic adapter may expose mappings and capabilities; it must not fabricate missing annotations or convert scholarly uncertainty into fact.
 4. **Open-by-default.** Dependencies, ontology terms, mapping artifacts, and generated compatibility metadata should be redistributable under documented terms. Exceptions require an explicit architecture decision.
 5. **Runtime stays thin.** Prefer schema/value resolution and native Context-Fabric execution over converting corpora into a separate RDF/triplestore runtime.
 6. **Versioned compatibility.** Every mapping must identify the parent corpus and the corpus versions/schema versions it supports.
-7. **Common ontology pivot is the interoperability contract.** A pinned arbitrary external URI is not sufficient evidence of semantic interoperability. Released executable mappings must connect native corpus semantics to reviewed shared ontology/profile concepts in a form that supports both native -> semantic lookup and semantic -> corpus-native resolution. Do not derive new semantic compiler/resolver/profile work from the current single-`external_target` v1 shape while P-003 #44 is pending.
+7. **Common ontology pivot is the interoperability contract for shared projections.** A pinned arbitrary external URI is not sufficient evidence of semantic interoperability. Mappings/capabilities that claim a shared semantic projection must connect native corpus semantics to reviewed shared ontology/profile concepts in a form that supports both native -> semantic lookup and semantic -> corpus-native resolution. `native-only` entries may remain in released profiles without an external target; they are not resolvable through the common pivot and must be reported as such. Do not derive new semantic compiler/resolver/profile work from the current single-`external_target` v1 shape while P-003 #44 is pending.
 
 ## Required development loop
 
@@ -100,6 +100,6 @@ At minimum, research and later POC tests must cover structurally and linguistica
 - ETCBC `extrabiblical`;
 - TLHdig-TF.
 
-Pseudepigrapha-TF and ORACC-TF are secondary stress corpora for textological/codicological and archaeological/lexical-semantic coverage respectively. For the P-003 common-ontology POC they are promoted to required heterogeneous pilots together with BHSA, CUC, one ETCBC Syriac corpus, and TLHdig-TF.
+Pseudepigrapha-TF and ORACC-TF are secondary stress corpora for textological/codicological and archaeological/lexical-semantic coverage respectively. For the P-003 common-ontology POC they are promoted to required heterogeneous pilots. The required P-003/R-011 pilot set is therefore BHSA, CUC, one ETCBC Syriac corpus, ETCBC `extrabiblical`, TLHdig-TF, Pseudepigrapha-TF, and ORACC-TF.
 
 Do not assume that identical feature names have identical semantics, or that different feature names imply different semantics.
