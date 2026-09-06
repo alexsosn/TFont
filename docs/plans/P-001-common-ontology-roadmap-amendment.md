@@ -121,19 +121,23 @@ Until P-003 is accepted:
 
 ## 8. Revised POC success criterion
 
-The first meaningful shared-semantic POC must prove an end-to-end vertical slice:
+The first meaningful shared-semantic POC must prove a **positive executable end-to-end vertical slice**:
 
 ```text
 one reviewed common ontology concept/relation
     -> mappings in at least two independent corpora
-    -> native Context-Fabric query plans
-    -> executable or explicitly non-executable resolution
-    -> result/explanation containing mapping strength and provenance
+    -> valid native Context-Fabric query plans in both
+    -> executable prototype resolution in both
+    -> explained result/prototype result containing mapping strength and provenance
 ```
+
+At least one reviewed common concept/relation must therefore execute successfully through the shared ontology pivot in **2+ independent corpora**. A pair of safe non-resolutions does not satisfy the positive interoperability proof.
 
 The broader POC acceptance suite must include multiple semantic domains and all required pilots: **BHSA, CUC, one ETCBC Syriac corpus, ETCBC `extrabiblical`, Pseudepigrapha-TF, ORACC-TF, and TLHdig-TF**, as required consistently by AGENTS.md, P-003, and R-011.
 
-The suite must also preserve representative `native-only` and `unsupported` mappings and demonstrate that they fail closed for common-pivot resolution rather than being removed to improve coverage metrics.
+The suite must separately preserve and exercise representative `ambiguous`, `native-only`, `unsupported`, and otherwise unsafe mappings, demonstrating that they fail closed for common-pivot resolution rather than being removed to improve coverage metrics. These negative cases complement but cannot substitute for the positive 2+ corpus execution proof.
+
+Research/prototype execution is sufficient for this POC; it does not require a production resolver.
 
 Infrastructure correctness remains necessary, but it is not evidence of semantic interoperability by itself.
 
