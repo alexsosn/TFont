@@ -10,6 +10,7 @@ TFont is a semantic interoperability layer for Text-Fabric / Context-Fabric corp
 4. **Open-by-default.** Dependencies, ontology terms, mapping artifacts, and generated compatibility metadata should be redistributable under documented terms. Exceptions require an explicit architecture decision.
 5. **Runtime stays thin.** Prefer schema/value resolution and native Context-Fabric execution over converting corpora into a separate RDF/triplestore runtime.
 6. **Versioned compatibility.** Every mapping must identify the parent corpus and the corpus versions/schema versions it supports.
+7. **Common ontology pivot is the interoperability contract.** A pinned arbitrary external URI is not sufficient evidence of semantic interoperability. Released executable mappings must connect native corpus semantics to reviewed shared ontology/profile concepts in a form that supports both native -> semantic lookup and semantic -> corpus-native resolution. Do not derive new semantic compiler/resolver/profile work from the current single-`external_target` v1 shape while P-003 #44 is pending.
 
 ## Required development loop
 
@@ -73,6 +74,8 @@ If review finds a material defect, revise and repeat independent review until th
 
 The initial phase is **research only**. Do not open or implement production ontology/mapping code until research tickets R-001 through R-005 (distribution, ontology governance, ergonomics, documentation, and empirical corpus census) have been completed and reconciled into an approved design ticket.
 
+The current common-ontology reconciliation is governed by `docs/plans/P-001-common-ontology-roadmap-amendment.md`: R-006 through R-011 (#38–#43) feed P-003 #44. Until P-003 is accepted, generic infrastructure work may proceed only when it does not freeze the current single-target ontology shape as the final semantic contract.
+
 ## Artifact conventions
 
 - `docs/research/R-XXX-*.md` — evidence and conclusions from research tickets.
@@ -97,6 +100,6 @@ At minimum, research and later POC tests must cover structurally and linguistica
 - ETCBC `extrabiblical`;
 - TLHdig-TF.
 
-Pseudepigrapha-TF and ORACC-TF are secondary stress corpora for textological/codicological and archaeological/lexical-semantic coverage respectively.
+Pseudepigrapha-TF and ORACC-TF are secondary stress corpora for textological/codicological and archaeological/lexical-semantic coverage respectively. For the P-003 common-ontology POC they are promoted to required heterogeneous pilots together with BHSA, CUC, one ETCBC Syriac corpus, and TLHdig-TF.
 
 Do not assume that identical feature names have identical semantics, or that different feature names imply different semantics.
