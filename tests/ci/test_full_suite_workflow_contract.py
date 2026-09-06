@@ -34,6 +34,7 @@ class FullSuiteWorkflowContractTests(unittest.TestCase):
             '".github/workflows/**"',
             'python-version: ["3.10", "3.12"]',
             "fail-fast: false",
+            "github.event.pull_request.head.ref || github.ref_name",
             "github.event.pull_request.head.sha || github.sha",
             "cancel-in-progress: true",
             "python -m pip install build",
