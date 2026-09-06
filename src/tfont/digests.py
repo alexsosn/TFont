@@ -203,11 +203,11 @@ def _require_nonempty_string(value: Any, *, path: tuple[str | int, ...]) -> str:
     return value
 
 
-def _utf16_sort_key(value: str) -> bytes:
+def _utf16_sort_key(value: str, *, path: tuple[str | int, ...] = ()) -> bytes:
     try:
         return value.encode("utf-16be")
     except UnicodeEncodeError as exc:
-        _fail("unicode_domain", str(exc))
+        _fail("unicode_domain", str(exc), path)
 
 
 def evidence_record_projection(record: dict[str, Any]) -> dict[str, Any]:
@@ -248,21 +248,24 @@ def evidence_record_digest(record: dict[str, Any]) -> str:
 def _normalize_unique_strings(value: Any, *, path: tuple[str | int, ...]) -> list[str]:
     if type(value) is not list:
         _fail("projection_error", "expected an exact list", path)
-    result: list[str] = []
+    result: list[tuple[str, tuple[str | int, ...]]] = []
     seen: set[str] = set()
     for index, item in enumerate(value):
-        item = _require_nonempty_string(item, path=path + (index,))
+        item_path = path + (index,)
+        item = _require_nonempty_string(item, path=item_path)
         if item in seen:
-            _fail("projection_error", f"duplicate set-like identifier: {item}", path + (index,))
+            _fail("projection_error", f"duplicate set-like identifier: {item}", item_path)
         seen.add(item)
-        result.append(item)
-    return sorted(result, key=_utf16_sort_key)
+        result.append((item, item_path))
+    keyed = [(_utf16_sort_key(item, path=item_path), item) for item, item_path in result]
+    keyed.sort(key=lambda pair: pair[0])
+    return [item for _, item in keyed]
 
 
 def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> list[dict[str, str]]:
     if type(value) is not list:
         _fail("projection_error", "evidence bindings must be an exact list", path)
-    result: list[dict[str, str]] = []
+    result: list[tuple[dict[str, str], tuple[str | int, ...]]] = []
     seen: set[tuple[str, str]] = set()
     for index, binding in enumerate(value):
         item_path = path + (index,)
@@ -279,9 +282,18 @@ def _normalize_evidence_bindings(value: Any, *, path: tuple[str | int, ...]) -> 
         if key in seen:
             _fail("projection_error", "duplicate evidence binding", item_path)
         seen.add(key)
-        result.append({"evidence_id": evidence_id, "content_digest": content_digest})
-    result.sort(key=lambda item: (_utf16_sort_key(item["evidence_id"]), _utf16_sort_key(item["content_digest"])))
-    return result
+        result.append(({"evidence_id": evidence_id, "content_digest": content_digest}, item_path))
+    keyed: list[tuple[bytes, bytes, dict[str, str]]] = []
+    for item, item_path in result:
+        keyed.append(
+            (
+                _utf16_sort_key(item["evidence_id"], path=item_path + ("evidence_id",)),
+                _utf16_sort_key(item["content_digest"], path=item_path + ("content_digest",)),
+                item,
+            )
+        )
+    keyed.sort(key=lambda entry: (entry[0], entry[1]))
+    return [item for _, _, item in keyed]
 
 
 def _normalize_candidates(value: Any) -> list[dict[str, Any]]:
@@ -388,7 +400,7 @@ def _normalize_ontology_lock_identities(value: Any) -> list[dict[str, Any]]:
     }
     optional = {"upstream_release_status", "source_revision", "redistribution_policy"}
     scalar_fields = (required - {"terms_used"}) | optional
-    result: list[dict[str, Any]] = []
+    result: list[tuple[dict[str, Any], tuple[str | int, ...]]] = []
     seen: set[str] = set()
 
     for index, record in enumerate(value):
@@ -406,10 +418,11 @@ def _normalize_ontology_lock_identities(value: Any) -> list[dict[str, Any]]:
             if field in obj:
                 normalized[field] = _require_nonempty_string(obj[field], path=item_path + (field,))
         normalized["terms_used"] = _normalize_unique_strings(obj["terms_used"], path=item_path + ("terms_used",))
-        result.append(normalized)
+        result.append((normalized, item_path + ("lock_id",)))
 
-    result.sort(key=lambda item: _utf16_sort_key(item["lock_id"]))
-    return result
+    keyed = [(_utf16_sort_key(item["lock_id"], path=lock_path), item) for item, lock_path in result]
+    keyed.sort(key=lambda pair: pair[0])
+    return [item for _, item in keyed]
 
 
 def _normalize_mapping_identities(value: Any) -> list[dict[str, str]]:
@@ -417,7 +430,7 @@ def _normalize_mapping_identities(value: Any) -> list[dict[str, str]]:
     if type(value) is not list:
         _fail("projection_error", "mappings must be an exact list", path)
     fields = {"mapping_id", "mapping_semantic_digest"}
-    result: list[dict[str, str]] = []
+    result: list[tuple[dict[str, str], tuple[str | int, ...]]] = []
     seen: set[str] = set()
     for index, record in enumerate(value):
         item_path = path + (index,)
@@ -430,16 +443,17 @@ def _normalize_mapping_identities(value: Any) -> list[dict[str, str]]:
         if mapping_id in seen:
             _fail("projection_error", f"duplicate mapping_id: {mapping_id}", item_path + ("mapping_id",))
         seen.add(mapping_id)
-        result.append({"mapping_id": mapping_id, "mapping_semantic_digest": digest})
-    result.sort(key=lambda item: _utf16_sort_key(item["mapping_id"]))
-    return result
+        result.append(({"mapping_id": mapping_id, "mapping_semantic_digest": digest}, item_path + ("mapping_id",)))
+    keyed = [(_utf16_sort_key(item["mapping_id"], path=mapping_path), item) for item, mapping_path in result]
+    keyed.sort(key=lambda pair: pair[0])
+    return [item for _, item in keyed]
 
 
 def _normalize_review_readiness(value: Any) -> list[dict[str, Any]]:
     if type(value) is not list:
         _fail("projection_error", "review_readiness must be an exact list", ("review_readiness",))
     allowed = {"mapping_id", "status", "reviewed_digest_matches"}
-    result: list[dict[str, Any]] = []
+    result: list[tuple[dict[str, Any], tuple[str | int, ...]]] = []
     seen: set[str] = set()
     for index, record in enumerate(value):
         item_path = ("review_readiness", index)
@@ -458,14 +472,18 @@ def _normalize_review_readiness(value: Any) -> list[dict[str, Any]]:
                 item_path + ("reviewed_digest_matches",),
             )
         result.append(
-            {
-                "mapping_id": mapping_id,
-                "status": obj["status"],
-                "reviewed_digest_matches": obj["reviewed_digest_matches"],
-            }
+            (
+                {
+                    "mapping_id": mapping_id,
+                    "status": obj["status"],
+                    "reviewed_digest_matches": obj["reviewed_digest_matches"],
+                },
+                item_path + ("mapping_id",),
+            )
         )
-    result.sort(key=lambda item: _utf16_sort_key(item["mapping_id"]))
-    return result
+    keyed = [(_utf16_sort_key(item["mapping_id"], path=mapping_path), item) for item, mapping_path in result]
+    keyed.sort(key=lambda pair: pair[0])
+    return [item for _, item in keyed]
 
 
 def profile_semantic_digest(projection: dict[str, Any]) -> str:
