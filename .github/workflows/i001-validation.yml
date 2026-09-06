@@ -9,18 +9,18 @@ on:
       - docs/research/I-001-structural-validator-research.md
       - docs/plans/I-001-structural-validator-plan.md
       - pyproject.toml
-      - schemas/**
       - src/tfont/**
       - tests/i001/**
+      - tests/packaging/**
   pull_request:
     paths:
       - .github/workflows/i001-validation.yml
       - docs/research/I-001-structural-validator-research.md
       - docs/plans/I-001-structural-validator-plan.md
       - pyproject.toml
-      - schemas/**
       - src/tfont/**
       - tests/i001/**
+      - tests/packaging/**
   workflow_dispatch:
 
 permissions:
@@ -42,6 +42,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
+          python -m pip install build
 
       - name: Show validation dependency versions
         run: |
