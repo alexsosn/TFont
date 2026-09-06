@@ -1,0 +1,51 @@
+name: F-006 deep source nesting
+
+on:
+  push:
+    branches:
+      - fix/deep-source-nesting
+    paths:
+      - "src/tfont/source_validation.py"
+      - "tests/i001/test_deep_source_nesting.py"
+      - "docs/research/F-006-deep-source-nesting.md"
+      - "docs/plans/F-006-deep-source-nesting-plan.md"
+      - ".github/workflows/f006-deep-source-nesting.yml"
+  pull_request:
+    paths:
+      - "src/tfont/source_validation.py"
+      - "tests/i001/test_deep_source_nesting.py"
+      - "docs/research/F-006-deep-source-nesting.md"
+      - "docs/plans/F-006-deep-source-nesting-plan.md"
+      - ".github/workflows/f006-deep-source-nesting.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Show environment
+        run: |
+          python --version
+          python -c "import sys; print('recursionlimit', sys.getrecursionlimit())"
+          python -c "import ruamel.yaml; print('ruamel.yaml', ruamel.yaml.__version__)"
+      - name: Run F-006 focused tests
+        run: python -m unittest tests.i001.test_deep_source_nesting -v
+      - name: Run I-001 suite
+        run: python -m unittest discover -s tests/i001 -v
+      - name: Run repository test suite
+        run: python -m unittest discover -s tests -v
