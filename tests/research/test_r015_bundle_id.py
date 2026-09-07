@@ -1,6 +1,16 @@
 from copy import deepcopy
 
+import pytest
+
 from scripts.research.r015_bundle_id import bundle_digest, dependency_states, executable
+
+
+def _scope():
+    return {
+        "source_term": "crm-old:E22",
+        "target_term": "crm-current:E22",
+        "relation": "reviewed-continuity",
+    }
 
 
 def _bundle():
@@ -20,6 +30,7 @@ def _bundle():
                 "source_lock_digest": "sha256:crm-old",
                 "target_lock_id": "crm-current",
                 "target_lock_digest": "sha256:crm-current",
+                "scope": _scope(),
                 "review_status": "reviewed",
                 "reviewed_content_digest": "sha256:bridge",
                 "compatibility": "compatible",
@@ -31,6 +42,7 @@ def _bundle():
                 "consumer": "crmtex",
                 "requires": "crm-old",
                 "satisfied_by": "bridge:crm-bridge",
+                "required_bridge_scope": _scope(),
                 "active": True,
             }
         ],
@@ -71,8 +83,6 @@ def test_bridge_digest_changes_bundle_identity():
 
 def test_unused_known_ontology_outside_active_bundle_is_irrelevant():
     a = _bundle()
-    # The active bundle is the object passed to the digester. A registry-level known
-    # ontology that is not selected must not be injected into this projection.
     registry_only = {"lock_id": "crmarchaeo", "digest": "sha256:arch"}
     assert registry_only not in a["ontology_locks"]
     assert bundle_digest(a) == bundle_digest(deepcopy(a))
@@ -136,6 +146,69 @@ def test_exact_locked_dependency_needs_no_bridge():
         {"id": "crmtex-crm", "state": "satisfied-exact-lock"}
     ]
     assert executable(b)
+
+
+def test_exact_lock_without_required_digest_fails_closed():
+    b = _bundle()
+    b["bridge_locks"] = []
+    b["dependency_edges"][0] = {
+        "id": "crmtex-crm",
+        "consumer": "crmtex",
+        "requires": "crm-old",
+        "satisfied_by": "lock:crm-old",
+        "active": True,
+    }
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "unbound-exact-lock"}
+    ]
+    assert not executable(b)
+
+
+def test_bridge_scope_must_match_dependency_scope():
+    b = _bundle()
+    b["dependency_edges"][0]["required_bridge_scope"] = {
+        "source_term": "crm-old:E55",
+        "target_term": "crm-current:E55",
+        "relation": "reviewed-continuity",
+    }
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "bridge-scope-mismatch"}
+    ]
+    assert not executable(b)
+
+
+def test_bridge_without_explicit_required_scope_fails_closed():
+    b = _bundle()
+    del b["dependency_edges"][0]["required_bridge_scope"]
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "unbound-bridge-scope"}
+    ]
+    assert not executable(b)
+
+
+def test_duplicate_lock_ids_are_rejected_before_hash_or_resolution():
+    b = _bundle()
+    b["ontology_locks"].append(
+        {"lock_id": "crm-old", "digest": "sha256:conflicting-release"}
+    )
+    with pytest.raises(ValueError, match="duplicate lock_id"):
+        bundle_digest(b)
+    with pytest.raises(ValueError, match="duplicate lock_id"):
+        dependency_states(b)
+    assert not executable(b)
+
+
+def test_duplicate_bridge_ids_are_rejected_before_hash_or_resolution():
+    b = _bundle()
+    duplicate = deepcopy(b["bridge_locks"][0])
+    duplicate["digest"] = "sha256:other-bridge"
+    duplicate["reviewed_content_digest"] = "sha256:other-bridge"
+    b["bridge_locks"].append(duplicate)
+    with pytest.raises(ValueError, match="duplicate bridge_id"):
+        bundle_digest(b)
+    with pytest.raises(ValueError, match="duplicate bridge_id"):
+        dependency_states(b)
+    assert not executable(b)
 
 
 def test_same_namespace_conceptually_does_not_override_content_identity():
