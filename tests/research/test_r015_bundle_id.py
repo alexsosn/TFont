@@ -2,7 +2,12 @@ from copy import deepcopy
 
 import pytest
 
-from scripts.research.r015_bundle_id import bundle_digest, dependency_states, executable
+from scripts.research.r015_bundle_id import (
+    bridge_content_digest,
+    bundle_digest,
+    dependency_states,
+    executable,
+)
 
 
 def _scope():
@@ -13,7 +18,24 @@ def _scope():
     }
 
 
+def _refresh_bridge(bridge, *, refresh_review=True):
+    bridge["digest"] = bridge_content_digest(bridge)
+    if refresh_review:
+        bridge["reviewed_content_digest"] = bridge["digest"]
+
+
 def _bundle():
+    bridge = {
+        "bridge_id": "crm-bridge",
+        "source_lock_id": "crm-old",
+        "source_lock_digest": "sha256:crm-old",
+        "target_lock_id": "crm-current",
+        "target_lock_digest": "sha256:crm-current",
+        "scope": _scope(),
+        "review_status": "reviewed",
+        "compatibility": "compatible",
+    }
+    _refresh_bridge(bridge)
     return {
         "schema_version": 1,
         "profile_contracts": ["written-text@1"],
@@ -22,20 +44,7 @@ def _bundle():
             {"lock_id": "crm-current", "digest": "sha256:crm-current"},
             {"lock_id": "crmtex", "digest": "sha256:crmtex"},
         ],
-        "bridge_locks": [
-            {
-                "bridge_id": "crm-bridge",
-                "digest": "sha256:bridge",
-                "source_lock_id": "crm-old",
-                "source_lock_digest": "sha256:crm-old",
-                "target_lock_id": "crm-current",
-                "target_lock_digest": "sha256:crm-current",
-                "scope": _scope(),
-                "review_status": "reviewed",
-                "reviewed_content_digest": "sha256:bridge",
-                "compatibility": "compatible",
-            }
-        ],
+        "bridge_locks": [bridge],
         "dependency_edges": [
             {
                 "id": "crmtex-crm",
@@ -85,10 +94,35 @@ def test_participating_ontology_digest_changes_bundle_identity():
     assert bundle_digest(a) != bundle_digest(b)
 
 
-def test_bridge_digest_changes_bundle_identity():
+def test_missing_ontology_digest_is_rejected():
+    b = _bundle()
+    del b["ontology_locks"][0]["digest"]
+    with pytest.raises(ValueError, match="missing digest"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_bridge_semantic_content_change_requires_new_digest():
+    b = _bundle()
+    b["bridge_locks"][0]["scope"]["source_term"] = "crm-old:E55"
+    with pytest.raises(ValueError, match="content digest mismatch"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_bridge_missing_digest_is_rejected():
+    b = _bundle()
+    del b["bridge_locks"][0]["digest"]
+    with pytest.raises(ValueError, match="missing digest"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_bridge_content_digest_change_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
-    b["bridge_locks"][0]["digest"] = "sha256:changed-bridge"
+    b["bridge_locks"][0]["evidence_digest"] = "sha256:new-evidence"
+    _refresh_bridge(b["bridge_locks"][0])
     assert bundle_digest(a) != bundle_digest(b)
 
 
@@ -96,6 +130,8 @@ def test_bridge_endpoint_change_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
     b["bridge_locks"][0]["target_lock_id"] = "other-target"
+    b["bridge_locks"][0]["target_lock_digest"] = "sha256:other-target"
+    _refresh_bridge(b["bridge_locks"][0])
     assert bundle_digest(a) != bundle_digest(b)
 
 
@@ -103,6 +139,7 @@ def test_bridge_scope_change_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
     b["bridge_locks"][0]["scope"]["source_term"] = "crm-old:E55"
+    _refresh_bridge(b["bridge_locks"][0])
     assert bundle_digest(a) != bundle_digest(b)
 
 
@@ -187,9 +224,19 @@ def test_unreviewed_bridge_cannot_execute():
     assert not executable(b)
 
 
-def test_review_is_bound_to_bridge_content_digest():
+def test_review_is_bound_to_bridge_content_digest_after_semantic_edit():
     b = _bundle()
-    b["bridge_locks"][0]["digest"] = "sha256:edited"
+    b["bridge_locks"][0]["scope"] = {
+        "source_term": "crm-old:E55",
+        "target_term": "crm-current:E55",
+        "relation": "reviewed-continuity",
+    }
+    b["dependency_edges"][0]["required_bridge_scope"] = deepcopy(
+        b["bridge_locks"][0]["scope"]
+    )
+    old_reviewed = b["bridge_locks"][0]["reviewed_content_digest"]
+    _refresh_bridge(b["bridge_locks"][0], refresh_review=False)
+    assert b["bridge_locks"][0]["reviewed_content_digest"] == old_reviewed
     assert dependency_states(b) == [{"id": "crmtex-crm", "state": "unreviewed-bridge"}]
     assert not executable(b)
 
@@ -197,6 +244,7 @@ def test_review_is_bound_to_bridge_content_digest():
 def test_incompatible_reviewed_bridge_fails_closed():
     b = _bundle()
     b["bridge_locks"][0]["compatibility"] = "incompatible"
+    _refresh_bridge(b["bridge_locks"][0])
     assert dependency_states(b) == [{"id": "crmtex-crm", "state": "incompatible-bridge"}]
     assert not executable(b)
 
@@ -204,6 +252,7 @@ def test_incompatible_reviewed_bridge_fails_closed():
 def test_missing_bridge_compatibility_fails_closed():
     b = _bundle()
     del b["bridge_locks"][0]["compatibility"]
+    _refresh_bridge(b["bridge_locks"][0])
     assert dependency_states(b) == [
         {"id": "crmtex-crm", "state": "unknown-bridge-compatibility"}
     ]
@@ -213,6 +262,7 @@ def test_missing_bridge_compatibility_fails_closed():
 def test_unknown_bridge_compatibility_fails_closed():
     b = _bundle()
     b["bridge_locks"][0]["compatibility"] = "unknown"
+    _refresh_bridge(b["bridge_locks"][0])
     assert dependency_states(b) == [
         {"id": "crmtex-crm", "state": "unknown-bridge-compatibility"}
     ]
@@ -309,6 +359,14 @@ def test_bridge_without_explicit_required_scope_fails_closed():
     assert not executable(b)
 
 
+def test_duplicate_profile_contract_ids_are_rejected():
+    b = _bundle()
+    b["profile_contracts"].append("written-text@1")
+    with pytest.raises(ValueError, match="duplicate profile contract ID"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
 def test_duplicate_lock_ids_are_rejected_before_hash_or_resolution():
     b = _bundle()
     b["ontology_locks"].append(
@@ -324,8 +382,8 @@ def test_duplicate_lock_ids_are_rejected_before_hash_or_resolution():
 def test_duplicate_bridge_ids_are_rejected_before_hash_or_resolution():
     b = _bundle()
     duplicate = deepcopy(b["bridge_locks"][0])
-    duplicate["digest"] = "sha256:other-bridge"
-    duplicate["reviewed_content_digest"] = "sha256:other-bridge"
+    duplicate["evidence_digest"] = "sha256:other-evidence"
+    _refresh_bridge(duplicate)
     b["bridge_locks"].append(duplicate)
     with pytest.raises(ValueError, match="duplicate bridge_id"):
         bundle_digest(b)
