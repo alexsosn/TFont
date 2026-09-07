@@ -39,6 +39,7 @@ def _bundle():
         "runtime_limitations": ["term-scoped continuity only"],
         "review_status": "reviewed",
         "review_id": "review:r015-f28-001",
+        "reviewer_id": "github:independent-reviewer",
         "reviewed_at": "2026-09-07T15:00:00Z",
     }
     _refresh_bridge(bridge)
@@ -82,11 +83,19 @@ def test_evidence_identity_is_required(field):
     assert not executable(b)
 
 
-@pytest.mark.parametrize("field", ["review_id", "reviewed_at"])
+@pytest.mark.parametrize("field", ["review_id", "reviewer_id", "reviewed_at"])
 def test_stable_review_identity_and_date_are_required(field):
     b = _bundle()
     del b["bridge_locks"][0][field]
     with pytest.raises(ValueError, match=field):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_review_timestamp_must_be_timezone_aware_iso8601():
+    b = _bundle()
+    b["bridge_locks"][0]["reviewed_at"] = "2026-09-07 15:00:00"
+    with pytest.raises(ValueError, match="reviewed_at"):
         bundle_digest(b)
     assert not executable(b)
 
@@ -145,9 +154,14 @@ def test_evidence_and_runtime_semantics_are_content_addressed():
 
 def test_review_identity_is_bundle_identity_but_display_name_is_not():
     a = _bundle()
-    b = deepcopy(a)
-    b["bridge_locks"][0]["review_id"] = "review:r015-f28-002"
-    assert bundle_digest(a) != bundle_digest(b)
+    for field, value in (
+        ("review_id", "review:r015-f28-002"),
+        ("reviewer_id", "github:other-independent-reviewer"),
+        ("reviewed_at", "2026-09-07T16:00:00Z"),
+    ):
+        b = deepcopy(a)
+        b["bridge_locks"][0][field] = value
+        assert bundle_digest(a) != bundle_digest(b), field
 
     c = deepcopy(a)
     c["bridge_locks"][0]["reviewer_display_name"] = "Display Name Only"
