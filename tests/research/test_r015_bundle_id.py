@@ -113,6 +113,44 @@ def test_dependency_binding_change_changes_bundle_identity():
     assert bundle_digest(a) != bundle_digest(b)
 
 
+def test_inactive_dependency_diagnostics_do_not_change_bundle_identity():
+    a = _bundle()
+    b = deepcopy(a)
+    b["dependency_edges"].append(
+        {
+            "id": "optional-archaeology",
+            "consumer": "missing-optional-consumer",
+            "requires": "missing-optional-requirement",
+            "satisfied_by": "bridge:missing-optional-bridge",
+            "required_bridge_scope": {"diagnostic": "one"},
+            "active": False,
+        }
+    )
+    digest = bundle_digest(b)
+    b["dependency_edges"][-1]["required_bridge_scope"] = {"diagnostic": "changed"}
+    assert bundle_digest(a) == digest == bundle_digest(b)
+    assert dependency_states(b)[-1] == {"id": "optional-archaeology", "state": "inactive"}
+
+
+def test_activating_optional_dependency_changes_bundle_identity():
+    a = _bundle()
+    b = deepcopy(a)
+    b["dependency_edges"].append(
+        {
+            "id": "optional-archaeology",
+            "consumer": "crmtex",
+            "requires": "crm-old",
+            "satisfied_by": "bridge:crm-bridge",
+            "required_bridge_scope": _scope(),
+            "active": False,
+        }
+    )
+    inactive_digest = bundle_digest(b)
+    b["dependency_edges"][-1]["active"] = True
+    assert inactive_digest == bundle_digest(a)
+    assert bundle_digest(b) != inactive_digest
+
+
 def test_unused_known_ontology_outside_active_bundle_is_irrelevant():
     a = _bundle()
     registry_only = {"lock_id": "crmarchaeo", "digest": "sha256:arch"}
