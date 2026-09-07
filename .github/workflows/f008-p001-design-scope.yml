@@ -26,8 +26,10 @@ jobs:
   design-scope-contract:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out exact head
+      - name: Check out exact source head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
