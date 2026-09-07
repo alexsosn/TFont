@@ -75,6 +75,7 @@ _REQUIRED_BRIDGE_STRING_FIELDS = (
 )
 _RUNTIME_STRENGTHS = {"exact", "approximate", "related", "composition-only"}
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_SCHEMA_VERSION = 1
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -142,10 +143,8 @@ def _validate_reviewed_at(value: Any, *, bridge_id: str) -> None:
 
 
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
-    # Reuse I-002 UTF-16/set semantics for profile-contract IDs.
     _normalize_unique_strings(bundle.get("profile_contracts", []), path=("profile_contracts",))
 
-    # Ontology-lock IDs are validated by the accepted I-002 lock normalizer.
     for collection, id_key in (
         ("bridge_locks", "bridge_id"),
         ("dependency_edges", "id"),
@@ -159,8 +158,6 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
                 raise ValueError(f"duplicate {id_key}: {item_id}")
             seen.add(item_id)
 
-    # `active` is an authorization boundary: only an exact JSON boolean may
-    # intentionally deactivate an optional dependency. Missing means active=true.
     for edge in bundle.get("dependency_edges", []):
         if "active" in edge and type(edge["active"]) is not bool:
             raise ValueError(
@@ -206,13 +203,6 @@ def _validate_bridge_term_membership(
     *,
     locks: dict[str, dict[str, Any]],
 ) -> None:
-    """Bind a current bridge scope to the terms declared by its exact endpoint locks.
-
-    If an endpoint lock is absent or differs by release/payload digest, dependency
-    evaluation owns the `missing-lock`/`stale-bridge` diagnostic. Membership is checked
-    only once the bridge really points at the participating endpoint identity.
-    """
-
     bridge_id = bridge.get("bridge_id", "<unknown>")
     scope = bridge["scope"]
     for side in ("source", "target"):
@@ -246,20 +236,16 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
             if not bridge.get(key):
                 raise ValueError(f"bridge {bridge_id} missing {key}")
         _require_nonempty_string(
-            bridge["source_lock_release"],
-            label=f"bridge {bridge_id} source_lock_release",
+            bridge["source_lock_release"], label=f"bridge {bridge_id} source_lock_release"
         )
         _require_nonempty_string(
-            bridge["target_lock_release"],
-            label=f"bridge {bridge_id} target_lock_release",
+            bridge["target_lock_release"], label=f"bridge {bridge_id} target_lock_release"
         )
         _validate_digest(
-            bridge["source_lock_digest"],
-            label=f"bridge {bridge_id} source_lock_digest",
+            bridge["source_lock_digest"], label=f"bridge {bridge_id} source_lock_digest"
         )
         _validate_digest(
-            bridge["target_lock_digest"],
-            label=f"bridge {bridge_id} target_lock_digest",
+            bridge["target_lock_digest"], label=f"bridge {bridge_id} target_lock_digest"
         )
         _validate_scope(bridge.get("scope"), label=f"bridge {bridge_id} scope")
         _validate_bridge_provenance(bridge, bridge_id=bridge_id)
@@ -297,6 +283,9 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
 
 
 def _validate_bundle(bundle: dict[str, Any]) -> None:
+    schema_version = bundle.get("schema_version")
+    if type(schema_version) is not int or schema_version != _SCHEMA_VERSION:
+        raise ValueError(f"schema_version must be the supported exact integer {_SCHEMA_VERSION}")
     _validate_unique_ids(bundle)
     _validate_content_identity(bundle)
 
@@ -315,8 +304,7 @@ def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": bundle["schema_version"],
         "profile_contracts": _normalize_unique_strings(
-            bundle.get("profile_contracts", []),
-            path=("profile_contracts",),
+            bundle.get("profile_contracts", []), path=("profile_contracts",)
         ),
         "ontology_locks": ontology_locks,
         "bridge_locks": sorted(bridge_refs, key=_canonical_bytes),
@@ -392,7 +380,9 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             if not required_id or bridge.get("source_lock_id") != required_id:
                 states.append({"id": edge_id, "state": "bridge-requires-mismatch"})
                 continue
-            if _canonical_bytes(edge.get("required_bridge_scope")) != _canonical_bytes(bridge.get("scope")):
+            if _canonical_bytes(edge.get("required_bridge_scope")) != _canonical_bytes(
+                bridge.get("scope")
+            ):
                 states.append({"id": edge_id, "state": "bridge-scope-mismatch"})
                 continue
 
