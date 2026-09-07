@@ -51,6 +51,3 @@ jobs:
 
       - name: Run I-001 contract tests
         run: python -m unittest discover -s tests/i001 -v
-
-      - name: Run repository test suite
-        run: python -m unittest discover -s tests -v

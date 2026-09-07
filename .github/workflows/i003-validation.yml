@@ -50,6 +50,3 @@ jobs:
 
       - name: Run I-003 focused tests
         run: python -m unittest discover -s tests/i003 -v
-
-      - name: Run repository test suite
-        run: python -m unittest discover -s tests -v

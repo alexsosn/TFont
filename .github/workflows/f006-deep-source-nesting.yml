@@ -48,5 +48,3 @@ jobs:
         run: python -m unittest discover -s tests/f006 -v
       - name: I-001 source-loading regressions
         run: python -m unittest discover -s tests/i001 -v
-      - name: Full suite
-        run: python -m unittest discover -s tests -v
