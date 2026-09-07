@@ -138,9 +138,15 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             if bridge.get("reviewed_content_digest") != bridge.get("digest"):
                 states.append({"id": edge_id, "state": "unreviewed-bridge"})
                 continue
-            if bridge.get("compatibility") == "incompatible":
+
+            compatibility = bridge.get("compatibility")
+            if compatibility == "incompatible":
                 states.append({"id": edge_id, "state": "incompatible-bridge"})
                 continue
+            if compatibility != "compatible":
+                states.append({"id": edge_id, "state": "unknown-bridge-compatibility"})
+                continue
+
             states.append({"id": edge_id, "state": "satisfied-reviewed-bridge"})
             continue
 
