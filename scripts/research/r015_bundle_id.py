@@ -38,6 +38,13 @@ _EDGE_FIELDS = (
     "required_lock_digest",
     "required_bridge_scope",
 )
+_REQUIRED_SCOPE_FIELDS = ("source_term", "target_term", "relation")
+_REQUIRED_BRIDGE_ENDPOINT_FIELDS = (
+    "source_lock_id",
+    "source_lock_digest",
+    "target_lock_id",
+    "target_lock_digest",
+)
 
 
 def _canonical_item(value: Any) -> str:
@@ -53,6 +60,15 @@ def bridge_content_digest(bridge: dict[str, Any]) -> str:
 
     payload = _canonical_item(_project(bridge, _BRIDGE_CONTENT_FIELDS)).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _validate_scope(scope: Any, *, label: str) -> None:
+    if not isinstance(scope, dict) or not scope:
+        raise ValueError(f"{label} must be a non-empty object")
+    for key in _REQUIRED_SCOPE_FIELDS:
+        value = scope.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{label} missing non-empty {key}")
 
 
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
@@ -77,19 +93,49 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
             seen.add(item_id)
 
 
+def _active_bridge_ids(bundle: dict[str, Any]) -> set[str]:
+    result: set[str] = set()
+    for edge in bundle.get("dependency_edges", []):
+        if not edge.get("active", True):
+            continue
+        satisfied_by = edge.get("satisfied_by", "")
+        if satisfied_by.startswith("bridge:"):
+            bridge_id = satisfied_by.removeprefix("bridge:")
+            if bridge_id:
+                result.add(bridge_id)
+    return result
+
+
 def _validate_content_identity(bundle: dict[str, Any]) -> None:
     for lock in bundle.get("ontology_locks", []):
         if not lock.get("digest"):
             raise ValueError(f"ontology lock {lock.get('lock_id', '<unknown>')} missing digest")
 
+    active_bridge_ids = _active_bridge_ids(bundle)
     for bridge in bundle.get("bridge_locks", []):
         bridge_id = bridge.get("bridge_id", "<unknown>")
+        if bridge_id not in active_bridge_ids:
+            raise ValueError(f"bridge {bridge_id} is not referenced by an active dependency")
+        for key in _REQUIRED_BRIDGE_ENDPOINT_FIELDS:
+            if not bridge.get(key):
+                raise ValueError(f"bridge {bridge_id} missing {key}")
+        _validate_scope(bridge.get("scope"), label=f"bridge {bridge_id} scope")
         digest = bridge.get("digest")
         if not digest:
             raise ValueError(f"bridge {bridge_id} missing digest")
         expected = bridge_content_digest(bridge)
         if digest != expected:
             raise ValueError(f"bridge {bridge_id} content digest mismatch")
+
+    for edge in bundle.get("dependency_edges", []):
+        if not edge.get("active", True):
+            continue
+        satisfied_by = edge.get("satisfied_by", "")
+        if satisfied_by.startswith("bridge:"):
+            _validate_scope(
+                edge.get("required_bridge_scope"),
+                label=f"dependency {edge.get('id', '<unknown>')} required_bridge_scope",
+            )
 
 
 def _validate_bundle(bundle: dict[str, Any]) -> None:
@@ -202,9 +248,6 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
 
             required_scope = edge.get("required_bridge_scope")
             bridge_scope = bridge.get("scope")
-            if required_scope is None or bridge_scope is None:
-                states.append({"id": edge_id, "state": "unbound-bridge-scope"})
-                continue
             if _canonical_item(required_scope) != _canonical_item(bridge_scope):
                 states.append({"id": edge_id, "state": "bridge-scope-mismatch"})
                 continue
