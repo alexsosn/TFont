@@ -1,412 +1,393 @@
 # R-015: ontology-bundle composition and bridge-lock provenance semantics
 
-**Status:** research complete; pending fresh logically-independent adversarial review  
+**Status:** research/prototype complete; revised after multiple exact-head adversarial reviews; pending final logically-independent review  
 **Issue:** #49  
 **Recorded:** 2026-09-07  
-**Depends on:** accepted P-001/R-002/R-006/R-010/R-012 and merged roadmap guardrail #45
+**Depends on:** accepted P-001/R-002/R-006/R-010/R-012 and merged R-011/R-013/R-014
 
 ## Decision
 
-TFont should model a semantic composition as a **content-addressed bundle of independently locked ontology releases plus explicit reviewed bridge artifacts**, not as one OWL import closure and not as a bag of live namespace URLs.
+TFont semantic composition must be a **content-addressed active bundle** of independently locked ontology releases plus explicit, term-scoped, reviewed bridge artifacts. It is not one OWL import closure and not a bag of live namespace URLs.
 
-The runtime composition contract is:
+The active bundle identity is derived from:
 
 ```text
-individual ontology lock(s)
-        +
-explicit bridge lock(s), only where an active dependency path needs them
-        +
-profile activation/dependency selection
-        ↓
-canonical semantic bundle projection
-        ↓ canonical JSON / UTF-8 / sorted set-like collections
+unique active profile-contract IDs
++ exact participating ontology-lock identities
++ reviewed bridge artifacts referenced by active dependency edges
++ active dependency bindings
+    ↓ explicit semantic projection
+canonical JSON / UTF-8 / stable set ordering
+    ↓
 SHA-256 bundle identity
 ```
 
-Existing P-001 ontology locks remain authoritative for individual model snapshots. R-015 adds a higher-level composition identity and makes bridge evidence first-class.
+P-001 ontology locks remain authoritative for individual ontology snapshots. R-015 adds only the **composition layer**: which exact locks and bridges participate together, which dependency each bridge satisfies, and which active profile contract requires that composition.
 
-A bundle is **not** “all ontologies TFont knows about”. It is the exact semantic dependency closure needed by one active profile/mapping set. Inactive optional profiles do not contribute ontology or bridge dependencies and cannot fail merely because a bridge for that unused profile is unavailable.
+The main fail-closed invariant is:
 
-## 1. Why individual ontology locks are not enough
+> **A dependency is executable only when the active consumer lock exists, the required dependency identity is exact, and that requirement is satisfied either by the exact required lock digest or by one content-valid, reviewed, explicitly compatible bridge whose source lock and term scope exactly match the dependency edge.**
 
-The current v1 `ontology-lock.schema.json` correctly pins an individual ontology by fields including:
+Inactive optional-profile diagnostics do not contribute active dependency edges or bridge locks to the bundle identity.
 
-- `ontology_id`;
-- `release`;
-- `source_uri` / source revision;
-- `content_digest`;
-- `snapshot_artifact`;
-- licence / redistribution policy;
-- `terms_used`.
+## 1. Why individual ontology locks are insufficient
 
-That solves snapshot identity, but not composition identity.
+P-001 already pins an individual ontology release/snapshot with identity such as ontology/release/source/content digest/snapshot metadata and terms used. That is sufficient for one model in isolation.
 
-A query may simultaneously depend on multiple releases whose upstream dependency graphs are not mutually current. The bundle must therefore answer:
+A TFont semantic profile, however, may use several standards whose published dependency releases differ. The composition contract must additionally answer:
 
-1. which exact ontology snapshots participate;
-2. which upstream dependency releases are being respected;
-3. which explicit cross-release bridge assertions participate;
-4. whether those bridges were reviewed for the exact source/target releases and terms used;
-5. whether an optional dependency is actually active;
-6. whether changing any participating lock/bridge changes the reproducible semantic identity.
+1. which exact ontology-lock identities participate;
+2. which active term-level dependency edges are required;
+3. whether an edge is satisfied by an exact locked release or a reviewed bridge;
+4. whether a bridge is bound to the exact source/target lock digests and exact term scope;
+5. whether editing bridge semantic content invalidated the content digest or review binding;
+6. whether an optional profile is actually active;
+7. whether the resulting active closure has one deterministic semantic identity.
 
 ## 2. Authoritative version-skew evidence
 
-### 2.1 CRMtex 2.0
+### CRMtex 2.0
 
-CIDOC CRM's CRMtex 2.0 declarations state that CRMtex 2.0 references:
+CRMtex 2.0 declares dependencies on:
 
 - CIDOC CRM 7.1.2;
 - CRMinf 0.7(b);
 - CRMsci 2.0;
 - FRBRoo 2.4.
 
-Primary source: <https://cidoc-crm.org/extensions/crmtex/html/CRMtex_v2.0.html>.
+Primary declaration: <https://cidoc-crm.org/extensions/crmtex/html/CRMtex_v2.0.html>.
 
-The current TFont semantic basis otherwise uses current releases such as CIDOC CRM 7.1.3, LRMoo 1.1.1 and CRMinf 1.2.1. R-012 already established that TFont must not silently replace CRMtex's historical dependencies with current axioms. It permits only term-scoped reviewed bridges where an active mapping actually needs them.
+The accepted current TFont basis otherwise uses current releases including CIDOC CRM 7.1.3, LRMoo 1.1.1 and CRMinf 1.2.1. R-012 established that TFont must not silently reinterpret CRMtex 2.0 through current axioms. Only independently reviewed term-scoped continuity bridges may cross that release boundary.
 
-### 2.2 LRMoo 1.1.1 / CRMinf 1.2.1
+### LRMoo 1.1.1 and CRMinf 1.2.1
 
-LRMoo 1.1.1 references CIDOC CRM 7.1.3. CRMinf 1.2.1 likewise references CIDOC CRM 7.1.3.
+Current LRMoo 1.1.1 and CRMinf 1.2.1 use CIDOC CRM 7.1.3 as their current CRM basis.
 
-Primary sources:
+Primary declarations:
 
 - <https://cidoc-crm.org/extensions/lrmoo/html/LRMoo_v1.1.1.html>
 - <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>
 
-These releases can share a current CRM basis, but that does not retroactively modernize CRMtex 2.0's own declared closure.
+This current shared basis does not retroactively modernize CRMtex 2.0's historical dependency closure.
 
-### 2.3 CRMarchaeo 2.1.1
+### CRMarchaeo 2.1.1
 
-Stable CRMarchaeo 2.1.1 references CIDOC CRM 7.1.2 and CRMsci 2.0. R-010 accepted current TFont heritage/scientific work against CIDOC CRM 7.1.3 and CRMsci 3.2.
+Stable CRMarchaeo 2.1.1 references CIDOC CRM 7.1.2 and CRMsci 2.0, while the accepted current TFont stack uses CIDOC CRM 7.1.3 and CRMsci 3.2 for current heritage/scientific composition.
 
-Primary source: <https://cidoc-crm.org/node/8943> and the 2.1.1 model declarations.
+Primary release/declaration source: <https://cidoc-crm.org/node/8943>.
 
-Therefore CRMarchaeo creates a second, independent proof that bundle semantics cannot be designed as one assumed-current import closure.
+This independently confirms that TFont cannot assume one globally current CIDOC-family import closure.
 
-## 3. Three separate identities
-
-TFont must keep these distinct:
+## 3. Three distinct identities
 
 ### 3.1 Ontology lock identity
 
-Identity of one pinned model release/snapshot.
+One P-001-pinned ontology snapshot. R-015 references it by stable lock ID plus content digest; it does not duplicate the ontology payload.
 
-Conceptually:
+Conceptual reference:
 
 ```json
 {
   "lock_id": "crmtex-2.0",
-  "ontology_id": "crmtex",
-  "release": "2.0",
-  "content_digest": "sha256:..."
+  "digest": "sha256:..."
 }
 ```
 
-This is the existing P-001 layer.
+Every participating ontology reference must have a non-empty content digest. Duplicate lock IDs are schema-invalid.
 
-### 3.2 Bridge lock identity
+### 3.2 Bridge artifact identity
 
-Identity of one reviewed cross-release semantic bridge artifact.
+A bridge is one explicit cross-release semantic assertion. It must bind:
 
-A bridge lock binds at least:
+- exact source lock ID + digest;
+- exact target lock ID + digest;
+- explicit term scope;
+- controlled relation/assertion identity;
+- explicit compatibility result;
+- optional evidence/assertion digest fields;
+- bridge semantic-content digest;
+- review status and the exact bridge-content digest that was reviewed.
 
-- bridge artifact ID and schema version;
-- exact source ontology lock ID + digest;
-- exact target ontology lock ID + digest;
-- bridge direction;
-- exact term/assertion scope;
-- relation/continuity assertion kind;
-- evidence references;
-- review identity/status;
-- bridge content digest;
-- optional expiry/supersession metadata.
-
-A bridge is not authorized by matching local names, labels, namespaces or stable-looking IRIs.
-
-### 3.3 Bundle identity
-
-Identity of the exact active semantic composition used for capability discovery/resolution.
-
-It includes references to participating ontology lock identities, bridge lock identities and dependency/profile activation facts. It does **not** copy live ontology content into the bundle projection.
-
-## 4. Canonical bundle projection
-
-P-003 should define a versioned canonical projection equivalent to:
+The research prototype requires scope equivalent to:
 
 ```json
 {
-  "schema_version": 1,
-  "profile_contracts": ["written-text@1"],
-  "ontology_locks": [
-    {"lock_id": "crm-7.1.3", "digest": "sha256:..."},
-    {"lock_id": "crmtex-2.0", "digest": "sha256:..."}
-  ],
-  "bridge_locks": [
-    {"bridge_id": "crmtex-f28-to-lrmoo-1", "digest": "sha256:..."}
-  ],
-  "dependency_edges": [
-    {
-      "consumer": "crmtex-2.0",
-      "requires": "frbroo-2.4/F28",
-      "satisfied_by": "bridge:crmtex-f28-to-lrmoo-1"
-    }
-  ]
+  "source_term": "...",
+  "target_term": "...",
+  "relation": "reviewed-continuity"
 }
 ```
 
-Set-like collections are sorted by stable identity before canonicalization. JSON object keys follow the accepted canonical JSON/digest rules from P-001/I-002. Presentation order, retrieval timestamp and audit-only reviewer display metadata do not affect the semantic digest unless explicitly promoted into the canonical semantic contract.
+Empty, scalar, or opaque ontology-wide bridge scope is invalid. This preserves the R-012 rule that one valid F28 continuity bridge never upgrades an entire old ontology to “compatible with current”.
 
-## 5. Bridge artifact semantics
+Bridge semantic content is content-addressed separately from review wrapper metadata. The reference prototype digests canonical semantic fields including source/target lock identities, term scope, compatibility, and optional assertion/evidence digest fields. A changed endpoint/scope/compatibility with an old bridge digest is invalid input. A newly computed bridge digest with an old `reviewed_content_digest` is non-executable until reviewed again.
 
-### 5.1 Bridges are explicit evidence-bearing assertions
+Duplicate bridge IDs are schema-invalid.
 
-Every bridge assertion must identify:
+### 3.3 Bundle identity
 
-```text
-source release + source term
-        ↓ reviewed continuity/mapping assertion
-exact target release + target term
+The bundle identifies the exact active semantic composition used for capability inspection/resolution. It references ontology locks and reviewed bridge artifacts; it does not copy ontology graphs into one synthetic import closure.
+
+## 4. Canonical semantic projection
+
+The bundle digest is computed from an explicit allow-list projection, not from a deep copy of arbitrary JSON.
+
+Identity-bearing fields include:
+
+- `schema_version`;
+- unique profile contract IDs;
+- ontology lock `{lock_id, digest}` references;
+- bridge semantic/operational identity fields;
+- **active** dependency-edge binding fields.
+
+Nested audit/presentation metadata such as retrieval timestamps, reviewer display names, licence notes, and display labels do not affect semantic bundle identity.
+
+Set-like collections are canonicalized deterministically. Duplicate semantic IDs are rejected rather than silently overwritten or double-counted.
+
+Inactive dependency edges may remain in diagnostic input, but are excluded from the active semantic projection. Activating such an edge changes bundle identity.
+
+Every bridge lock included in the active bundle must be referenced by at least one active dependency edge. An unreferenced bridge or a bridge referenced only by an inactive edge is not active-bundle content and is rejected by the reference validator.
+
+Ontology locks are the already-selected active lock set supplied by the bundle builder; registry-only known ontologies remain outside the bundle.
+
+## 5. Dependency-edge contract
+
+An active dependency edge has conceptual fields such as:
+
+```json
+{
+  "id": "crmtex-f28-dependency",
+  "consumer": "crmtex-2.0",
+  "requires": "frbroo-2.4",
+  "satisfied_by": "bridge:crmtex-f28-lrmoo",
+  "required_bridge_scope": {
+    "source_term": "frbroo-2.4:F28",
+    "target_term": "lrmoo-1.1.1:F28",
+    "relation": "reviewed-continuity"
+  },
+  "active": true
+}
 ```
 
-A bridge may assert continuity, replacement, retained identifier semantics, reviewed broader/narrower relation, or another controlled migration relation. R-015 does not require one universal bridge predicate.
+The edge is not merely descriptive metadata. The reference validator enforces graph binding:
 
-### 5.2 Term-scoped, not ontology-wide
+- `consumer` must identify a participating ontology lock;
+- for `lock:<id>`, `edge.requires` must equal that lock ID and `required_lock_digest` must be explicit and match;
+- for `bridge:<id>`, `bridge.source_lock_id` must equal `edge.requires`;
+- edge `required_bridge_scope` must exactly match the bridge's validated term scope;
+- bridge source and target lock digests must match participating ontology locks;
+- bridge review must be `reviewed` and bound to the current bridge content digest;
+- bridge compatibility must be explicitly `compatible` to satisfy the edge.
 
-R-012 demonstrated why ontology-wide compatibility is unsafe. For example, F28 continuity may be supportable from official FRBRoo→LRMoo migration evidence while old/new CRMinf hierarchy cannot be wholesale substituted.
+Unknown/missing compatibility never defaults to success.
 
-Therefore one valid bridge never upgrades the entire source model to “compatible with latest”.
+## 6. Fail-closed outcomes
 
-### 5.3 Content-addressed and reviewed
+The research contract distinguishes dependency diagnostics equivalent to:
 
-A bridge artifact must have:
+- `satisfied-exact-lock`;
+- `satisfied-reviewed-bridge`;
+- `inactive`;
+- `missing-consumer-lock`;
+- `missing-lock`;
+- `dependency-lock-mismatch`;
+- `unbound-exact-lock`;
+- `missing-bridge`;
+- `bridge-requires-mismatch`;
+- `bridge-scope-mismatch`;
+- `stale-bridge`;
+- `unreviewed-bridge`;
+- `incompatible-bridge`;
+- `unknown-bridge-compatibility`.
 
-- deterministic canonical content;
-- `content_digest`;
-- immutable source/target lock digests;
-- evidence and rationale;
-- explicit review state;
-- review bound to the bridge content digest;
-- reproducible local snapshot/reference for the evidence where licensing permits.
+Malformed bridge scope, duplicate IDs, missing content digests, unreferenced bridge locks, and bridge semantic-content digest mismatch are schema/identity errors and therefore non-executable before dependency evaluation.
 
-Editing bridge semantics invalidates its review and changes all bundle identities that consume it.
+Aggregate bundle execution is allowed only when every active dependency is satisfied by an exact lock or reviewed compatible bridge and the ordinary parent/profile compatibility gates also pass.
 
-## 6. Bundle dependency resolution
+## 7. Optional-profile semantics
 
-Bundle construction is demand-driven from active profiles/mappings.
-
-Algorithmically:
-
-```text
-active mappings/profile capabilities
-    ↓
-collect ontology locks actually used
-    ↓
-collect declared dependency edges required by those terms/projections
-    ↓
-for each dependency edge:
-    exact compatible locked release available? -> satisfy directly
-    reviewed bridge available?                 -> satisfy via bridge
-    otherwise                                  -> unresolved dependency
-    ↓
-if any required dependency unresolved -> bundle non-executable
-else -> canonicalize and digest
-```
-
-Do not traverse an ontology's entire superclass/import graph merely because a snapshot contains it. The canonical semantic dependency closure is the reviewed TFont execution dependency closure.
-
-## 7. Optional-profile rule
-
-This distinction is mandatory:
+Mandatory distinction:
 
 ```text
 profile absent/inactive
     !=
-profile active but bridge missing
+profile active but dependency unresolved
 ```
 
 Example:
 
-- corpus has no archaeology capability → no CRMarchaeo bundle dependency → status `absent`; no bridge error;
-- corpus activates a CRMarchaeo mapping whose term requires the 7.1.2/CRMsci 2.0 closure → dependency enters active bundle;
-- if current-stack composition needs an explicit bridge and it is missing/stale/incompatible → `unavailable` / non-executable with bridge diagnostic.
+- no archaeology capability in a corpus → no active CRMarchaeo dependency/bridge in the bundle → profile `absent`, no bridge warning;
+- future corpus activates a CRMarchaeo mapping → its required locks/dependency edges enter the active bundle;
+- required cross-release bridge missing/stale/unreviewed/incompatible → profile `unavailable` / query non-executable with explicit dependency diagnostic.
 
-TFont must never emit a scary “CRMarchaeo bridge broken” warning for a linguistic corpus that never activated archaeology.
+Inactive diagnostic edges do not affect bundle identity. Bridge locks used only by inactive edges are not valid active-bundle content.
 
-## 8. Failure states
+## 8. Composition examples
 
-At minimum P-003 needs machine-readable dependency outcomes equivalent to:
+### 8.1 OLiA + OntoLex + SKOS
 
-- `satisfied-exact-lock` — active requirement is satisfied by the exact locked dependency release;
-- `satisfied-reviewed-bridge` — active requirement is satisfied through a reviewed bridge locked to exact source/target snapshots;
-- `missing-lock` — required ontology snapshot is absent;
-- `missing-bridge` — active cross-release dependency has no accepted bridge;
-- `stale-bridge` — bridge points to old source/target lock digest;
-- `unreviewed-bridge` — bridge exists but is not accepted for execution;
-- `incompatible-bridge` — review/evidence explicitly rejects the attempted composition;
-- `inactive` — optional dependency/profile not activated; not an error.
+A linguistic+lexical profile may include separate OLiA, OntoLex and SKOS locks. Multiple ontology locks alone do not imply a bridge. If no cross-release bridge is required for the reviewed mappings, the bundle contains zero bridge locks.
 
-Aggregate bundle state is executable only when every active requirement is satisfied by exact lock or reviewed bridge and normal parent/profile compatibility gates also pass.
+### 8.2 CIDOC CRM + LRMoo + CRMinf
 
-## 9. Migration behavior
+A current textological composition may use CRM 7.1.3, LRMoo 1.1.1 and CRMinf 1.2.1. The exact lock set still participates in bundle identity even when no bridge is required.
 
-### 9.1 Ontology release changes
+### 8.3 CRMtex 2.0
 
-If one participating ontology lock changes, the bundle digest changes even if no mapping YAML changes.
+A CRMtex mapping that uses only semantics that do not cross the R-012 bridge surface keeps CRMtex's version-faithful dependency basis.
 
-Mappings referencing terms from the new lock require the ordinary mapping/lock compatibility validation. Any bridge referencing the previous digest becomes stale until reviewed or regenerated.
+When a query activates a reviewed bridge-covered term such as an officially retained migration target, that exact bridge and edge scope enter the active bundle and resolution provenance.
 
-### 9.2 Bridge changes
+No old/new hierarchy union reasoning is implied.
 
-Any semantic change to a bridge changes bridge digest and bundle digest. Review is content-bound and must be refreshed.
+### 8.4 CRMarchaeo 2.1.1
 
-### 9.3 Unused ontology updates
+A corpus without archaeology capability has no CRMarchaeo active dependency.
 
-Updating a known but inactive ontology does **not** change a corpus/profile bundle that does not include it.
+A future archaeology profile must respect CRMarchaeo 2.1.1's declared CRM 7.1.2/CRMsci 2.0 basis. If composed with current CRM/CRMsci semantics, every needed cross-release bridge must be explicit, term-scoped, content-addressed and reviewed.
 
-This makes capability/result provenance meaningful rather than globally invalidating TFont whenever any supported ontology publishes a new release.
+## 9. Migration and identity behavior
 
-## 10. Composition examples
+### Participating ontology update
 
-### 10.1 OLiA + OntoLex + SKOS
+Changing a participating ontology lock digest changes bundle identity. Bridges pinned to the old endpoint digest become stale until replaced/reviewed.
 
-A linguistic+lexical corpus may use:
+### Bridge semantic edit
 
-- OLiA lock for corpus annotation categories;
-- OntoLex core lock for lexical entry/sense classes;
-- SKOS lock where shared LexicalConcept/concept mapping semantics are used.
+Changing bridge endpoint/scope/compatibility/evidence semantic content changes the bridge content digest and therefore bundle identity. Existing review binding no longer authorizes the changed bridge.
 
-If these projections do not require a cross-version semantic bridge, the bundle has several ontology locks and zero bridge locks. Multiple ontologies alone do not imply bridge complexity.
+### Review-state change
 
-### 10.2 CRM + LRMoo + CRMinf
+Bridge review state/binding participates in the bundle semantic/operational projection. A draft/unreviewed bridge cannot satisfy an active edge.
 
-A textological corpus may activate current CRM 7.1.3, LRMoo 1.1.1 and CRMinf 1.2.1. Their current dependency basis is coherent around CRM 7.1.3 for the reviewed terms used.
+### Inactive/registry-only update
 
-Again, explicit bundle identity is still required because a later release of any member changes reproducibility.
+Updating a known ontology or optional-profile artifact that is not part of the active bundle does not change the active bundle identity.
 
-### 10.3 CRMtex 2.0
-
-A written-text mapping that uses only CRMtex terms whose execution does not activate the FRBRoo/old-CRMinf bridge surface may keep the version-faithful CRMtex dependency closure without inventing a modern bridge.
-
-If a mapping/query uses a CRMtex path whose semantics depend on a term covered by R-012's reviewed modern bridge, the bridge becomes part of the active bundle and therefore of the resolution fingerprint/provenance.
-
-### 10.4 CRMarchaeo 2.1.1
-
-For a corpus with no archaeology capability: no CRMarchaeo lock/bridge in the active bundle.
-
-For a future corpus with explicit excavation semantics: CRMarchaeo 2.1.1 and its declared CRM 7.1.2/CRMsci 2.0 dependencies must be respected. If TFont composes those semantics with current CRM/CRMsci projections, any necessary cross-release bridge is explicit and reviewed; absence is fail-closed.
-
-## 11. Agent-facing provenance
+## 10. Agent-facing provenance
 
 ### `semantic_capabilities`
 
-Compact output should expose:
+Compact output should expose at least:
 
-- profile identity/version;
-- bundle ID/digest;
+- profile ID/contract version;
+- bundle digest;
 - active ontology lock IDs/releases;
-- bridge count and aggregate bridge state;
-- optional profile state (`active|absent|unavailable`);
+- number/aggregate state of active bridges;
+- profile operational state;
 - no full bridge dump by default.
 
 ### `semantic_resolve`
 
-Each corpus plan should expose:
+Per-corpus plan should expose:
 
-- bundle digest used for resolution;
+- bundle digest;
 - mapping/projection IDs;
-- required ontology lock identities;
-- bridge identities actually traversed by the requested semantic atoms;
-- any unresolved dependency and reason;
+- required ontology locks;
+- bridge IDs actually traversed for requested semantic atoms;
+- unresolved dependency state/reason;
 - execution allowed/denied.
 
 ### Full explanation
 
-Add:
+Add source/target lock digests, bridge scope, content digest, reviewed-content digest, evidence/review provenance, and dependency path.
 
-- exact source/target lock digests;
-- bridge assertion scope;
-- evidence/review identity;
-- dependency path;
-- supersession/staleness reason when applicable.
+Pagination/results must not silently switch bundle identity.
 
-A result page/pagination token must not silently switch bundle identity.
+## 11. P-001 retained vs P-003 amendment
 
-## 12. P-001 contracts retained vs amended
-
-### Retained
+### Retain P-001
 
 - individual ontology snapshot locks;
 - content digests;
-- deterministic canonicalization;
-- evidence/review binding;
-- fail-closed compatibility;
-- semantic digest/provenance discipline.
+- deterministic canonicalization rules;
+- source/snapshot provenance;
+- fail-closed parent compatibility discipline.
 
-### P-003 amendment required
+### P-003 must add
 
-- add first-class semantic-bundle identity;
-- allow multiple ontology locks per active profile/mapping projection set;
-- add explicit bridge artifacts/locks;
-- include bundle + bridge identities in normalized IR and resolution fingerprints;
-- dependency validation must distinguish exact-lock vs reviewed-bridge satisfaction;
-- optional inactive profiles do not create missing-dependency errors;
-- a single per-mapping `ontology_lock` field is insufficient as the final composition model.
+- first-class semantic-bundle identity;
+- multiple ontology-lock references per active mapping/profile set;
+- explicit bridge artifacts and content digests;
+- term-scoped active dependency edges;
+- bundle/bridge identity in normalized IR and resolution fingerprint;
+- explicit exact-lock vs reviewed-bridge satisfaction;
+- unique-ID and content-address validation;
+- inactive optional-profile separation;
+- canonical semantic projection that excludes audit/presentation metadata.
 
-## 13. Research prototype / TDD contract
+A single per-mapping `ontology_lock` field is insufficient as the final composition model.
 
-R-015 should be accompanied by a non-production deterministic bundle-ID prototype and tests.
+## 12. Executable research/TDD contract
 
-Required RED/GREEN invariants:
+Non-production artifacts:
 
-1. reordering ontology locks does not change bundle digest;
-2. reordering bridge locks does not change bundle digest;
-3. reordering dependency edges does not change bundle digest;
-4. changing a participating ontology digest changes bundle digest;
-5. changing bridge content digest changes bundle digest;
-6. adding an unused known ontology does not change the active bundle;
-7. activating a previously absent optional profile changes the dependency closure/bundle identity;
-8. active missing bridge fails closed;
-9. inactive optional profile with unavailable bridge remains `inactive`, not error;
-10. bridge source lock digest mismatch produces `stale-bridge`;
-11. unreviewed bridge cannot produce executable bundle;
-12. exact dependency lock needs no bridge;
-13. bridge review is bound to bridge content digest;
-14. two bundles with same live namespace URLs but different release/content digests are different identities;
-15. presentation/audit-only fields do not alter semantic bundle digest.
+- `scripts/research/r015_bundle_id.py`
+- `tests/research/test_r015_bundle_id.py`
+- `.github/workflows/r015-bundle-research.yml`
 
-## 14. Non-goals
+The test suite covers at least:
+
+1. order-independent canonical identity;
+2. top-level and nested presentation/audit metadata exclusion;
+3. ontology digest sensitivity and missing-digest rejection;
+4. bridge semantic-content digest verification;
+5. bridge endpoint/scope/evidence sensitivity;
+6. bridge review bound to exact changed content digest;
+7. duplicate profile/lock/bridge identity rejection;
+8. explicit term-scope validation;
+9. exact-lock requires/digest binding;
+10. bridge source-lock/edge-requires binding;
+11. active consumer-lock participation;
+12. missing/stale/unreviewed/incompatible/unknown bridge failures;
+13. inactive dependency diagnostics excluded from active bundle identity;
+14. activating an optional edge changes identity;
+15. unreferenced/inactive-only bridge locks rejected from active bundle;
+16. same namespace with different content digest remains different identity.
+
+The prototype does not perform ontology reasoning. It validates an explicit reviewed TFont dependency closure.
+
+## 13. Non-goals
 
 R-015 does not:
 
-- choose production JSON schema names;
+- choose final production JSON/YAML field names;
 - implement production bundle loading;
+- replace P-001 individual ontology locks;
 - authorize approximate semantic execution (R-016);
 - define external authority reference semantics (R-017);
-- replace P-001 individual ontology locks;
-- require RDF, OWL imports or a triplestore at runtime;
-- make old/new ontology releases globally equivalent.
+- require RDF/OWL imports or a triplestore at runtime;
+- assert ontology-wide equivalence between old and current releases;
+- prove cryptographic reviewer identity/authentication; production review provenance/signing policy belongs to governance/tooling implementation.
 
-## 15. Acceptance trace
+## 14. Acceptance trace
 
-- [x] deterministic composed bundle identity defined without a single OWL import closure;
-- [x] bridge artifacts are content-addressed, evidence-bound and review-bound;
-- [x] missing/stale/unreviewed/incompatible bridge behavior is fail-closed;
-- [x] inactive optional profile is distinguished from active profile dependency failure;
-- [x] P-001 lock/digest invariants are retained and precise P-003 amendments identified;
-- [x] OLiA/OntoLex/SKOS, CRM/LRMoo/CRMinf, CRMtex/R-012 and CRMarchaeo/R-010 cases covered;
-- [x] compact capability/resolution provenance fields defined;
-- [x] research TDD invariants defined for a reference prototype.
+- [x] deterministic composed bundle identity without a single OWL import closure;
+- [x] active semantic projection uses explicit identity-bearing fields only;
+- [x] ontology/bridge identity is content-addressed and duplicate IDs fail closed;
+- [x] bridge review is bound to canonical semantic bridge content;
+- [x] bridge use is exact term scoped, not ontology-wide;
+- [x] exact-lock and bridge dependency edges are graph-bound to participating locks;
+- [x] missing/stale/unreviewed/incompatible/unknown dependencies fail closed;
+- [x] inactive optional profile is distinct from active unresolved dependency;
+- [x] inactive diagnostic edges do not perturb active bundle identity;
+- [x] unreferenced bridge locks cannot pollute active bundle identity;
+- [x] P-001 lock/digest invariants are retained and P-003 amendments identified;
+- [x] OLiA/OntoLex/SKOS, CRM/LRMoo/CRMinf, CRMtex/R-012 and CRMarchaeo/R-010 cases are covered;
+- [x] compact agent provenance fields defined;
+- [x] executable research tests enforce the principal identity/fail-closed invariants.
 
-## Review targets
+## 15. Final independent review targets
 
-A fresh logically-independent reviewer should challenge especially:
+Fresh exact-head review should challenge especially:
 
-1. whether bundle identity includes too much or too little semantic state;
-2. whether dependency closure is sufficiently deterministic without reimplementing ontology reasoning;
-3. whether bridge scope/review rules prevent accidental ontology-wide compatibility claims;
-4. whether inactive optional profiles can truly avoid false bridge failures;
-5. whether CRMtex and CRMarchaeo version-skew examples match authoritative release declarations;
-6. whether audit/presentation fields are correctly excluded from semantic identity;
-7. whether P-001 ontology locks remain reusable rather than being duplicated;
-8. whether the prototype tests actually prove the digest/fail-closed claims.
+1. whether the canonical projection contains all and only semantic/operational identity fields;
+2. whether bridge semantic-content hashing genuinely invalidates stale review after edits;
+3. whether scope requirements are sufficiently term-specific to prevent ontology-wide compatibility;
+4. whether active dependency edges are fully bound to participating consumer/required locks;
+5. whether inactive optional diagnostics are separated from active identity;
+6. whether any unused bridge/lock can still pollute the active closure;
+7. whether CRMtex/CRMarchaeo version-skew claims match authoritative release declarations;
+8. whether tests are independent enough to catch self-consistent but fail-open validator behavior;
+9. whether P-001 lock identity is reused rather than reimplemented;
+10. whether P-003 receives concrete schema/IR inputs without R-015 prematurely freezing production field names.
