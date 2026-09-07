@@ -147,7 +147,10 @@ def test_participating_ontology_payload_digest_changes_bundle_identity():
 def test_bad_ontology_content_digest_is_rejected(value):
     b = _bundle()
     b["ontology_locks"][0]["content_digest"] = value
-    with pytest.raises(ValueError, match="content_digest|digest"):
+    with pytest.raises(
+        ValueError,
+        match="content_digest|digest|projection_error|non-empty exact string",
+    ):
         bundle_digest(b)
 
 
