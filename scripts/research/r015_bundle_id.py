@@ -1,7 +1,7 @@
 """Non-production R-015 semantic-bundle identity/reference validator.
 
-This prototype exists only to make the research contract executable. Production
-schema/loading belongs to P-003 and later implementation tickets.
+The prototype makes the research contract executable only. Production schema/loading
+belongs to P-003 and later implementation tickets.
 """
 
 from __future__ import annotations
@@ -13,53 +13,26 @@ from typing import Any
 
 from tfont.digests import canonical_json_bytes
 
-
 _ONTOLOGY_REF_FIELDS = ("lock_id", "digest")
 _BRIDGE_CONTENT_FIELDS = (
-    "source_lock_id",
-    "source_lock_digest",
-    "target_lock_id",
-    "target_lock_digest",
-    "assertion_kind",
-    "scope",
-    "compatibility",
-    "evidence_id",
-    "evidence_digest",
-    "runtime_strength",
-    "runtime_limitations",
+    "source_lock_id", "source_lock_digest", "target_lock_id", "target_lock_digest",
+    "assertion_kind", "scope", "compatibility", "evidence_id", "evidence_digest",
+    "runtime_strength", "runtime_limitations",
 )
 _BRIDGE_FIELDS = (
-    "bridge_id",
-    "digest",
-    *_BRIDGE_CONTENT_FIELDS,
-    "review_status",
-    "reviewed_content_digest",
-    "review_id",
-    "reviewer_id",
-    "reviewed_at",
+    "bridge_id", "digest", *_BRIDGE_CONTENT_FIELDS, "review_status",
+    "reviewed_content_digest", "review_id", "reviewer_id", "reviewed_at",
 )
 _EDGE_FIELDS = (
-    "id",
-    "consumer",
-    "requires",
-    "satisfied_by",
-    "active",
-    "required_lock_digest",
-    "required_bridge_scope",
+    "id", "consumer", "requires", "satisfied_by", "active",
+    "required_lock_digest", "required_bridge_scope",
 )
 _REQUIRED_SCOPE_FIELDS = ("source_term", "target_term", "relation")
 _REQUIRED_BRIDGE_ENDPOINT_FIELDS = (
-    "source_lock_id",
-    "source_lock_digest",
-    "target_lock_id",
-    "target_lock_digest",
+    "source_lock_id", "source_lock_digest", "target_lock_id", "target_lock_digest",
 )
 _REQUIRED_BRIDGE_STRING_FIELDS = (
-    "evidence_id",
-    "evidence_digest",
-    "review_id",
-    "reviewer_id",
-    "reviewed_at",
+    "evidence_id", "evidence_digest", "review_id", "reviewer_id", "reviewed_at",
     "runtime_strength",
 )
 _RUNTIME_STRENGTHS = {"exact", "approximate", "related", "composition-only"}
@@ -68,7 +41,6 @@ _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 def _canonical_bytes(value: Any) -> bytes:
     """Reuse the accepted I-002 RFC 8785/JCS byte contract."""
-
     return canonical_json_bytes(value)
 
 
@@ -88,7 +60,6 @@ def _validate_digest(value: Any, *, label: str) -> str:
 
 def bridge_content_digest(bridge: dict[str, Any]) -> str:
     """Digest semantic bridge content with the accepted I-002 JCS contract."""
-
     return _sha256_digest(_canonical_bytes(_project(bridge, _BRIDGE_CONTENT_FIELDS)))
 
 
@@ -113,10 +84,10 @@ def _validate_reviewed_at(value: Any, *, bridge_id: str) -> None:
 
 
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
-    profile_contracts = bundle.get("profile_contracts", [])
-    if not all(isinstance(item, str) and item for item in profile_contracts):
+    contracts = bundle.get("profile_contracts", [])
+    if not all(isinstance(item, str) and item for item in contracts):
         raise ValueError("profile_contracts must contain non-empty contract IDs")
-    if len(profile_contracts) != len(set(profile_contracts)):
+    if len(contracts) != len(set(contracts)):
         raise ValueError("duplicate profile contract ID")
 
     for collection, id_key in (
@@ -152,14 +123,12 @@ def _validate_bridge_provenance(bridge: dict[str, Any], *, bridge_id: str) -> No
         value = bridge.get(key)
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"bridge {bridge_id} missing {key}")
-
     _validate_digest(bridge["evidence_digest"], label=f"bridge {bridge_id} evidence_digest")
     _validate_reviewed_at(bridge.get("reviewed_at"), bridge_id=bridge_id)
 
     strength = bridge["runtime_strength"]
     if strength not in _RUNTIME_STRENGTHS:
         raise ValueError(f"bridge {bridge_id} unknown runtime_strength: {strength}")
-
     limitations = bridge.get("runtime_limitations")
     if (
         not isinstance(limitations, list)
@@ -182,28 +151,17 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
         for key in _REQUIRED_BRIDGE_ENDPOINT_FIELDS:
             if not bridge.get(key):
                 raise ValueError(f"bridge {bridge_id} missing {key}")
-        _validate_digest(
-            bridge["source_lock_digest"],
-            label=f"bridge {bridge_id} source_lock_digest",
-        )
-        _validate_digest(
-            bridge["target_lock_digest"],
-            label=f"bridge {bridge_id} target_lock_digest",
-        )
+        _validate_digest(bridge["source_lock_digest"], label=f"bridge {bridge_id} source_lock_digest")
+        _validate_digest(bridge["target_lock_digest"], label=f"bridge {bridge_id} target_lock_digest")
         _validate_scope(bridge.get("scope"), label=f"bridge {bridge_id} scope")
         _validate_bridge_provenance(bridge, bridge_id=bridge_id)
         digest = _validate_digest(bridge.get("digest"), label=f"bridge {bridge_id} digest")
-        reviewed_digest = _validate_digest(
+        _validate_digest(
             bridge.get("reviewed_content_digest"),
             label=f"bridge {bridge_id} reviewed_content_digest",
         )
-        expected = bridge_content_digest(bridge)
-        if digest != expected:
+        if digest != bridge_content_digest(bridge):
             raise ValueError(f"bridge {bridge_id} content digest mismatch")
-        if bridge.get("review_status") == "reviewed" and reviewed_digest != digest:
-            # Keep this as an operational state in dependency_states; validation only
-            # guarantees that both values use the canonical digest representation.
-            pass
 
     for edge in bundle.get("dependency_edges", []):
         if not edge.get("active", True):
@@ -215,10 +173,12 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
                 label=f"dependency {edge.get('id', '<unknown>')} required_bridge_scope",
             )
         elif isinstance(satisfied_by, str) and satisfied_by.startswith("lock:"):
-            _validate_digest(
-                edge.get("required_lock_digest"),
-                label=f"dependency {edge.get('id', '<unknown>')} required_lock_digest",
-            )
+            required_digest = edge.get("required_lock_digest")
+            if required_digest is not None:
+                _validate_digest(
+                    required_digest,
+                    label=f"dependency {edge.get('id', '<unknown>')} required_lock_digest",
+                )
 
 
 def _validate_bundle(bundle: dict[str, Any]) -> None:
@@ -227,31 +187,18 @@ def _validate_bundle(bundle: dict[str, Any]) -> None:
 
 
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Return the semantic, order-independent active bundle projection.
-
-    The projection is an allow-list. Presentation-only metadata is excluded even when
-    nested inside records. Review identity/date are operationally identity-bearing.
-    Inactive dependency edges remain diagnostic input but are not bundle identity.
-    """
-
+    """Return the semantic, order-independent active bundle projection."""
     _validate_bundle(bundle)
-    profile_contracts = list(bundle.get("profile_contracts", []))
-
-    ontology_refs = [
-        _project(item, _ONTOLOGY_REF_FIELDS) for item in bundle.get("ontology_locks", [])
-    ]
-    bridge_refs = [
-        _project(item, _BRIDGE_FIELDS) for item in bundle.get("bridge_locks", [])
-    ]
+    ontology_refs = [_project(item, _ONTOLOGY_REF_FIELDS) for item in bundle.get("ontology_locks", [])]
+    bridge_refs = [_project(item, _BRIDGE_FIELDS) for item in bundle.get("bridge_locks", [])]
     active_edges = [
         _project(item, _EDGE_FIELDS)
         for item in bundle.get("dependency_edges", [])
         if item.get("active", True)
     ]
-
     return {
         "schema_version": bundle["schema_version"],
-        "profile_contracts": sorted(profile_contracts),
+        "profile_contracts": sorted(bundle.get("profile_contracts", [])),
         "ontology_locks": sorted(ontology_refs, key=_canonical_bytes),
         "bridge_locks": sorted(bridge_refs, key=_canonical_bytes),
         "dependency_edges": sorted(active_edges, key=_canonical_bytes),
@@ -273,12 +220,7 @@ def _bridges(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
-    """Evaluate active dependency edges without ontology reasoning.
-
-    This reference validator models the exact-execution gate only. R-016 owns any
-    later mode-aware authorization for approximate/related bridge strengths.
-    """
-
+    """Evaluate explicit active dependencies for the R-015 exact-mode gate."""
     _validate_bundle(bundle)
     locks = _locks(bundle)
     bridges = _bridges(bundle)
@@ -308,6 +250,9 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
             expected = edge.get("required_lock_digest")
+            if not expected:
+                states.append({"id": edge_id, "state": "unbound-exact-lock"})
+                continue
             if lock.get("digest") != expected:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
@@ -320,14 +265,10 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             if bridge is None:
                 states.append({"id": edge_id, "state": "missing-bridge"})
                 continue
-
             if not required_id or bridge.get("source_lock_id") != required_id:
                 states.append({"id": edge_id, "state": "bridge-requires-mismatch"})
                 continue
-
-            required_scope = edge.get("required_bridge_scope")
-            bridge_scope = bridge.get("scope")
-            if _canonical_bytes(required_scope) != _canonical_bytes(bridge_scope):
+            if _canonical_bytes(edge.get("required_bridge_scope")) != _canonical_bytes(bridge.get("scope")):
                 states.append({"id": edge_id, "state": "bridge-scope-mismatch"})
                 continue
 
@@ -356,11 +297,9 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             if compatibility != "compatible":
                 states.append({"id": edge_id, "state": "unknown-bridge-compatibility"})
                 continue
-
             if bridge.get("runtime_strength") != "exact":
                 states.append({"id": edge_id, "state": "non-exact-bridge-strength"})
                 continue
-
             states.append({"id": edge_id, "state": "satisfied-reviewed-bridge"})
             continue
 
