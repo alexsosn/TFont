@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "non-production research policy",
-  "basis": "Accepted R-005 corpus census. Generated R-005 inventories are used where available. Pseudepigrapha-TF and ORACC-TF use only the curated stress-profile items explicitly named by R-005; those denominators are labelled curated, not exhaustive. Only explicitly documented categorical/bounded feature families are expanded into value-level raw denominator items; observed-small-domain alone is insufficient.",
+  "basis": "R-011 exact corpus pins. Generated R-005 inventories are used unchanged for BHSA, CUC, Syriac, ExtraBiblical and TLHdig. Pseudepigrapha uses the curated R-005 stress-profile contract at d098845043897957efee7a42ae4854deddd5a1bd. ORACC uses a refreshed curated active-model baseline at e8f2b160912e0adaa37b24e68384ac551077a440 because the R-005 sidecar architecture has been superseded. Curated denominators are labelled non-exhaustive. Only explicitly documented categorical/bounded feature families are expanded into value-level raw denominator items; observed-small-domain alone is insufficient.",
   "corpora": {
     "bhsa": {
       "bounded_features": ["sp", "pdp", "gn", "prs_gn", "nu", "prs_nu", "ps", "prs_ps", "st", "vs", "vt"],
@@ -71,7 +71,7 @@
       }
     },
     "pseudepigrapha": {
-      "denominator_basis": "R-005 curated Pseudepigrapha-TF stress-profile contract; not exhaustive generated inventory",
+      "denominator_basis": "Pseudepigrapha-TF@d098845043897957efee7a42ae4854deddd5a1bd curated R-005 converter/output stress-profile contract; not exhaustive generated inventory",
       "manual_items": [
         "node_type:word", "node_type:book", "node_type:chapter", "node_type:verse", "node_type:div", "node_type:unit", "node_type:reading", "node_type:variant_word", "node_type:manuscript", "node_type:resource", "node_type:version_metadata", "node_type:ellipsis", "node_type:orphan_reading",
         "node_feature:source_ref", "node_feature:source_ref_parts", "node_feature:version_id", "node_feature:reading_text", "node_feature:reading_xml", "node_feature:reading_option", "node_feature:is_primary", "node_feature:is_gap", "node_feature:is_omission", "node_feature:ms_abbrev", "node_feature:ms_name", "node_feature:ms_language", "node_feature:ms_show", "node_feature:undefined_manuscript", "node_feature:version_title", "node_feature:language", "node_feature:author", "node_feature:lex", "node_feature:morph", "node_feature:style", "node_feature:w_lang",
@@ -88,9 +88,9 @@
       }
     },
     "oracc": {
-      "denominator_basis": "R-005 curated ORACC-TF measured target-schema/stress-profile items; not exhaustive generated inventory",
+      "denominator_basis": "ORACC-TF@e8f2b160912e0adaa37b24e68384ac551077a440 curated active RIAO+RINAP model/plan contract after ADR-0001; translation M9 types excluded until implemented; not exhaustive generated inventory",
       "manual_items": [
-        "node_type:document", "node_type:face", "node_type:column", "node_type:line", "node_type:chunk", "node_type:phrase", "node_type:word", "node_type:lex", "node_type:sign", "node_type:translation_unit", "node_type:translation_note",
+        "node_type:document", "node_type:face", "node_type:column", "node_type:line", "node_type:chunk", "node_type:phrase", "node_type:word", "node_type:lex", "node_type:sign",
         "node_feature:reading", "node_feature:readingu", "node_feature:grapheme", "node_feature:lnno", "node_feature:period", "node_feature:genre", "node_feature:material", "node_feature:collection", "node_feature:damage", "node_feature:missing", "node_feature:det", "node_feature:cf", "node_feature:gw", "node_feature:sense", "node_feature:norm", "node_feature:pos", "node_feature:epos", "node_feature:lang", "node_feature:sig", "node_feature:discourse", "node_feature:designation", "node_feature:subgenre", "node_feature:provenience", "node_feature:language", "node_feature:supergenre", "node_feature:ruler", "node_feature:object_type", "node_feature:script", "node_feature:exemplars", "node_feature:primary_publication", "node_feature:pleiades_id", "node_feature:pleiades_coord", "node_feature:cdli_id"
       ],
       "mapping_refs": {
