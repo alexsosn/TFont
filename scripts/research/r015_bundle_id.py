@@ -24,6 +24,22 @@ def _canonical_item(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _validate_unique_ids(bundle: dict[str, Any]) -> None:
+    for collection, id_key in (
+        ("ontology_locks", "lock_id"),
+        ("bridge_locks", "bridge_id"),
+        ("dependency_edges", "id"),
+    ):
+        seen: set[str] = set()
+        for item in bundle.get(collection, []):
+            item_id = item.get(id_key)
+            if not item_id:
+                raise ValueError(f"{collection} item missing required {id_key}")
+            if item_id in seen:
+                raise ValueError(f"duplicate {id_key}: {item_id}")
+            seen.add(item_id)
+
+
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return the semantic, order-independent bundle projection.
 
@@ -31,6 +47,7 @@ def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     schema; this research prototype proves the identity properties only.
     """
 
+    _validate_unique_ids(bundle)
     result: dict[str, Any] = {"schema_version": bundle["schema_version"]}
     for key in sorted(_SET_LIKE_LISTS):
         values = deepcopy(bundle.get(key, []))
@@ -44,10 +61,12 @@ def bundle_digest(bundle: dict[str, Any]) -> str:
 
 
 def _locks(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    _validate_unique_ids(bundle)
     return {item["lock_id"]: item for item in bundle.get("ontology_locks", [])}
 
 
 def _bridges(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    _validate_unique_ids(bundle)
     return {item["bridge_id"]: item for item in bundle.get("bridge_locks", [])}
 
 
@@ -58,12 +77,13 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
     edges are diagnostic `inactive`, never failures.
     """
 
+    _validate_unique_ids(bundle)
     locks = _locks(bundle)
     bridges = _bridges(bundle)
     states: list[dict[str, str]] = []
 
     for edge in bundle.get("dependency_edges", []):
-        edge_id = edge.get("id") or f"{edge.get('consumer')}->{edge.get('requires')}"
+        edge_id = edge["id"]
         if not edge.get("active", True):
             states.append({"id": edge_id, "state": "inactive"})
             continue
@@ -76,7 +96,10 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
             expected = edge.get("required_lock_digest")
-            if expected and lock.get("digest") != expected:
+            if not expected:
+                states.append({"id": edge_id, "state": "unbound-exact-lock"})
+                continue
+            if lock.get("digest") != expected:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
             states.append({"id": edge_id, "state": "satisfied-exact-lock"})
@@ -87,6 +110,15 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             bridge = bridges.get(bridge_id)
             if bridge is None:
                 states.append({"id": edge_id, "state": "missing-bridge"})
+                continue
+
+            required_scope = edge.get("required_bridge_scope")
+            bridge_scope = bridge.get("scope")
+            if required_scope is None or bridge_scope is None:
+                states.append({"id": edge_id, "state": "unbound-bridge-scope"})
+                continue
+            if _canonical_item(required_scope) != _canonical_item(bridge_scope):
+                states.append({"id": edge_id, "state": "bridge-scope-mismatch"})
                 continue
 
             source = locks.get(bridge.get("source_lock_id"))
@@ -119,7 +151,10 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
 
 def executable(bundle: dict[str, Any]) -> bool:
     allowed = {"inactive", "satisfied-exact-lock", "satisfied-reviewed-bridge"}
-    return all(item["state"] in allowed for item in dependency_states(bundle))
+    try:
+        return all(item["state"] in allowed for item in dependency_states(bundle))
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 if __name__ == "__main__":
@@ -130,6 +165,10 @@ if __name__ == "__main__":
     parser.add_argument("bundle", type=Path)
     args = parser.parse_args()
     data = json.loads(args.bundle.read_text(encoding="utf-8"))
-    print(bundle_digest(data))
-    print(json.dumps(dependency_states(data), indent=2, sort_keys=True))
+    try:
+        print(bundle_digest(data))
+        print(json.dumps(dependency_states(data), indent=2, sort_keys=True))
+    except (KeyError, TypeError, ValueError) as exc:
+        print(json.dumps({"error": str(exc)}, sort_keys=True))
+        raise SystemExit(1) from exc
     raise SystemExit(0 if executable(data) else 1)
