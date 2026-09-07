@@ -112,9 +112,9 @@ def test_target_bridge_term_must_be_declared_by_target_lock():
         bundle_digest(b)
 
 
-def test_retrieval_storage_metadata_stays_outside_bundle_identity():
-    a = _bundle()
-    b = deepcopy(a)
+def test_retrieval_storage_metadata_is_outside_semantic_lock_input():
+    b = _bundle()
     b["ontology_locks"][1]["retrieved_at"] = "2099-01-01T00:00:00Z"
     b["ontology_locks"][1]["snapshot_artifact"] = "/tmp/other-layout.owl"
-    assert bundle_digest(a) == bundle_digest(b)
+    with pytest.raises(ValueError, match="unknown projection fields"):
+        bundle_digest(b)
