@@ -131,6 +131,24 @@ def test_incompatible_reviewed_bridge_fails_closed():
     assert not executable(b)
 
 
+def test_missing_bridge_compatibility_fails_closed():
+    b = _bundle()
+    del b["bridge_locks"][0]["compatibility"]
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "unknown-bridge-compatibility"}
+    ]
+    assert not executable(b)
+
+
+def test_unknown_bridge_compatibility_fails_closed():
+    b = _bundle()
+    b["bridge_locks"][0]["compatibility"] = "unknown"
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "unknown-bridge-compatibility"}
+    ]
+    assert not executable(b)
+
+
 def test_exact_locked_dependency_needs_no_bridge():
     b = _bundle()
     b["bridge_locks"] = []
