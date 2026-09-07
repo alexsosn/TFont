@@ -34,6 +34,13 @@ def _bundle():
         "scope": _scope(),
         "review_status": "reviewed",
         "compatibility": "compatible",
+        "evidence_id": "evidence:crm-e22-continuity",
+        "evidence_digest": "sha256:evidence",
+        "runtime_strength": "exact",
+        "runtime_limitations": ["term-scoped continuity only"],
+        "review_id": "review:r015-crm-e22-001",
+        "reviewer_id": "github:independent-reviewer",
+        "reviewed_at": "2026-09-07T15:00:00Z",
     }
     _refresh_bridge(bridge)
     return {
@@ -82,7 +89,7 @@ def test_nested_audit_fields_do_not_change_digest():
     b["ontology_locks"][0]["retrieved_at"] = "2099-01-01T00:00:00Z"
     b["ontology_locks"][0]["licence_note"] = "display only"
     b["bridge_locks"][0]["reviewer_display_name"] = "Reviewer Example"
-    b["bridge_locks"][0]["reviewed_at"] = "2099-01-01T00:00:00Z"
+    b["bridge_locks"][0]["review_note"] = "display-only note"
     b["dependency_edges"][0]["display_label"] = "pretty edge"
     assert bundle_digest(a) == bundle_digest(b)
 
