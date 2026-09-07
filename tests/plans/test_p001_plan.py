@@ -3,9 +3,38 @@ from __future__ import annotations
 import re
 import unittest
 from pathlib import Path
+from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN = ROOT / "docs" / "plans" / "P-001-foundation-poc-design.md"
+
+# Historical changed paths from merged P-001 PR #13. The design-only invariant
+# belongs to that change set; later implementation tickets intentionally added
+# production paths to the repository.
+P001_DESIGN_CHANGED_PATHS = (
+    ".github/workflows/p001-plan-validation.yml",
+    "docs/plans/P-001-foundation-poc-design.md",
+    "tests/plans/test_p001_plan.py",
+)
+PRODUCTION_SCOPE_ROOTS = frozenset({"src", "schemas", "profiles"})
+
+
+def production_scope_violations(paths: Iterable[str]) -> tuple[str, ...]:
+    """Return production paths that violate P-001's historical design-only scope.
+
+    This evaluates a supplied change set rather than the current repository tree.
+    Path separators are normalized so the contract is deterministic across hosts.
+    """
+
+    violations: set[str] = set()
+    for raw_path in paths:
+        normalized = str(raw_path).replace("\\", "/").strip("/")
+        if not normalized:
+            continue
+        root = normalized.split("/", 1)[0]
+        if root in PRODUCTION_SCOPE_ROOTS:
+            violations.add(normalized)
+    return tuple(sorted(violations))
 
 
 class P001FoundationDesignContractTests(unittest.TestCase):
@@ -300,9 +329,10 @@ class P001FoundationDesignContractTests(unittest.TestCase):
         self.assertIn("independent review", self.lower)
 
     def test_design_ticket_contains_no_production_artifacts(self):
-        self.assertFalse((ROOT / "schemas").exists())
-        self.assertFalse((ROOT / "profiles").exists())
-        self.assertFalse((ROOT / "src").exists())
+        self.assertEqual(production_scope_violations(P001_DESIGN_CHANGED_PATHS), ())
+        self.assertIn("scope:** design only", self.lower)
+        self.assertIn("this design pr does **not** create these directories", self.lower)
+        self.assertIn("implementation tickets will create them after this plan is accepted", self.lower)
 
 
 if __name__ == "__main__":
