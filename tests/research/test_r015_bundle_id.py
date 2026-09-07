@@ -118,6 +118,47 @@ def test_bridge_missing_digest_is_rejected():
     assert not executable(b)
 
 
+def test_bridge_missing_endpoint_identity_is_rejected():
+    b = _bundle()
+    del b["bridge_locks"][0]["target_lock_digest"]
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="missing target_lock_digest"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_empty_bridge_scope_is_rejected():
+    b = _bundle()
+    b["bridge_locks"][0]["scope"] = {}
+    b["dependency_edges"][0]["required_bridge_scope"] = {}
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="scope must be a non-empty object"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_opaque_bridge_scope_is_rejected():
+    b = _bundle()
+    b["bridge_locks"][0]["scope"] = "all terms"
+    b["dependency_edges"][0]["required_bridge_scope"] = "all terms"
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="scope must be a non-empty object"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_bridge_scope_requires_source_target_and_relation():
+    b = _bundle()
+    b["bridge_locks"][0]["scope"] = {"source_term": "crm-old:E22"}
+    b["dependency_edges"][0]["required_bridge_scope"] = deepcopy(
+        b["bridge_locks"][0]["scope"]
+    )
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="missing non-empty target_term"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
 def test_bridge_content_digest_change_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
@@ -186,6 +227,36 @@ def test_activating_optional_dependency_changes_bundle_identity():
     b["dependency_edges"][-1]["active"] = True
     assert inactive_digest == bundle_digest(a)
     assert bundle_digest(b) != inactive_digest
+
+
+def test_unreferenced_bridge_lock_is_rejected_from_active_bundle():
+    b = _bundle()
+    unused = deepcopy(b["bridge_locks"][0])
+    unused["bridge_id"] = "unused-bridge"
+    b["bridge_locks"].append(unused)
+    with pytest.raises(ValueError, match="not referenced by an active dependency"):
+        bundle_digest(b)
+    assert not executable(b)
+
+
+def test_bridge_referenced_only_by_inactive_edge_is_not_active_bundle_content():
+    b = _bundle()
+    optional = deepcopy(b["bridge_locks"][0])
+    optional["bridge_id"] = "optional-bridge"
+    b["bridge_locks"].append(optional)
+    b["dependency_edges"].append(
+        {
+            "id": "optional-edge",
+            "consumer": "crmtex",
+            "requires": "crm-old",
+            "satisfied_by": "bridge:optional-bridge",
+            "required_bridge_scope": _scope(),
+            "active": False,
+        }
+    )
+    with pytest.raises(ValueError, match="not referenced by an active dependency"):
+        bundle_digest(b)
+    assert not executable(b)
 
 
 def test_unused_known_ontology_outside_active_bundle_is_irrelevant():
@@ -350,12 +421,11 @@ def test_bridge_scope_must_match_dependency_scope():
     assert not executable(b)
 
 
-def test_bridge_without_explicit_required_scope_fails_closed():
+def test_bridge_without_explicit_required_scope_is_schema_invalid():
     b = _bundle()
     del b["dependency_edges"][0]["required_bridge_scope"]
-    assert dependency_states(b) == [
-        {"id": "crmtex-crm", "state": "unbound-bridge-scope"}
-    ]
+    with pytest.raises(ValueError, match="required_bridge_scope must be a non-empty object"):
+        dependency_states(b)
     assert not executable(b)
 
 
@@ -382,6 +452,7 @@ def test_duplicate_lock_ids_are_rejected_before_hash_or_resolution():
 def test_duplicate_bridge_ids_are_rejected_before_hash_or_resolution():
     b = _bundle()
     duplicate = deepcopy(b["bridge_locks"][0])
+    duplicate["bridge_id"] = "crm-bridge"
     duplicate["evidence_digest"] = "sha256:other-evidence"
     _refresh_bridge(duplicate)
     b["bridge_locks"].append(duplicate)
