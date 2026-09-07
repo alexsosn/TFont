@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "non-production research policy",
-  "basis": "Accepted R-005 curated corpus inventory; only explicitly documented categorical/bounded feature families are expanded into value-level raw denominator items. Observed-small-domain alone is insufficient.",
+  "basis": "Accepted R-005 corpus census. Generated R-005 inventories are used where available. Pseudepigrapha-TF and ORACC-TF use only the curated stress-profile items explicitly named by R-005; those denominators are labelled curated, not exhaustive. Only explicitly documented categorical/bounded feature families are expanded into value-level raw denominator items; observed-small-domain alone is insufficient.",
   "corpora": {
     "bhsa": {
       "bounded_features": ["sp", "pdp", "gn", "prs_gn", "nu", "prs_nu", "ps", "prs_ps", "st", "vs", "vt"],
@@ -14,7 +14,8 @@
         "bhsa-lex-entry": ["node_type:lex"],
         "bhsa-gloss": ["node_feature:gloss"],
         "bhsa-verbal-stem": ["node_feature:vs"]
-      }
+      },
+      "mapping_value_families": {"bhsa-verbal-stem": ["vs"]}
     },
     "cuc": {
       "bounded_features": ["side", "emen", "cert"],
@@ -26,7 +27,8 @@
         "cuc-usign": ["node_feature:usign"],
         "cuc-certainty": ["node_feature:cert"],
         "cuc-editorial-restoration": ["node_feature:trailer_emen"]
-      }
+      },
+      "mapping_value_families": {"cuc-certainty": ["cert"]}
     },
     "syriac": {
       "bounded_features": ["sp", "vs", "vt", "vo", "vpm", "gn", "nu", "ps", "st"],
@@ -39,7 +41,8 @@
         "syriac-lex-entry": ["node_feature:lex"],
         "syriac-gloss": ["node_feature:gloss"],
         "syriac-verbal-stem": ["node_feature:vs"]
-      }
+      },
+      "mapping_value_families": {"syriac-verbal-stem": ["vs"]}
     },
     "extrabiblical": {
       "bounded_features": ["sp", "gn", "nu", "ps", "st", "vs", "vt"],
@@ -51,7 +54,8 @@
         "extra-lex-entry": ["node_feature:lex"],
         "extra-gloss": ["node_feature:gloss"],
         "extra-verbal-stem": ["node_feature:vs"]
-      }
+      },
+      "mapping_value_families": {"extra-verbal-stem": ["vs"]}
     },
     "tlhdig": {
       "bounded_features": ["missing", "laes", "ras", "add", "quot"],
@@ -64,6 +68,39 @@
         "tlh-witness": ["edge_feature:witness"],
         "tlh-damage": ["node_type:cluster"],
         "tlh-edit": ["node_type:edit"]
+      }
+    },
+    "pseudepigrapha": {
+      "denominator_basis": "R-005 curated Pseudepigrapha-TF stress-profile contract; not exhaustive generated inventory",
+      "manual_items": [
+        "node_type:word", "node_type:book", "node_type:chapter", "node_type:verse", "node_type:div", "node_type:unit", "node_type:reading", "node_type:variant_word", "node_type:manuscript", "node_type:resource", "node_type:version_metadata", "node_type:ellipsis", "node_type:orphan_reading",
+        "node_feature:source_ref", "node_feature:source_ref_parts", "node_feature:version_id", "node_feature:reading_text", "node_feature:reading_xml", "node_feature:reading_option", "node_feature:is_primary", "node_feature:is_gap", "node_feature:is_omission", "node_feature:ms_abbrev", "node_feature:ms_name", "node_feature:ms_language", "node_feature:ms_show", "node_feature:undefined_manuscript", "node_feature:version_title", "node_feature:language", "node_feature:author", "node_feature:lex", "node_feature:morph", "node_feature:style", "node_feature:w_lang",
+        "edge_feature:parent", "edge_feature:reading_of", "edge_feature:witness", "edge_feature:variant_word_of", "edge_feature:manuscript_of", "edge_feature:resource_of"
+      ],
+      "mapping_refs": {
+        "pseudo-version": ["node_feature:version_id"],
+        "pseudo-manuscript": ["node_type:manuscript"],
+        "pseudo-unit": ["node_type:unit"],
+        "pseudo-reading": ["node_type:reading"],
+        "pseudo-reading-of": ["edge_feature:reading_of"],
+        "pseudo-witness": ["edge_feature:witness"],
+        "pseudo-omission": ["node_feature:reading_text", "node_feature:is_omission"]
+      }
+    },
+    "oracc": {
+      "denominator_basis": "R-005 curated ORACC-TF measured target-schema/stress-profile items; not exhaustive generated inventory",
+      "manual_items": [
+        "node_type:document", "node_type:face", "node_type:column", "node_type:line", "node_type:chunk", "node_type:phrase", "node_type:word", "node_type:lex", "node_type:sign", "node_type:translation_unit", "node_type:translation_note",
+        "node_feature:reading", "node_feature:readingu", "node_feature:grapheme", "node_feature:lnno", "node_feature:period", "node_feature:genre", "node_feature:material", "node_feature:collection", "node_feature:damage", "node_feature:missing", "node_feature:det", "node_feature:cf", "node_feature:gw", "node_feature:sense", "node_feature:norm", "node_feature:pos", "node_feature:epos", "node_feature:lang", "node_feature:sig", "node_feature:discourse", "node_feature:designation", "node_feature:subgenre", "node_feature:provenience", "node_feature:language", "node_feature:supergenre", "node_feature:ruler", "node_feature:object_type", "node_feature:script", "node_feature:exemplars", "node_feature:primary_publication", "node_feature:pleiades_id", "node_feature:pleiades_coord", "node_feature:cdli_id"
+      ],
+      "mapping_refs": {
+        "oracc-document": ["node_type:document"],
+        "oracc-line": ["node_type:line"],
+        "oracc-sign": ["node_type:sign"],
+        "oracc-lex-entry": ["node_type:lex"],
+        "oracc-guide-word": ["node_feature:gw"],
+        "oracc-material": ["node_feature:material"],
+        "oracc-period": ["node_feature:period"]
       }
     }
   }
