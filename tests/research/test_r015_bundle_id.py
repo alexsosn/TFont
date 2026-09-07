@@ -67,6 +67,17 @@ def test_presentation_fields_do_not_change_digest():
     assert bundle_digest(a) == bundle_digest(b)
 
 
+def test_nested_audit_fields_do_not_change_digest():
+    a = _bundle()
+    b = deepcopy(a)
+    b["ontology_locks"][0]["retrieved_at"] = "2099-01-01T00:00:00Z"
+    b["ontology_locks"][0]["licence_note"] = "display only"
+    b["bridge_locks"][0]["reviewer_display_name"] = "Reviewer Example"
+    b["bridge_locks"][0]["reviewed_at"] = "2099-01-01T00:00:00Z"
+    b["dependency_edges"][0]["display_label"] = "pretty edge"
+    assert bundle_digest(a) == bundle_digest(b)
+
+
 def test_participating_ontology_digest_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
@@ -78,6 +89,27 @@ def test_bridge_digest_changes_bundle_identity():
     a = _bundle()
     b = deepcopy(a)
     b["bridge_locks"][0]["digest"] = "sha256:changed-bridge"
+    assert bundle_digest(a) != bundle_digest(b)
+
+
+def test_bridge_endpoint_change_changes_bundle_identity():
+    a = _bundle()
+    b = deepcopy(a)
+    b["bridge_locks"][0]["target_lock_id"] = "other-target"
+    assert bundle_digest(a) != bundle_digest(b)
+
+
+def test_bridge_scope_change_changes_bundle_identity():
+    a = _bundle()
+    b = deepcopy(a)
+    b["bridge_locks"][0]["scope"]["source_term"] = "crm-old:E55"
+    assert bundle_digest(a) != bundle_digest(b)
+
+
+def test_dependency_binding_change_changes_bundle_identity():
+    a = _bundle()
+    b = deepcopy(a)
+    b["dependency_edges"][0]["requires"] = "crm-current"
     assert bundle_digest(a) != bundle_digest(b)
 
 
