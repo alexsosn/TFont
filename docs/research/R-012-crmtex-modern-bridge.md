@@ -61,6 +61,12 @@ Several CRMtex properties depend on those activities through their domain or sho
 
 The rest of the core written-text segmentation layer is not directly dependent on FRBRoo or CRMinf. Examples include `TX1 Written Text` (CIDOC CRM), `TX7 Written Text Segment` (subclass of `TX1`), `TX9 Glyph`, `TX12 Grapheme Sequence`, and `TX5 Text Recognition` (CRMsci/CIDOC CRM). This is why a selective bridge is preferable to rewriting CRMtex wholesale.
 
+#### Upstream TX14 FOL display inconsistency
+
+The stable 2.0 source contains an internal presentation inconsistency that TFont must not propagate. The explicit `TX14 Reading` class declaration says **SubClass Of: `I1 Argumentation`**, and the PDF class hierarchy likewise places `TX14` under `I1`. However the displayed first-order-logic line immediately under TX14 reads `TX5(x) ⇒ I1(x)`. That conflicts with TX5's own declaration, which places `TX5 Text Recognition` under CRMsci `S4 Observation` and CIDOC CRM `E65 Creation`.
+
+R-012 therefore treats the explicit TX14 class hierarchy as the dependency assertion and treats the contradictory FOL display line as an upstream source inconsistency, not as evidence that `TX5 ⊑ I1`. A future importer must consume a pinned official serialization/class hierarchy and validate it against the reviewed dependency inventory; if the machine serialization and reviewed declaration disagree, validation must fail closed rather than selecting one silently.
+
 ### 1.2 FRBRoo 2.4 → LRMoo 1.1.1
 
 Authoritative sources:
@@ -318,7 +324,8 @@ The following should become contract/regression tests when the bridge/bundle sch
 8. **converter-as-recognition:** generated sign/transcription data → TX5 without a native scholarly recognition activity → rejected;
 9. **old/new union reasoning:** loading both dependency releases must not generate mappings not explicitly present in reviewed TFont indexes;
 10. **bridge mutation:** changing target ontology digest or bridge evidence while retaining prior semantic-bundle identity → validation failure;
-11. **TX14/I16 collapse:** presence of a reviewed TX14 mapping must not synthesize an I16 mapping, or vice versa, without separate native evidence/review.
+11. **TX14/I16 collapse:** presence of a reviewed TX14 mapping must not synthesize an I16 mapping, or vice versa, without separate native evidence/review;
+12. **TX5/I1 FOL-display trap:** the contradictory generated/displayed `TX5(x) ⇒ I1(x)` line under TX14 must not create a TX5→I1 type assertion when the reviewed class hierarchy declares TX14→I1 and TX5 separately under S4/E65.
 
 ## 9. Inputs to P-003
 
@@ -334,6 +341,7 @@ P-003 should incorporate these reviewed R-012 constraints unless later research 
 8. The first R-011 pilots can use CRMtex written-text/segment semantics without activating TX2/F28 or TX14/I1 bridges unless new native evidence demonstrates those activities.
 9. Pseudepigrapha textual-critical `reading` must not be mapped to CRMtex TX14 by label similarity.
 10. CRMsci 2.0 remains part of CRMtex's native closure and must not be silently upgraded when TX5/recognition semantics are used.
+11. CRMtex source ingestion must validate the pinned machine hierarchy against reviewed dependency expectations and fail closed on upstream presentation/serialization inconsistencies such as the TX14/TX5 FOL display conflict.
 
 ## 10. Rejected alternatives
 
@@ -372,7 +380,7 @@ Rejected. The stable 2.0 written-text/segment layer is already useful, and the p
 - [x] Inspected old/current CRMinf `I1` semantics and current `I16 Meaning Comprehension`, including the 2026 CIDOC SIG CRMtex/CRMinf harmonization work and CRMinf 1.2.1's explicit TX14→I16 workflow explanation.
 - [x] Distinguished official migration/composition evidence from TFont-local compatibility/projection decisions.
 - [x] Provided an explicit pilot table for Pseudepigrapha-TF, CUC, ORACC-TF and TLHdig-TF; none currently requires the old F28/I1 bridge terms.
-- [x] Defined a selective fail-closed bridge policy and negative tests for code/IRI equivalence mistakes.
+- [x] Defined a selective fail-closed bridge policy and negative tests for code/IRI/source-presentation equivalence mistakes.
 - [x] Defined minimum bridge-lock/provenance requirements for R-015/P-003.
 - [x] Preserved the native CRMtex 2.0 closure rather than silently upgrading its dependencies.
 
