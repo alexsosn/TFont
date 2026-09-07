@@ -159,6 +159,14 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
                 raise ValueError(f"duplicate {id_key}: {item_id}")
             seen.add(item_id)
 
+    # `active` is an authorization boundary: only an exact JSON boolean may
+    # intentionally deactivate an optional dependency. Missing means active=true.
+    for edge in bundle.get("dependency_edges", []):
+        if "active" in edge and type(edge["active"]) is not bool:
+            raise ValueError(
+                f"dependency {edge.get('id', '<unknown>')} active must be an exact boolean"
+            )
+
 
 def _active_bridge_ids(bundle: dict[str, Any]) -> set[str]:
     result: set[str] = set()
