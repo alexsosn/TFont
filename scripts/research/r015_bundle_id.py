@@ -8,20 +8,39 @@ from __future__ import annotations
 
 import hashlib
 import json
-from copy import deepcopy
 from typing import Any
 
 
-_SET_LIKE_LISTS = {
-    "profile_contracts",
-    "ontology_locks",
-    "bridge_locks",
-    "dependency_edges",
-}
+_ONTOLOGY_REF_FIELDS = ("lock_id", "digest")
+_BRIDGE_FIELDS = (
+    "bridge_id",
+    "digest",
+    "source_lock_id",
+    "source_lock_digest",
+    "target_lock_id",
+    "target_lock_digest",
+    "scope",
+    "review_status",
+    "reviewed_content_digest",
+    "compatibility",
+)
+_EDGE_FIELDS = (
+    "id",
+    "consumer",
+    "requires",
+    "satisfied_by",
+    "active",
+    "required_lock_digest",
+    "required_bridge_scope",
+)
 
 
 def _canonical_item(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _project(item: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+    return {key: item[key] for key in fields if key in item}
 
 
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
@@ -43,16 +62,30 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return the semantic, order-independent bundle projection.
 
-    Unknown presentation/audit keys are deliberately excluded. P-003 owns the final
-    schema; this research prototype proves the identity properties only.
+    The projection is an allow-list, not a deep copy. Presentation/audit metadata is
+    deliberately excluded even when nested inside lock/bridge/edge records.
     """
 
     _validate_unique_ids(bundle)
-    result: dict[str, Any] = {"schema_version": bundle["schema_version"]}
-    for key in sorted(_SET_LIKE_LISTS):
-        values = deepcopy(bundle.get(key, []))
-        result[key] = sorted(values, key=_canonical_item)
-    return result
+    profile_contracts = list(bundle.get("profile_contracts", []))
+    if not all(isinstance(item, str) and item for item in profile_contracts):
+        raise ValueError("profile_contracts must contain non-empty contract IDs")
+
+    ontology_refs = [
+        _project(item, _ONTOLOGY_REF_FIELDS) for item in bundle.get("ontology_locks", [])
+    ]
+    bridge_refs = [
+        _project(item, _BRIDGE_FIELDS) for item in bundle.get("bridge_locks", [])
+    ]
+    edges = [_project(item, _EDGE_FIELDS) for item in bundle.get("dependency_edges", [])]
+
+    return {
+        "schema_version": bundle["schema_version"],
+        "profile_contracts": sorted(profile_contracts),
+        "ontology_locks": sorted(ontology_refs, key=_canonical_item),
+        "bridge_locks": sorted(bridge_refs, key=_canonical_item),
+        "dependency_edges": sorted(edges, key=_canonical_item),
+    }
 
 
 def bundle_digest(bundle: dict[str, Any]) -> str:
