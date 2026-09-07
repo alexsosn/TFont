@@ -11,12 +11,30 @@ from scripts.research.r015_bundle_id import (
 )
 
 
-def _d(label):
-    return "sha256:" + hashlib.sha256(label.encode()).hexdigest()
+def _d(label: str) -> str:
+    return "sha256:" + hashlib.sha256(label.encode("utf-8")).hexdigest()
+
+
+def _lock(lock_id: str, *, release: str, terms_used: list[str]) -> dict:
+    return {
+        "lock_id": lock_id,
+        "ontology_id": lock_id,
+        "support_tier": "core",
+        "term_namespace": f"{lock_id}:",
+        "release": release,
+        "source_uri": f"https://example.org/{lock_id}/{release}",
+        "content_digest": _d(lock_id),
+        "license": "test-license",
+        "terms_used": list(terms_used),
+    }
 
 
 def _scope():
-    return {"source_term":"frbroo-2.4:F28","target_term":"lrmoo-1.1.1:F28","relation":"reviewed-continuity"}
+    return {
+        "source_term": "frbroo-2.4:F28",
+        "target_term": "lrmoo-1.1.1:F28",
+        "relation": "reviewed-continuity",
+    }
 
 
 def _refresh_bridge(bridge, *, refresh_review=True):
@@ -27,61 +45,144 @@ def _refresh_bridge(bridge, *, refresh_review=True):
 
 def _bundle():
     bridge = {
-        "bridge_id":"f28-continuity","source_lock_id":"frbroo-2.4","source_lock_digest":_d("frbroo"),
-        "target_lock_id":"lrmoo-1.1.1","target_lock_digest":_d("lrmoo"),"scope":_scope(),
-        "compatibility":"compatible","evidence_id":"lrmoo-1.1.1-migration-table-f28","evidence_digest":_d("evidence"),
-        "runtime_strength":"exact","runtime_limitations":["term-scoped continuity only"],"review_status":"reviewed",
-        "review_id":"review:r015-f28-001","reviewer_id":"github:independent-reviewer","reviewed_at":"2026-09-07T15:00:00Z",
+        "bridge_id": "f28-continuity",
+        "source_lock_id": "frbroo-2.4",
+        "source_lock_release": "2.4",
+        "source_lock_digest": _d("frbroo-2.4"),
+        "target_lock_id": "lrmoo-1.1.1",
+        "target_lock_release": "1.1.1",
+        "target_lock_digest": _d("lrmoo-1.1.1"),
+        "scope": _scope(),
+        "compatibility": "compatible",
+        "evidence_id": "lrmoo-1.1.1-migration-table-f28",
+        "evidence_digest": _d("evidence"),
+        "runtime_strength": "exact",
+        "runtime_limitations": ["term-scoped continuity only"],
+        "review_status": "reviewed",
+        "review_id": "review:r015-f28-001",
+        "reviewer_id": "github:independent-reviewer",
+        "reviewed_at": "2026-09-07T15:00:00Z",
     }
     _refresh_bridge(bridge)
-    return {"schema_version":1,"profile_contracts":["written-text@1"],"ontology_locks":[
-        {"lock_id":"crmtex-2.0","digest":_d("crmtex")},{"lock_id":"frbroo-2.4","digest":_d("frbroo")},{"lock_id":"lrmoo-1.1.1","digest":_d("lrmoo")}],
-        "bridge_locks":[bridge],"dependency_edges":[{"id":"crmtex-f28","consumer":"crmtex-2.0","requires":"frbroo-2.4","satisfied_by":"bridge:f28-continuity","required_bridge_scope":_scope(),"active":True}]}
+    return {
+        "schema_version": 1,
+        "profile_contracts": ["written-text@1"],
+        "ontology_locks": [
+            _lock("crmtex-2.0", release="2.0", terms_used=["crmtex-2.0:TX2"]),
+            _lock("frbroo-2.4", release="2.4", terms_used=["frbroo-2.4:F28"]),
+            _lock("lrmoo-1.1.1", release="1.1.1", terms_used=["lrmoo-1.1.1:F28"]),
+        ],
+        "bridge_locks": [bridge],
+        "dependency_edges": [
+            {
+                "id": "crmtex-f28",
+                "consumer": "crmtex-2.0",
+                "requires": "frbroo-2.4",
+                "satisfied_by": "bridge:f28-continuity",
+                "required_bridge_scope": _scope(),
+                "active": True,
+            }
+        ],
+    }
 
 
 def test_complete_provenance_bound_exact_bridge_is_executable():
-    b=_bundle(); assert dependency_states(b)==[{"id":"crmtex-f28","state":"satisfied-reviewed-bridge"}]; assert executable(b)
+    b = _bundle()
+    assert dependency_states(b) == [
+        {"id": "crmtex-f28", "state": "satisfied-reviewed-bridge"}
+    ]
+    assert executable(b)
 
-@pytest.mark.parametrize("field", ["evidence_id","evidence_digest"])
+
+@pytest.mark.parametrize("field", ["evidence_id", "evidence_digest"])
 def test_evidence_identity_is_required(field):
-    b=_bundle(); del b["bridge_locks"][0][field]; _refresh_bridge(b["bridge_locks"][0])
-    with pytest.raises(ValueError, match=field): bundle_digest(b)
+    b = _bundle()
+    del b["bridge_locks"][0][field]
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match=field):
+        bundle_digest(b)
     assert not executable(b)
 
-@pytest.mark.parametrize("field", ["review_id","reviewer_id","reviewed_at"])
+
+@pytest.mark.parametrize("field", ["review_id", "reviewer_id", "reviewed_at"])
 def test_stable_review_identity_and_date_are_required(field):
-    b=_bundle(); del b["bridge_locks"][0][field]
-    with pytest.raises(ValueError, match=field): bundle_digest(b)
+    b = _bundle()
+    del b["bridge_locks"][0][field]
+    with pytest.raises(ValueError, match=field):
+        bundle_digest(b)
     assert not executable(b)
+
 
 def test_review_timestamp_must_be_timezone_aware_iso8601():
-    b=_bundle(); b["bridge_locks"][0]["reviewed_at"]="2026-09-07 15:00:00"
-    with pytest.raises(ValueError, match="reviewed_at"): bundle_digest(b)
+    b = _bundle()
+    b["bridge_locks"][0]["reviewed_at"] = "2026-09-07 15:00:00"
+    with pytest.raises(ValueError, match="reviewed_at"):
+        bundle_digest(b)
 
-@pytest.mark.parametrize("field", ["runtime_strength","runtime_limitations"])
+
+@pytest.mark.parametrize("field", ["runtime_strength", "runtime_limitations"])
 def test_runtime_semantics_are_required(field):
-    b=_bundle(); del b["bridge_locks"][0][field]; _refresh_bridge(b["bridge_locks"][0])
-    with pytest.raises(ValueError, match=field): bundle_digest(b)
+    b = _bundle()
+    del b["bridge_locks"][0][field]
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match=field):
+        bundle_digest(b)
+
 
 def test_runtime_limitations_must_be_non_empty_strings():
-    b=_bundle(); b["bridge_locks"][0]["runtime_limitations"]=[]; _refresh_bridge(b["bridge_locks"][0])
-    with pytest.raises(ValueError, match="runtime_limitations"): bundle_digest(b)
+    b = _bundle()
+    b["bridge_locks"][0]["runtime_limitations"] = []
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="runtime_limitations"):
+        bundle_digest(b)
+
 
 def test_approximate_bridge_is_not_exact_executable():
-    b=_bundle(); b["bridge_locks"][0]["runtime_strength"]="approximate"; _refresh_bridge(b["bridge_locks"][0])
-    assert dependency_states(b)==[{"id":"crmtex-f28","state":"non-exact-bridge-strength"}]; assert not executable(b)
+    b = _bundle()
+    b["bridge_locks"][0]["runtime_strength"] = "approximate"
+    _refresh_bridge(b["bridge_locks"][0])
+    assert dependency_states(b) == [
+        {"id": "crmtex-f28", "state": "non-exact-bridge-strength"}
+    ]
+    assert not executable(b)
+
 
 def test_unknown_runtime_strength_is_rejected():
-    b=_bundle(); b["bridge_locks"][0]["runtime_strength"]="sort-of-compatible"; _refresh_bridge(b["bridge_locks"][0])
-    with pytest.raises(ValueError, match="runtime_strength"): bundle_digest(b)
+    b = _bundle()
+    b["bridge_locks"][0]["runtime_strength"] = "sort-of-compatible"
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="runtime_strength"):
+        bundle_digest(b)
 
-def test_evidence_and_runtime_semantics_are_content_addressed():
-    a=_bundle()
-    for field,value in (("evidence_id","different-evidence"),("evidence_digest",_d("different-evidence")),("runtime_strength","approximate"),("runtime_limitations",["different limitation"])):
-        b=deepcopy(a); b["bridge_locks"][0][field]=value; _refresh_bridge(b["bridge_locks"][0]); assert bundle_digest(a)!=bundle_digest(b),field
+
+def test_evidence_runtime_and_endpoint_release_semantics_are_content_addressed():
+    a = _bundle()
+    changes = (
+        ("evidence_id", "different-evidence"),
+        ("evidence_digest", _d("different-evidence")),
+        ("runtime_strength", "approximate"),
+        ("runtime_limitations", ["different limitation"]),
+        ("source_lock_release", "2.4-pinned"),
+        ("target_lock_release", "1.1.1-pinned"),
+    )
+    for field, value in changes:
+        b = deepcopy(a)
+        b["bridge_locks"][0][field] = value
+        _refresh_bridge(b["bridge_locks"][0])
+        assert bundle_digest(a) != bundle_digest(b), field
+
 
 def test_review_identity_is_bundle_identity_but_display_name_is_not():
-    a=_bundle()
-    for field,value in (("review_id","review:r015-f28-002"),("reviewer_id","github:other-independent-reviewer"),("reviewed_at","2026-09-07T16:00:00Z")):
-        b=deepcopy(a); b["bridge_locks"][0][field]=value; assert bundle_digest(a)!=bundle_digest(b),field
-    c=deepcopy(a); c["bridge_locks"][0]["reviewer_display_name"]="Display Name Only"; assert bundle_digest(a)==bundle_digest(c)
+    a = _bundle()
+    for field, value in (
+        ("review_id", "review:r015-f28-002"),
+        ("reviewer_id", "github:other-independent-reviewer"),
+        ("reviewed_at", "2026-09-07T16:00:00Z"),
+    ):
+        b = deepcopy(a)
+        b["bridge_locks"][0][field] = value
+        assert bundle_digest(a) != bundle_digest(b), field
+
+    c = deepcopy(a)
+    c["bridge_locks"][0]["reviewer_display_name"] = "Display Name Only"
+    assert bundle_digest(a) == bundle_digest(c)
