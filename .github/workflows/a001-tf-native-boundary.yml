@@ -10,6 +10,9 @@ on:
       - docs/research/A-001-r005-oracc-zero-span-supersession.md
       - docs/research/A-001-r007-external-carrier-supersession.md
       - docs/plans/A-001-tf-native-runtime-boundary-plan.md
+      - docs/plans/A-001-p001-runtime-reconciliation-plan.md
+      - docs/plans/P-001-tf-native-runtime-boundary-amendment.md
+      - src/tfont/schemas/parent-component-manifest.schema.json
       - tests/architecture/test_tf_native_boundary.py
       - .github/workflows/a001-tf-native-boundary.yml
   pull_request:
@@ -19,18 +22,27 @@ on:
       - docs/research/A-001-r005-oracc-zero-span-supersession.md
       - docs/research/A-001-r007-external-carrier-supersession.md
       - docs/plans/A-001-tf-native-runtime-boundary-plan.md
+      - docs/plans/A-001-p001-runtime-reconciliation-plan.md
+      - docs/plans/P-001-tf-native-runtime-boundary-amendment.md
+      - src/tfont/schemas/parent-component-manifest.schema.json
       - tests/architecture/test_tf_native_boundary.py
       - .github/workflows/a001-tf-native-boundary.yml
+
+permissions:
+  contents: read
 
 jobs:
   architecture-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: python -m pip install -e . pytest
+        run: python -m pip install -e . pytest build
       - name: Run A-001 architecture contract tests
         run: python -m pytest -q tests/architecture/test_tf_native_boundary.py
