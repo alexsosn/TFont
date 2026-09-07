@@ -60,10 +60,11 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
 
 
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Return the semantic, order-independent bundle projection.
+    """Return the semantic, order-independent active bundle projection.
 
     The projection is an allow-list, not a deep copy. Presentation/audit metadata is
-    deliberately excluded even when nested inside lock/bridge/edge records.
+    deliberately excluded even when nested inside lock/bridge/edge records. Inactive
+    dependency edges remain diagnostic input but are not part of active bundle identity.
     """
 
     _validate_unique_ids(bundle)
@@ -77,14 +78,18 @@ def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     bridge_refs = [
         _project(item, _BRIDGE_FIELDS) for item in bundle.get("bridge_locks", [])
     ]
-    edges = [_project(item, _EDGE_FIELDS) for item in bundle.get("dependency_edges", [])]
+    active_edges = [
+        _project(item, _EDGE_FIELDS)
+        for item in bundle.get("dependency_edges", [])
+        if item.get("active", True)
+    ]
 
     return {
         "schema_version": bundle["schema_version"],
         "profile_contracts": sorted(profile_contracts),
         "ontology_locks": sorted(ontology_refs, key=_canonical_item),
         "bridge_locks": sorted(bridge_refs, key=_canonical_item),
-        "dependency_edges": sorted(edges, key=_canonical_item),
+        "dependency_edges": sorted(active_edges, key=_canonical_item),
     }
 
 
