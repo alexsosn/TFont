@@ -3,6 +3,11 @@
   "status": "non-production research query-suite supplement",
   "basis": "Issue #43 minimum query intents plus R-005/R-007/R-008/R-009/R-010 reviewed constraints",
   "query_overrides": {
+    "q-physical-object": {
+      "probes": [
+        {"corpus":"oracc","capability":"native-object-candidate-needs-reviewed-carrier-selector","mapping_strength":"native-only","native_selectors":["native document identity","catalogue/object metadata where present"],"reason":"Generic ORACC otype=document is broader than physical artefact identity: the active pinned model has 2,078 documents but only 2,075 catalogue joins, and R-010 requires native/catalogue evidence that the identity denotes a physical artefact before CRM E22 compilation."}
+      ]
+    },
     "q-apparatus-reading": {
       "probes": [
         {"corpus":"pseudepigrapha","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.otype.v(n) == 'reading'","E.reading_of.f(reading)","E.witness.f(reading)"],"reason":"Full reading-at-locus witness graph exists natively, but R-009 found no accepted common apparatus target."}
