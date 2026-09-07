@@ -8,10 +8,19 @@ from scripts.research.r016_policy import (
 )
 
 
-def m(assessment, *, eligible=False, losses=(), mid=None, plan=None):
+def m(
+    assessment,
+    *,
+    eligible=False,
+    losses=(),
+    mid=None,
+    plan=None,
+    prerequisites=True,
+):
     return MappingPolicy(
         mid or assessment,
         assessment,
+        prerequisites_executable=prerequisites,
         approximation_eligible=eligible,
         reviewed_losses=frozenset(losses),
         native_plan=f"plan:{assessment}" if plan is None else plan,
@@ -260,6 +269,7 @@ def test_compileable_native_plan_does_not_make_close_executable():
     mapping = MappingPolicy(
         "line-close",
         "close",
+        prerequisites_executable=True,
         approximation_eligible=False,
         reviewed_losses=frozenset(),
         native_plan="F.otype.v(n) == 'line'",
@@ -273,7 +283,7 @@ def test_compileable_native_plan_does_not_make_close_executable():
     assert r.native_plan == ""
 
 
-# Fresh adversarial RED regressions after R-015 merge.
+# Fresh adversarial regressions after R-015 merge.
 
 def test_approximation_eligibility_must_be_exact_boolean():
     for value in (1, 0, "yes", "false", None, [], {}):
@@ -300,11 +310,20 @@ def test_unknown_accepted_loss_token_cannot_authorize_execution():
     assert "loss" in r.reason
 
 
+def test_missing_upstream_gate_defaults_fail_closed():
+    mapping = MappingPolicy(
+        "exact-without-upstream-gate",
+        "exact",
+        native_plan="plan:exact",
+    )
+    r = resolve_atom(mapping)
+    assert r.status == "informative-only"
+    assert r.native_plan == ""
+    assert "prerequisite" in r.reason
+
+
 def test_blocked_upstream_semantic_dependencies_cannot_be_bypassed_by_approximation():
-    mapping = m("broader", eligible=True)
-    # R-016 must consume an explicit upstream gate from R-003/R-015 rather than
-    # treating mapping-level approximation as sufficient execution authority.
-    object.__setattr__(mapping, "prerequisites_executable", False)
+    mapping = m("broader", eligible=True, prerequisites=False)
     r = resolve_atom(
         mapping,
         semantic_mode="approximate",
@@ -313,6 +332,15 @@ def test_blocked_upstream_semantic_dependencies_cannot_be_bypassed_by_approximat
     assert r.status == "informative-only"
     assert r.native_plan == ""
     assert "prerequisite" in r.reason
+
+
+def test_non_boolean_upstream_gate_fails_closed():
+    for value in (1, 0, "yes", "false", None, [], {}):
+        mapping = m("exact", prerequisites=value)
+        r = resolve_atom(mapping)
+        assert r.status == "informative-only", value
+        assert r.native_plan == "", value
+        assert "boolean" in r.reason, value
 
 
 def test_false_like_aggregate_opt_in_never_enables_statistics():
