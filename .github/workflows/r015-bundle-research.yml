@@ -12,6 +12,7 @@ on:
       - tests/research/test_r015_bridge_provenance.py
       - tests/research/test_r015_jcs_contract.py
       - tests/research/test_r015_lock_identity.py
+      - tests/research/test_r015_active_flag.py
       - src/tfont/digests.py
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - tests/research/test_r015_bridge_provenance.py
       - tests/research/test_r015_jcs_contract.py
       - tests/research/test_r015_lock_identity.py
+      - tests/research/test_r015_active_flag.py
       - src/tfont/digests.py
   workflow_dispatch:
 
@@ -50,3 +52,4 @@ jobs:
           tests/research/test_r015_bridge_provenance.py
           tests/research/test_r015_jcs_contract.py
           tests/research/test_r015_lock_identity.py
+          tests/research/test_r015_active_flag.py
