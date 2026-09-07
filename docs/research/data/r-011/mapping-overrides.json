@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "status": "non-production research effective-mapping overrides",
+  "basis": "Fresh adversarial review of the R-011 pilot against pinned native evidence. Overrides are applied before weighted/raw/query measurement and never mutate the historical source fixture silently.",
+  "exclude_mapping_ids": [
+    "extra-gloss"
+  ],
+  "mapping_overrides": {
+    "oracc-document": {
+      "assessment": "native-only",
+      "target": null,
+      "plan": "native document identity; require a separately reviewed object-bearing catalogue/carrier selector before CRM E22 compilation",
+      "notes": "ORACC-TF@e8f2b160 has 2,078 document identities but only 2,075 catalogue joins, and R-010 permits CRM physical-object projection only where catalogue/native semantics establish physical artefact identity. Generic otype=document is therefore not a safe E22 selector in this pilot."
+    }
+  },
+  "review_notes": {
+    "extra-gloss": "Pinned ExtraBiblical R-005 inventory contains no gloss node feature. The row is excluded from the effective reviewed set rather than fabricating a denominator item or weakening fail-closed validation.",
+    "oracc-document": "The source fixture's close E22 candidate was over-broad. Until an object-bearing predicate is source-backed and reproducible, the common-pivot state is native-only."
+  }
+}
