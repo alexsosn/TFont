@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "non-production research policy",
+  "basis": "Accepted R-005 curated corpus inventory; only explicitly documented categorical/bounded feature families are expanded into value-level raw denominator items. Observed-small-domain alone is insufficient.",
+  "corpora": {
+    "bhsa": {
+      "bounded_features": ["sp", "pdp", "gn", "prs_gn", "nu", "prs_nu", "ps", "prs_ps", "st", "vs", "vt"],
+      "mapping_refs": {
+        "bhsa-pos-noun": ["node_value:sp=\"subs\""],
+        "bhsa-pos-verb": ["node_value:sp=\"verb\""],
+        "bhsa-number-plural": ["node_value:nu=\"pl\""],
+        "bhsa-person-first": ["node_value:ps=\"p1\""],
+        "bhsa-gender-m": ["node_value:gn=\"m\""],
+        "bhsa-lex-entry": ["node_type:lex"],
+        "bhsa-gloss": ["node_feature:gloss"],
+        "bhsa-verbal-stem": ["node_feature:vs"]
+      }
+    },
+    "cuc": {
+      "bounded_features": ["side", "emen", "cert"],
+      "mapping_refs": {
+        "cuc-line": ["node_type:line"],
+        "cuc-column": ["node_type:column"],
+        "cuc-tablet": ["node_type:tablet"],
+        "cuc-sign": ["node_type:sign"],
+        "cuc-usign": ["node_feature:usign"],
+        "cuc-certainty": ["node_feature:cert"],
+        "cuc-editorial-restoration": ["node_feature:trailer_emen"]
+      }
+    },
+    "syriac": {
+      "bounded_features": ["sp", "vs", "vt", "vo", "vpm", "gn", "nu", "ps", "st"],
+      "mapping_refs": {
+        "syriac-pos-noun": ["node_value:sp=\"subs\""],
+        "syriac-pos-verb": ["node_value:sp=\"verb\""],
+        "syriac-number-plural": ["node_value:nu=\"pl\""],
+        "syriac-person-first": ["node_value:ps=\"first\""],
+        "syriac-gender-m": ["node_value:gn=\"m\""],
+        "syriac-lex-entry": ["node_feature:lex"],
+        "syriac-gloss": ["node_feature:gloss"],
+        "syriac-verbal-stem": ["node_feature:vs"]
+      }
+    },
+    "extrabiblical": {
+      "bounded_features": ["sp", "gn", "nu", "ps", "st", "vs", "vt"],
+      "mapping_refs": {
+        "extra-pos-noun": ["node_value:sp=\"subs\""],
+        "extra-pos-verb": ["node_value:sp=\"verb\""],
+        "extra-number-plural": ["node_value:nu=\"pl\""],
+        "extra-person-first": ["node_value:ps=\"p1\""],
+        "extra-lex-entry": ["node_feature:lex"],
+        "extra-gloss": ["node_feature:gloss"],
+        "extra-verbal-stem": ["node_feature:vs"]
+      }
+    },
+    "tlhdig": {
+      "bounded_features": ["missing", "laes", "ras", "add", "quot"],
+      "mapping_refs": {
+        "tlh-document": ["node_type:document"],
+        "tlh-line": ["node_type:line"],
+        "tlh-surface": ["node_type:surface"],
+        "tlh-lex-entry": ["node_type:lex"],
+        "tlh-fragment": ["node_type:fragment"],
+        "tlh-witness": ["edge_feature:witness"],
+        "tlh-damage": ["node_type:cluster"],
+        "tlh-edit": ["node_type:edit"]
+      }
+    }
+  }
+}
