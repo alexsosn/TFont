@@ -1,4 +1,9 @@
-"""Non-production R-016 approximate-execution policy prototype."""
+"""Non-production R-016 approximate-execution policy prototype.
+
+R-016 owns mapping-assessment approximation only. The prototype consumes a
+fail-closed upstream execution-prerequisite gate; it does not replace R-003
+parent-compatibility checks or R-015 semantic-bundle/bridge validation.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +14,27 @@ LOSS_UNDER = "undercoverage"
 LOSS_OVER = "overcoverage"
 _VALID_LOSSES = frozenset({LOSS_UNDER, LOSS_OVER})
 _VALID_SEMANTIC_MODES = frozenset({"exact", "approximate"})
+_VALID_ASSESSMENTS = frozenset(
+    {
+        "exact",
+        "close",
+        "broader",
+        "narrower",
+        "related",
+        "ambiguous",
+        "native-only",
+        "unsupported",
+    }
+)
 
 
 @dataclass(frozen=True)
 class MappingPolicy:
     mapping_id: str
     assessment: str
+    # Fail closed by default. P-003 must set this only after the R-003/R-015
+    # execution prerequisites for the selected mapping/bundle are satisfied.
+    prerequisites_executable: bool = False
     approximation_eligible: bool = False
     reviewed_losses: frozenset[str] = frozenset()
     native_plan: str = ""
@@ -37,6 +57,19 @@ class ConjunctionResult:
     atoms: tuple[AtomResult, ...]
 
 
+def _normalize_loss_input(value: Iterable[str]) -> frozenset[str] | None:
+    """Normalize an explicit caller loss set without truthiness/coercion tricks."""
+
+    if type(value) not in {list, tuple, set, frozenset}:
+        return None
+    if any(type(item) is not str for item in value):
+        return None
+    normalized = frozenset(value)
+    if not normalized.issubset(_VALID_LOSSES):
+        return None
+    return normalized
+
+
 def _required_losses(mapping: MappingPolicy) -> frozenset[str] | None:
     """Return a reviewed, directionally consistent executable loss contract.
 
@@ -47,6 +80,10 @@ def _required_losses(mapping: MappingPolicy) -> frozenset[str] | None:
     vocabulary. Unknown or contradictory contracts fail closed.
     """
 
+    if type(mapping.reviewed_losses) is not frozenset:
+        return None
+    if any(type(item) is not str for item in mapping.reviewed_losses):
+        return None
     reviewed = mapping.reviewed_losses
     if not reviewed.issubset(_VALID_LOSSES):
         return None
@@ -68,7 +105,11 @@ def _required_losses(mapping: MappingPolicy) -> frozenset[str] | None:
     return None
 
 
-def _informative(mapping: MappingPolicy, reason: str, losses: frozenset[str] = frozenset()) -> AtomResult:
+def _informative(
+    mapping: MappingPolicy,
+    reason: str,
+    losses: frozenset[str] = frozenset(),
+) -> AtomResult:
     return AtomResult(
         mapping.mapping_id,
         mapping.assessment,
@@ -80,7 +121,7 @@ def _informative(mapping: MappingPolicy, reason: str, losses: frozenset[str] = f
 
 
 def _has_native_plan(mapping: MappingPolicy) -> bool:
-    return isinstance(mapping.native_plan, str) and bool(mapping.native_plan.strip())
+    return type(mapping.native_plan) is str and bool(mapping.native_plan.strip())
 
 
 def resolve_atom(
@@ -89,10 +130,25 @@ def resolve_atom(
     semantic_mode: str = "exact",
     accepted_losses: Iterable[str] = (),
 ) -> AtomResult:
-    accepted = frozenset(accepted_losses)
+    """Evaluate one reviewed mapping after upstream execution gates have run."""
 
-    if semantic_mode not in _VALID_SEMANTIC_MODES:
+    if type(mapping.prerequisites_executable) is not bool:
+        return _informative(mapping, "execution prerequisite gate must be an exact boolean")
+    if not mapping.prerequisites_executable:
+        return _informative(mapping, "upstream execution prerequisites are not executable")
+
+    if type(mapping.approximation_eligible) is not bool:
+        return _informative(mapping, "approximation eligibility must be an exact boolean")
+
+    if mapping.assessment not in _VALID_ASSESSMENTS:
+        return _informative(mapping, "unknown mapping assessment")
+
+    if type(semantic_mode) is not str or semantic_mode not in _VALID_SEMANTIC_MODES:
         return _informative(mapping, "unknown semantic mode")
+
+    accepted = _normalize_loss_input(accepted_losses)
+    if accepted is None:
+        return _informative(mapping, "caller supplied an invalid or unknown loss token")
 
     if mapping.assessment == "exact":
         required = _required_losses(mapping)
@@ -179,7 +235,16 @@ def comparison_state(
 
     nonempty = {loss for loss in loss_sets if loss}
     state = "approximately-comparable" if len(nonempty) <= 1 else "heterogeneous-loss"
+
+    # Generic caller opt-in is sufficient only when every lossy plan has the
+    # same loss shape. Opposite/heterogeneous biases are not a bounded common
+    # approximation and remain non-aggregatable in R-016 v1.
+    aggregate_allowed = (
+        type(allow_approximate_aggregates) is bool
+        and allow_approximate_aggregates
+        and state == "approximately-comparable"
+    )
     return {
         "state": state,
-        "aggregate_allowed": bool(allow_approximate_aggregates),
+        "aggregate_allowed": aggregate_allowed,
     }
