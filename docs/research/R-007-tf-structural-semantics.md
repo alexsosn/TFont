@@ -2,25 +2,26 @@
 
 **Status:** research complete; pending fresh logically-independent review  
 **Issue:** #39  
-**Recorded:** 2026-09-06  
-**Depends on:** accepted R-002/R-003/R-005 and merged roadmap guardrail #45; compatible with R-006 pending its independent review
+**Recorded:** 2026-09-07  
+**Depends on:** accepted R-002/R-003/R-005, merged R-006 #52, and merged roadmap guardrail #45
 
 ## Decision
 
 TFont should **not** replace Text-Fabric's native graph with POWLA, Web Annotation, RDF-star, or another RDF runtime model. The faithful common structural layer is:
 
 1. **native TF warp and feature semantics remain executable truth**;
-2. domain-semantic edges/nodes are projected to the seven-model ontology profiles only where their native meaning warrants it;
-3. POWLA is an alignment/publication vocabulary for selected linguistic graph structures, not the TF warp itself;
-4. Web Annotation is useful for publication/targeting of externally addressable resources or segments, not as the canonical representation of `oslots` or arbitrary TF slot sets;
-5. a **tiny TFont structural vocabulary is justified only for TF-specific mechanics that no external model names precisely**, chiefly the neutral slot abstraction, the native `oslots` slot-link relation, and the interpretation of a node type's slot links as textual extent, occurrence set, technical anchor, no-slot entity, or external/sidecar entity;
-6. valued/unvalued edge mechanics, edge direction, node-feature applicability, and sidecar selectors belong primarily in the canonical mapping/IR contract rather than being inflated into a new domain ontology.
+2. domain-semantic nodes and edges are projected to the seven-model ontology profiles only where their native meaning warrants it;
+3. POWLA is an optional alignment/publication vocabulary for selected linguistic graph structures, not the TF warp itself;
+4. Web Annotation is optional publication/targeting infrastructure, not the canonical representation of `oslots` or arbitrary TF slot sets;
+5. a deliberately tiny local structural vocabulary is justified only for TF-specific mechanics not named precisely by maintained open standards: a neutral `Slot`, a neutral `slotLink` corresponding to native `oslots`, and a controlled **TF-node extent/anchor interpretation**;
+6. **carrier kind is a separate dimension**: a semantic native entity is realized either by a TF node or by a sidecar/native-adapter selector. Sidecar entities have no `oslots` interpretation;
+7. valued/unvalued edge mechanics, direction, feature applicability, section configuration, and sidecar paths belong in canonical mapping/IR rather than a new domain ontology.
 
-The key distinction is:
+The governing invariant is:
 
 > **TF slot-set coverage/anchoring is structural evidence, not automatically linguistic constituency, physical containment, mereology, or semantic extent.**
 
-TF itself computes structural embedding from `oslots` slot-set inclusion. TFont may expose that as **native TF structural embedding**, but must not silently publish or query it as a domain `partOf`, POWLA `hasParent`, CRM containment, syntactic constituency, or witness/textual-transmission relation unless a reviewed mapping establishes that stronger meaning for the relevant node types.
+TF computes native structural embedding from `oslots` slot-set inclusion. TFont may expose that as native TF structural behavior, but must not silently publish or query it as `partOf`, POWLA `hasParent`, CRM containment, syntactic constituency, witness attestation, or another domain relation unless a reviewed semantic mapping establishes the stronger meaning.
 
 ## 1. Primary evidence
 
@@ -30,37 +31,34 @@ The inspected Text-Fabric documentation is `annotation/text-fabric` at commit `1
 
 The TF model states that:
 
-- slots are textual positions and occupy the first `maxSlot` node numbers;
-- all slots share one slot type, which may be `word`, `character`, `sign`, or another atomic choice;
+- slots are ordered textual positions occupying the first `maxSlot` nodes;
+- all slots share one corpus-defined slot type;
 - non-slot text objects are nodes;
-- text objects may occupy **arbitrary compositions of slots**;
-- nodes can be linked to one slot, a set of slots, or no slots;
-- `otype` is the warp node feature assigning object types;
-- `oslots` is the warp edge feature connecting non-slot nodes to slots;
-- other node features map nodes to string/number values;
-- other edge features map ordered pairs of nodes to optional string/number values;
-- every edge feature name is already an implicit relation label; a valued edge adds another value;
-- `otext` optionally declares text formats and sectioning rather than hard-wiring chapter/verse semantics into the TF core;
-- structural embedding can be computed from `oslots`.
+- text objects may occupy arbitrary compositions of slots;
+- nodes may link to one slot, many slots, or no slots;
+- `otype` assigns native object-type labels;
+- `oslots` is the mandatory valueless edge from non-slot nodes to slots;
+- node features map nodes to string/number values;
+- edge features map ordered source-target pairs to optional string/number values;
+- the edge-feature name is already an implicit relation label;
+- `otext` optionally declares sectioning and text-format configuration;
+- embedding can be derived from slot-set relationships.
 
-Primary source:
-<https://github.com/annotation/text-fabric/blob/1079c68e051947efd955b61ad499e3a9beb03b09/tf/docs/about/datamodel.md>
+Primary source: <https://github.com/annotation/text-fabric/blob/1079c68e051947efd955b61ad499e3a9beb03b09/tf/docs/about/datamodel.md>
 
 ### 1.2 POWLA
 
-POWLA 1.0 is inspected from `acoli-repo/powla` at repository commit family `bd5e930ee1d3b1b57001c25895dbda887d9f286d` and the maintained project README/ontology.
+POWLA is inspected from `acoli-repo/powla`. Its maintained README explicitly says POWLA represents linguistic annotation structures and **does not aim to model textual data or the anchoring of annotations in textual data**; anchoring is delegated to complementary vocabularies.
 
-The maintained README is explicit that POWLA models linguistic annotation structures and **does not aim to model textual data or anchoring of annotations in textual data**; it is intended to complement Web Annotation, NIF, CoNLL-RDF, RDFa, and similar mechanisms.
-
-POWLA provides useful graph concepts including:
+POWLA nevertheless provides useful publication/alignment constructs:
 
 - `Node`, `Terminal`, `Nonterminal`, `Root`;
-- reified `Relation` with `hasSource` / `hasTarget`;
-- hierarchical `hasParent` / `hasChild`;
+- reified `Relation` with source and target;
+- `hasParent` / `hasChild`;
 - ordering via `next`;
-- annotation layers and annotations.
+- annotation layers.
 
-Critically, POWLA documents `hasParent` as a hierarchical relation with **coverage inheritance**: the string covered by children must also be covered by the parent; phrase structure is a typical example and dependency syntax is a typical counter-example. This is much stronger than generic TF `oslots` semantics.
+Crucially, POWLA documents `hasParent` as hierarchical annotation with **coverage inheritance**. Phrase structure is a typical case; dependency syntax is explicitly a counterexample. This is stronger than generic TF `oslots`.
 
 Primary sources:
 - <https://github.com/acoli-repo/powla/blob/main/Readme.md>
@@ -68,541 +66,382 @@ Primary sources:
 
 ### 1.3 Web Annotation
 
-The W3C Web Annotation Data Model is a Recommendation and provides `Annotation`, Body/Target, SpecificResource and Selectors. It explicitly allows segments of external resources to be selected. Standard selectors include fragment, XPath/CSS, text quote, text-position, data-position, SVG, and range selectors.
+The W3C Web Annotation Data Model provides annotation targets and selectors for externally addressable resources. The standard Text Position Selector is a contiguous character interval in a normalized character stream. That is useful publication infrastructure but not equivalent to arbitrary TF word/sign slot sets, discontinuous objects, occurrence sets, or technical anchors.
 
-The Text Position Selector is a **contiguous character interval** in a normalized character stream (`start`, `end`). This is not equivalent to TF's arbitrary set of word/sign/character slots and does not represent the semantic meaning of a technical one-slot anchor. Web Annotation is therefore useful when publishing an annotation against an externally addressable source/segment, but not as the universal TF warp model.
+Primary source: <https://www.w3.org/TR/annotation-model/>
 
-Primary source:
-<https://www.w3.org/TR/annotation-model/>
+### 1.4 OLiA System/annotation-model layer
 
-### 1.4 OLiA System Ontology
+OLiA is useful for describing corpus annotation schemes and linking them to linguistic reference concepts. It does not provide the missing TF warp semantics: arbitrary slot-set anchoring, technical anchors, zero-slot nodes, valued TF edges, or component-aware sidecars. R-006 therefore keeps OLiA in the semantic pivot while R-007 keeps TF structural mechanics separate.
 
-OLiA's system/annotation-model vocabulary is useful for describing annotation tags and linking native annotation models to a linguistic reference model. It does not provide the missing TF warp semantics: arbitrary slot-set anchoring, technical anchors, zero-span nodes, valued TF edge features, or component-aware sidecars. R-006 therefore uses OLiA as the language-side semantic pivot, while R-007 keeps TF structure separate.
+### 1.5 R-005 corpus evidence
 
-Primary project:
-<https://github.com/acoli-repo/olia>
+R-005 establishes that the same native TF mechanism can serve materially different purposes:
 
-### 1.5 Existing TFont corpus census
+- ordinary textual extent;
+- corpus-wide occurrence extent of an abstract lexeme;
+- a technical one-slot anchor whose real semantic relations are explicit edges;
+- zero-slot/non-textual nodes;
+- semantically addressable entities outside the warp in sidecar/native components.
 
-R-005 remains the authoritative corpus evidence and prevents an over-literal reading of TF's word “containment”. It demonstrates that the **same `oslots` mechanism is used for materially different native purposes**:
+Therefore `oslots` cannot be treated as a universal domain-containment predicate.
 
-- ordinary textual span/coverage;
-- corpus-wide occurrence extent of an abstract lexical node;
-- a technical one-slot anchor for a lexical node whose real attestations are explicit edges;
-- zero-span or non-textual entities;
-- converter/source structures that need external sidecars.
+## 2. Structural dimensions TFont must preserve
 
-This means a semantic interoperability layer cannot infer domain containment merely from `oslots`.
+### 2.1 Native identity
 
-## 2. TF structural concept inventory
+A TF node number is meaningful only inside one particular warp/component. Mapping and result provenance must therefore scope every native selector to parent component identity. Integer node IDs are not global semantic identifiers.
 
-### 2.1 Native node identity
+### 2.2 Native object type
 
-A TF node is an integer identity in one specific warp. Node number has no portable semantic meaning without parent-corpus/component identity.
-
-Required TFont consequences:
-
-- every native node selector is scoped to the parent component manifest;
-- mapping rules operate on node type/features/paths, not persistent global meaning of integer IDs;
-- generated result provenance includes corpus/profile/component identity.
-
-### 2.2 `otype`
-
-`otype` is a mandatory warp node feature assigning a type label. TFont must distinguish:
-
-- **native structural type label** (`word`, `line`, `lex`, `sentence`, ...);
-- **semantic projection of that native type** to OLiA, OntoLex, CRMtex, LRMoo, CRM, etc.
-
-Identical `otype` strings across corpora are not mappings.
+`otype` is a native structural label. A value such as `word`, `line`, `lex`, `sentence`, or `fragment` is not itself a cross-corpus mapping. Semantic type projection to OLiA, OntoLex, CRMtex, CIDOC CRM, LRMoo, etc. remains separately reviewed.
 
 ### 2.3 Slot
 
-A TF slot is an atomic ordered position in the warp, not a universal linguistic “word” or textual “character”. The slot type is corpus-defined.
+A TF slot is an atomic ordered position in the warp. The slot type is corpus-defined:
 
-Examples from R-005:
+- BHSA / ExtraBiblical / Syriac / Pseudepigrapha-TF use word slots;
+- CUC / TLHdig-TF / the ORACC-TF target use sign slots.
 
-- BHSA / ExtraBiblical / Syriac / Pseudepigrapha-TF: `word` slot;
-- CUC / TLHdig-TF / ORACC-TF target: `sign` slot.
+A common structural `Slot` term must therefore carry **no implication** of Word, Sign, Grapheme, Glyph, Character, or Token.
 
-A common `Slot` concept is therefore useful only at the **TF structural level**. Domain meaning of the thing represented at that position is a separate mapping.
+### 2.4 Neutral slot link
 
-### 2.4 `oslots`
+`oslots` is the mandatory valueless edge linking non-slot TF nodes to slots. TFont needs a neutral public identity for this link because its interpretation varies by native object family. It must not globally be named `hasChild`, `partOf`, `containsWord`, `hasGlyph`, or another domain predicate.
 
-`oslots` is the mandatory valueless warp edge from a non-slot node to the slots linked to it. TF uses these sets for ordering and derived embedding.
+### 2.5 Native carrier kind
 
-TFont needs a neutral name for the **native slot link**, because its semantic interpretation varies by node type. The relation must not be named `hasChild`, `partOf`, `containsWord`, `hasGlyph`, or another domain relation globally.
+Carrier kind and TF extent mode are independent dimensions.
 
-### 2.5 Node feature
+Initial conceptual carrier kinds required by current evidence are:
 
-A TF node feature maps node IDs to strings/numbers. Applicability is not a universal schema constraint encoded by TF itself. Dense files can also contain empty/`None` storage records that are not semantic values.
+- **`tf-node`** — semantic entity is realized/addressed as a node in a TF warp;
+- **`sidecar` / `native-adapter`** — semantic entity is realized outside the warp and addressed by component-native identity/path.
 
-TFont therefore needs explicit reviewed mapping metadata for:
+A sidecar/native-adapter entity has **no `slotLink` and no TF-node extent mode**. It must not receive fake slots simply to fit a structural ontology.
 
-- applicable native node type(s);
-- value/domain semantics;
-- whether absence is storage absence or an explicit native assertion;
-- semantic target projection per feature/value where applicable.
+### 2.6 TF-node extent/anchor interpretation
 
-### 2.6 Edge feature
+For `carrier=tf-node`, the resolver needs a controlled interpretation of the node's relationship to slots whenever that relationship could affect semantic planning.
 
-A TF edge feature maps an **ordered source-target pair** to either:
+R-007 recommends exactly four initial modes:
 
-- no additional value: unvalued edge; or
-- a string/number: valued edge.
+| mode | meaning | domain reasoning rule |
+|---|---|---|
+| **`textualExtent`** | the node's slot set is the represented textual/inscriptional extent of the native object | may support separately reviewed containment/segment semantics; discontinuity is allowed |
+| **`occurrenceSet`** | the slot set enumerates occurrences/attestations of an abstract entity | do not treat as one text span or ordinary containment hierarchy |
+| **`technicalAnchor`** | one or more slots exist only to make the node addressable in the TF warp | never infer semantic extent/containment from the slot link |
+| **`noSlot`** | a TF node is intentionally linked to no slots | entity and semantic edges remain valid; no textual extent is implied |
 
-The edge feature name is already an implicit relation label. Direction is part of the native assertion.
+These are structural realization states, not ontology mapping assessments (`exact`, `close`, etc.).
 
-TFont must preserve at least:
+Defaulting every non-slot TF node to `textualExtent` is unsafe.
+
+### 2.7 Node features
+
+A node feature maps nodes to strings/numbers. TFont must preserve reviewed applicability and value semantics. Dense empty/`None` storage records are not semantic values and cannot establish feature applicability by themselves.
+
+### 2.8 Directed and valued edge features
+
+A TF edge feature maps an **ordered source-target pair** to either no additional value or a string/number value. TFont mapping/IR must preserve at least:
 
 ```text
 source selector/type
 edge feature name
 target selector/type
 native direction
-value semantics (none | categorical | scalar/open)
+valued vs unvalued
+value semantics when valued
 ```
 
-A semantic mapping may:
+A mapping may preserve direction, map to an ontology inverse property, map an edge value to a category, or preserve it as a literal. Those are reviewed decisions, not generic RDF conversion rules.
 
-- preserve direction;
-- map to the inverse direction of an ontology property;
-- map an edge **value** to a relation subtype/concept;
-- preserve the edge value as a literal attribute rather than pretending it is another relation.
+### 2.9 Section configuration
 
-Those choices are reviewed mapping semantics, not generic RDF conversion rules.
+`otext` can identify configured section levels and text formats, but `book`, `chapter`, `verse`, `tablet`, `column`, `line`, etc. remain corpus-native semantic concepts. Matching section level numbers do not establish equivalence.
 
-### 2.7 Sectioning and `otext`
+### 2.10 Discontinuous objects
 
-TF's optional `otext` config tells the runtime which node types/features function as section levels and text formats. The section names are corpus-native.
+TF objects may occupy arbitrary slot sets. A discontinuous object must preserve its exact slot set; TFont must never canonicalize it to a bounding contiguous interval merely for publication convenience.
 
-The structural layer can expose “configured section level/order”, but `book`, `chapter`, `verse`, `tablet`, `column`, and `line` remain domain concepts requiring separate mappings. A three-level `otext` path is not proof that corresponding units are semantically identical across corpora.
+## 3. Corpus stress cases
 
-### 2.8 Discontinuous node
+### 3.1 BHSA
 
-Because TF nodes occupy arbitrary compositions of slots, a node may be discontinuous. The structural contract must preserve the exact slot set, not normalize it to its minimal contiguous interval.
+R-005 records word slots; phrase/clause/sentence and distributional atom layers; `lex` nodes; and semantic edges `mother`, `functional_parent`, and `distributional_parent`.
 
-Consequences:
+Required distinctions:
 
-- the native query planner may use TF's exact slot set/embedding behavior;
-- a Web Annotation character interval is not a lossless canonical serialization of a discontinuous TF node;
-- POWLA can express discontinuous annotation ordering for appropriate linguistic structures, but that does not make POWLA the warp representation.
+- ordinary textual objects can use `textualExtent` where native semantics warrant it;
+- BHSA `lex` nodes use **`occurrenceSet`**: their slot set represents lexeme occurrences, not one lexical text span;
+- `mother`, `functional_parent`, and `distributional_parent` are explicit semantic edges and must not be reconstructed from or replaced by generic `oslots` embedding;
+- functional and distributional atom layers must not be collapsed into one hierarchy.
 
-### 2.9 Zero-slot node
+POWLA `hasParent` is only a candidate for a separately reviewed relation whose native semantics actually satisfy POWLA's coverage-inheritance contract.
 
-TF documentation explicitly permits nodes linked to no slots. Such nodes can still have type/features and participate in semantic edges.
+### 3.2 CUC
 
-A zero-slot node is not “missing data”. It can be a genuine non-textual entity.
+Pinned CUC uses sign slots with word, line, column, and tablet structures and no corpus-specific semantic edge features.
 
-### 2.10 Sidecar-backed entity
+This is a useful case where TF structural navigation can coexist with CRMtex/CRM semantic projections, but:
 
-R-001/P-001 already allow semantically addressable native components outside the TF warp. A catalogue entity, provenance record, or zero-span object may therefore be addressed by a native adapter/sidecar rather than a TF node number.
+- a sign slot is not automatically a CRMtex Grapheme or Glyph;
+- line/column can be candidate written-text segments only after domain review;
+- editorial features such as `emen`, `cert`, and `alt` remain separate assertions.
 
-The common structural contract must not force sidecar entities to acquire fake TF slots merely to participate in semantic resolution.
+### 3.3 TLHdig-TF
 
-## 3. Slot-link interpretation: the required missing distinction
+Pinned TLHdig-TF uses sign slots and a document hierarchy plus `analysis`, `lex`, `cluster`, `fragment`, `note`, `edit`, and `docgroup` overlays.
 
-The same native `oslots` mechanism can encode different relationships between a node and its slot set. TFont should require an **extent/anchor interpretation per relevant node type or selector family**.
+Critical structural case:
 
-R-007 recommends the following minimal controlled meanings as a P-003 design input:
+- morphology lives on `analysis` nodes;
+- `analysis -> lex` is the explicit lexical relation;
+- TLH `lex` nodes use a **`technicalAnchor`**, unlike BHSA `lex` occurrence sets;
+- damage/editorial clusters can have range or zero-width semantics;
+- sign-level cuneiform is available only when alignment evidence supports it.
 
-| mode | meaning | use in domain reasoning |
-|---|---|---|
-| **textual-extent** | the slot set is the actual represented textual/inscriptional extent of the native object | may support reviewed containment/segment mappings; discontinuity is allowed |
-| **occurrence-set** | the slot set enumerates occurrences/attestations of an abstract entity | must not be treated as one contiguous textual object or ordinary containment hierarchy |
-| **technical-anchor** | one or more slots exist only to anchor/address the node in the TF warp | never infer semantic extent/containment from the slot link |
-| **no-slot** | a TF node is intentionally linked to no slots | semantic identity/relations remain valid; no textual extent is implied |
-| **external-entity** | the entity is addressable in a sidecar/native component outside the TF warp | no `oslots` semantics at all; use component-native identity/path |
+Thus two native node types named `lex` may share an eventual OntoLex semantic projection while requiring different TF structural realization metadata.
 
-These modes describe the interpretation of the native addressing structure; they are **not ontology mapping assessments** such as `exact`/`close`.
+### 3.4 Pseudepigrapha-TF
 
-A future validator should require the mode wherever semantic query planning could otherwise confuse slot coverage with semantic extent. Defaulting all non-slot nodes to `textual-extent` is unsafe.
+The pinned apparatus contract uses explicit `unit`, reading, manuscript/witness structures and directed relations such as `reading_of` and `witness`. Empty readings can explicitly encode omissions; orphan readings can intentionally lack a locus.
 
-## 4. Corpus stress cases
+The apparatus graph cannot be reconstructed from slot inclusion. Absence of an edge or empty TF storage must never be interpreted as omission.
 
-### 4.1 BHSA
+### 3.5 ORACC-TF target
 
-R-005 establishes:
+R-005 treats ORACC-TF as a conversion/stress target. It requires document/text structures, lexical relations, catalogue/object metadata, and zero-span/sidecar cases.
 
-- slot type: `word`;
-- textual/linguistic layers: `subphrase`, phrase/phrase_atom, clause/clause_atom, sentence/sentence_atom, half-verse, verse, chapter, book;
-- lexical `lex` nodes;
-- semantic edges including `mother`, `functional_parent`, and `distributional_parent`.
+A source label such as `c type=sentence` is not sufficient to make the object a linguistic sentence. Catalogue/object entities may resolve through `carrier=sidecar/native-adapter` rather than TF nodes.
 
-Structural consequences:
+### 3.6 Simple control: ETCBC Syriac
 
-- word and ordinary textual-object node extents can use `textual-extent` where the native definition warrants it;
-- `lex` nodes use **occurrence-set** semantics: their `oslots` extent is the set of word occurrences, not one lexical text span;
-- `mother`, `functional_parent`, and `distributional_parent` must not be derived from or replaced by `oslots` containment;
-- functional objects can differ from continuous distributional `*_atom` objects, so a generic “phrase parent” collapse would destroy native analysis.
+The pinned Syriac control has word slots, book/chapter/verse sections, morphology as node features, and no custom semantic edge features. It demonstrates that a simple profile need not instantiate every structural mechanism.
 
-POWLA `hasParent` is only a candidate for a reviewed edge whose native semantics actually satisfy coverage-inheriting hierarchical annotation; it is not the generic mapping of any BHSA parent-like edge.
+## 4. Mapping matrix to existing open models
 
-### 4.2 CUC
+Legend: **direct** = strong fit after native review; **conditional** = useful only after stronger domain semantics are established; **publication** = useful serialization/targeting; **gap** = not faithful enough for canonical TF structural meaning.
 
-R-005 establishes:
-
-```text
-sign (slot) -> word -> line -> column -> tablet
-```
-
-and no corpus-specific semantic edge features in the pinned release.
-
-CUC is a clean case where TF structural coverage and physical/written-text hierarchy can often be projected further into CRMtex/CRM after domain review. Still:
-
-- TF `sign` = slot does not by itself establish CRMtex Grapheme or Glyph;
-- `line`/`column` can be candidate CRMtex written-text segments, but the mapping is semantic, not a consequence of slot inclusion;
-- editorial sign features (`emen`, `cert`, `alt`) remain separate annotation semantics.
-
-### 4.3 TLHdig-TF
-
-Pinned R-005 evidence includes:
-
-```text
-sign (slot) -> word -> line -> column -> surface -> document
-```
-
-plus `analysis`, `lex`, `cluster`, `fragment`, `note`, `edit`, and `docgroup` overlays.
-
-Important stress cases:
-
-- morphology is on separate `analysis` nodes and alternatives remain separate;
-- `analysis -> lex` explicitly carries lexical attestation/reference semantics;
-- TLH `lex` nodes use a **technical one-slot anchor**, unlike BHSA lexeme occurrence extents;
-- `cluster` nodes represent editorial/damage ranges and include zero-width editorial statements in the conversion model;
-- sign-level cuneiform is only populated when an alignment mechanism justifies it.
-
-Thus two nodes named `lex` in BHSA and TLH can have completely different `oslots` interpretation while sharing a possible OntoLex semantic target. This is the strongest empirical argument for separating semantic entity mapping from native extent mode.
-
-### 4.4 Pseudepigrapha-TF
-
-Pinned converter/apparatus contracts use:
-
-- `unit` textual apparatus loci;
-- reading nodes;
-- manuscript/witness entities;
-- `reading_of`, `witness`, `is_primary`, manuscript relations;
-- explicit empty readings for omissions;
-- orphan readings that intentionally lack a `reading_of` locus;
-- metadata-only/undefined witness cases.
-
-The structure cannot be reconstructed from slot inclusion alone. `reading_of` and `witness` are semantic directed edges; omission is an explicit reading state, not an empty TF feature record or absent `oslots` link.
-
-### 4.5 ORACC-TF target
-
-R-005 treats ORACC-TF as an implementation/stress target. Relevant structures include document/surface/column/line/word/sign layers, lexical entities and explicit lexical links, plus catalogue/metadata entities and zero-span cases.
-
-The important negative control is the source `c type=sentence` chunk: its label is not enough to make it the same semantic object as a BHSA linguistic sentence.
-
-ORACC also motivates sidecar/external-entity support because catalogue/object metadata need not naturally be encoded as text spans.
-
-### 4.6 Simple control: ETCBC Syriac 0.9
-
-The pinned Syriac control has `word` slots and straightforward `book / chapter / verse` sections with morphological node features and no custom semantic edge features. This demonstrates that the structural contract does not require every corpus to instantiate all complexity classes: ordinary corpora can expose only slot, textual extents, configured sections, and node-feature mappings.
-
-## 5. Mapping matrix to existing open models
-
-Legend: **direct** = good semantic fit when native evidence warrants it; **conditional** = useful only after stronger domain review; **publication** = useful serialization/targeting mechanism; **gap** = does not express the TF structural meaning faithfully enough.
-
-| TF structural concept | POWLA | OLiA System | Web Annotation | seven-model domain profiles | conclusion |
+| TF structural concept | POWLA | OLiA System | Web Annotation | domain ontologies | decision |
 |---|---|---|---|---|---|
-| atomic TF slot independent of linguistic type | `Terminal` is linguistically oriented and anchoring is external | gap | selector positions/segments are source-specific, not TF slot identity | CRMtex may type a represented sign/glyph, not the TF slot mechanic | **small local structural term justified** |
-| exact native `oslots` link | `hasParent` is too strong; POWLA itself delegates anchoring | gap | can select source segment, but not generic arbitrary TF slot sets/technical anchors | domain containment only conditionally | **small local neutral relation justified** |
-| textual-extent interpretation | POWLA hierarchical coverage can align for suitable linguistic structures | gap | useful for publication against source segments | CRMtex written-text segment may align where appropriate | local mode + domain mapping |
-| occurrence-set extent | no direct generic TF equivalent | gap | multiple targets are not the same semantics as one TF occurrence-set node | OntoLex can model lexical entity/attestation in domain layer | local extent mode required |
-| technical anchor | no suitable semantic relation | gap | selector would falsely imply targeted segment meaning | no domain relation should be inferred | local extent mode required |
-| zero-slot TF node | POWLA graph node possible but textual anchoring outside scope | gap | annotation/resource can exist without matching TF semantics | domain ontology can type entity | native/local structural state |
-| sidecar entity | outside POWLA corpus graph assumption | gap | web resource can identify entity if published | CRM/LRMoo/OntoLex etc. can type entity | mapping IR/native adapter, not forced TF node |
-| arbitrary directed edge | reified `Relation` is a good publication structure | gap | Annotation body-target relation is not generic graph edge semantics | map edge semantics to OLiA/CRM/etc. when justified | keep native edge; optional POWLA/RDF publication |
-| valued directed edge | POWLA relation + annotation can publish | gap | can annotate a relation resource but not canonical TF mechanic | target ontology may model value differently | native IR tuple; publication may reify/RDF-star |
-| discontinuous slot set | POWLA supports discontinuous linguistic structures/order | gap | standard text-position selector is contiguous; custom/multiple targeting needed | CRMtex may model segment semantics but not TF warp set | preserve exact native set; optional publication adapter |
-| configured section hierarchy | document/layer concepts only partially fit | gap | can target resources/segments | CRMtex/LRMoo/CRM can map actual units | keep `otext` config + semantic mappings |
-| explicit omission vs storage empty | annotation graph can represent explicit relation/state if modeled | linguistic tags only | can annotate explicit state, not infer it | textology profile handles explicit omission | never infer from missing/empty TF data |
+| neutral atomic TF slot | `Terminal` is linguistically oriented and anchoring is external | gap | source-selector positions are not TF slot identity | CRMtex types represented signs/glyphs, not TF mechanics | local `Slot` justified |
+| exact native `oslots` link | `hasParent/hasChild` is too strong | gap | can select source segments but not generic arbitrary slot-link semantics | domain containment only conditionally | local neutral `slotLink` justified |
+| `textualExtent` | suitable POWLA hierarchy only for reviewed linguistic structures | gap | useful publication targeting where lossless | CRMtex segment/CRM containment may apply after review | local mode + domain projection |
+| `occurrenceSet` | no direct generic equivalent | gap | multiple source targets are not the same semantic assertion | OntoLex handles lexical entity semantics, not TF warp realization | local mode required |
+| `technicalAnchor` | no suitable semantic relation | gap | selector would falsely imply targeted-source meaning | no domain relation should be inferred | local mode required |
+| `noSlot` TF node | graph node possible, anchoring outside POWLA scope | gap | resource can exist, but not as TF warp semantics | domain ontology may type the entity | local mode required |
+| sidecar/native-adapter entity | outside TF warp | gap | may identify external resource for publication | CRM/LRMoo/OntoLex/etc. can type entity | **carrier kind in IR; not slot-link mode** |
+| arbitrary directed edge | reified `Relation` is useful publication form | gap | not a generic graph-edge model | map semantics where justified | keep native edge; optional publication |
+| valued directed edge | relation + annotation can publish it | gap | can annotate a relation resource | ontology may model value differently | keep native source/target/value tuple |
+| discontinuous slot set | can model discontinuous linguistic structures | gap | standard text-position selector is contiguous | semantic segment mapping is separate | preserve exact TF slot set |
+| configured section hierarchy | partial document/layer fit | gap | can target resource segments | CRMtex/LRMoo/CRM may type actual units | preserve `otext` + semantic mapping |
+| explicit omission vs storage absence | possible only when explicitly modeled | annotation categories only | can publish explicit state | textology profile handles semantics | never infer from missing/empty data |
 
-## 6. POWLA decision
+## 5. POWLA decision
 
-### 6.1 What POWLA is good for
+POWLA remains valuable for actual linguistic graph semantics: annotation layers, explicit hierarchical annotation, reified relations, and ordering.
 
-POWLA remains valuable for publication/alignment of **actual linguistic annotation graph semantics**, especially:
-
-- nodes and annotation layers;
-- explicit hierarchy when coverage inheritance is part of the native semantics;
-- reified directed relations with source/target;
-- explicit sibling/annotation ordering;
-- interoperability with linked linguistic data tooling.
-
-### 6.2 Why `oslots -> powla:hasChild` is rejected
-
-`powla:hasParent` / `hasChild` carries coverage-inheriting hierarchical annotation semantics. TF `oslots` is the warp relation used for all non-slot node extents/anchors. R-005 shows occurrence-set and technical-anchor uses where “child/parent” would be false.
-
-Therefore the mapping:
+The global mapping
 
 ```text
-TF oslots  ==  POWLA hasChild
+TF oslots == POWLA hasChild
 ```
 
-is rejected globally.
+is rejected because POWLA `hasParent/hasChild` carries coverage-inheriting hierarchy semantics while TF `oslots` also supports occurrence sets, technical anchors, and zero-slot nodes.
 
-For a particular corpus relation such as a reviewed constituent-parent edge, POWLA `hasParent` may still be a valid **domain projection of that explicit edge**, independent of `oslots`.
+A separately reviewed explicit constituent relation may still map to POWLA independently of `oslots`.
 
-### 6.3 POWLA should not be a runtime dependency
+POWLA should not be a runtime dependency because Context-Fabric already executes exact TF node/edge/slot semantics without lossy reserialization.
 
-Even where POWLA is a useful publication target, Context-Fabric already executes the TF graph directly with exact node/edge/slot semantics. Re-serializing the graph to POWLA before every query would add conversion cost and create semantic pressure to force non-linguistic object/textology/heritage data into a linguistic graph model.
+## 6. Web Annotation decision
 
-## 7. Web Annotation decision
+Web Annotation remains optional publication/targeting infrastructure. It is useful for linking evidence or mappings to stable source resources/segments.
 
-Web Annotation is retained from R-002 as an optional publication/targeting profile.
+It is not canonical TF structure because:
 
-Useful cases:
+- standard text position selectors are character-offset based and contiguous;
+- TF slots may be words or signs;
+- TF objects may be discontinuous;
+- occurrence sets and technical anchors are not equivalent to source-selection semantics;
+- native graph-edge direction/value/applicability is outside selector semantics.
 
-- publish a TFont mapping/evidence annotation whose target is a stable corpus resource;
-- target a source XML/PDF/web fragment with a standard selector when that selector faithfully identifies the evidence;
-- expose a human-auditable target separate from runtime native node identity.
+A future publication adapter may define a TF-specific selector for stable slot sets, but R-007 does not require one for runtime or canonical mapping source.
 
-Not suitable as canonical TF structure because:
+## 7. Explicit absence is not storage absence
 
-- TextPositionSelector is character-offset based and contiguous;
-- TF slots may be words or signs rather than characters;
-- TF node extents may be discontinuous arbitrary slot sets;
-- occurrence-set and technical-anchor semantics are not “select this segment of the source”;
-- valued directed graph edges and native feature applicability are not naturally represented by selector semantics.
+The following fail-closed rules are mandatory:
 
-A future publication adapter may define a TFont-specific Web Annotation Selector for stable slot sets, but R-007 does **not** require one for runtime or for the canonical mapping source.
+- missing node-feature value does not mean `Unknown`, `Absent`, `Omitted`, `Unattested`, or `Damaged`;
+- absent edge does not mean an explicit negative relation;
+- no `oslots` edge does not mean omitted text;
+- a `noSlot` TF node can be a valid semantic entity;
+- an explicit omission must come from a native assertion whose semantics actually mean omission.
 
-## 8. Valued edges and publication mechanisms
+## 8. Minimal local structural vocabulary
 
-TFont needs an internal normalized representation equivalent to:
+The initial public vocabulary ceiling justified by current evidence is:
 
-```text
-edge assertion = (
-    native edge feature,
-    source native selector/node,
-    target native selector/node,
-    optional native edge value,
-    direction,
-    applicability/dependency evidence
-)
-```
-
-This is enough for native Context-Fabric execution.
-
-RDF publication can choose among:
-
-- a direct ontology property when the edge is unvalued and the property meaning/direction is reviewed;
-- an explicit relation resource (POWLA Relation or a domain event/assertion entity) when the relation itself needs metadata;
-- RDF-star/reification where appropriate for publication tooling.
-
-RDF-star/reification is therefore **not** a new semantic ontology dependency and is not required at runtime.
-
-## 9. Explicit absence is not storage absence
-
-R-003/R-005 already establish that dense empty-string/`None` TF records are storage facts, not semantic values.
-
-R-007 extends this rule structurally:
-
-- no node-feature value does not mean `Unknown`, `Absent`, `Omitted`, `Unattested`, `Damaged`, etc.;
-- no edge does not mean an explicit negative relation;
-- no `oslots` link does not by itself mean omitted text;
-- a zero-slot entity can be semantically valid;
-- an explicit omission must be represented by a native assertion whose semantics say “omission” (as in the Pseudepigrapha apparatus), then mapped through the textology profile.
-
-This distinction must survive coverage metrics and agent explanations.
-
-## 10. Minimal TFont structural vocabulary recommendation
-
-An existing external ontology does **not** name TF's neutral slot mechanics precisely enough. A local vocabulary is therefore justified, but it should be deliberately tiny and non-domain-semantic.
-
-R-007 recommends only the following public concepts as the initial ceiling; exact namespace/URI is a P-003/design decision:
-
-1. **`Slot`** — an atomic ordered position in a particular TF warp. It does not imply Word, Sign, Grapheme, Glyph, Character, Token, or any domain class.
-2. **`slotLink`** — the neutral native relation corresponding exactly to `oslots`: a non-slot TF node is linked to a slot in its warp. It does not imply immediate child, semantic part, physical containment, or constituency.
-3. **`SlotLinkInterpretation`** — a controlled concept scheme whose initial values are:
+1. **`Slot`** — atomic ordered position in a particular TF warp, with no domain-type implication;
+2. **`slotLink`** — neutral public identity corresponding exactly to native `oslots`, with no immediate-child, part, containment, or constituency implication;
+3. **`TFNodeExtentMode`** — controlled concept scheme with exactly:
    - `textualExtent`;
    - `occurrenceSet`;
    - `technicalAnchor`;
-   - `noSlot`;
-   - `externalEntity`.
+   - `noSlot`.
 
-That is the **maximum** local ontology surface justified by current evidence.
+`sidecar` / `native-adapter` is **not** a `TFNodeExtentMode`. It belongs exclusively to the canonical IR's native-carrier dimension.
 
-The following should **not** become ontology terms unless later evidence demonstrates a concrete interoperability need:
+The following should not become ontology terms unless later evidence demonstrates an interoperability requirement:
 
-- `NodeFeature`;
-- `EdgeFeature`;
-- `ValuedEdgeFeature`;
+- NodeFeature;
+- EdgeFeature;
+- ValuedEdgeFeature;
 - edge source/target/value;
+- direction flags;
 - node integer identity;
 - section level number;
-- direction flags.
+- sidecar selector/path.
 
-Those are native mapping/IR schema mechanics. Creating RDF classes for all of them would recreate the whole TF implementation as an ontology without improving semantic interoperability.
+Those are mapping/IR mechanics. Creating RDF classes for all of them would rebuild Text-Fabric's implementation metamodel without improving semantic interoperability.
 
-### 10.1 Alignment policy for the tiny vocabulary
-
-The local terms are alignment hooks, not replacements for domain semantics:
-
-```text
-native TF node with textualExtent
-   ├─ structural: has slotLink(s)
-   └─ semantic: may map to CRMtex Written Text Segment / OLiA constituent / etc.
-
-native TLH lex node with technicalAnchor
-   ├─ structural: has slotLink(s), interpretation=technicalAnchor
-   └─ semantic: may map to OntoLex lexical entity
-```
-
-The semantic target remains the open domain ontology. The local vocabulary explains how the native TF graph realizes/address that target.
-
-## 11. Structural query-planning contract
-
-The agent should never need to reason directly from `oslots` semantics. The resolver receives reviewed structural metadata and emits native plan fragments.
+## 9. Structural query-planning contract
 
 Conceptually:
 
 ```text
 semantic request
    ↓
-semantic target mapping
-   + structural realization
-       - carrier: tf-node | sidecar
-       - native node type
-       - slot-link interpretation
-       - feature/value or edge path
-       - edge direction/value semantics
+reviewed semantic mapping
+   + native structural realization
+       carrier: tf-node | sidecar/native-adapter
+       if tf-node:
+         native node type
+         TFNodeExtentMode
+         feature/value or edge path
+         edge direction/value semantics
+       if sidecar/native-adapter:
+         component id
+         component-native selector/path
    ↓
 Context-Fabric native plan
 ```
 
-### 11.1 Domain concept plus native extent
+### Example: written-text lines
 
-Example: “written-text lines” across CUC and TLHdig-TF.
+A reviewed CRMtex line/segment mapping identifies the common semantic target. The structural binding identifies CUC/TLH native `otype` and `textualExtent`; Context-Fabric performs native navigation.
 
-- semantic layer identifies reviewed CRMtex line/segment mapping;
-- structural layer says which native `otype` realizes it and that its slots are `textualExtent`;
-- Context-Fabric uses native `otype`/`oslots` navigation.
+### Example: witness reading
 
-### 11.2 Relation query
+The textology profile maps the semantic relation. The Pseudepigrapha binding supplies the directed `reading -> witness` native edge path. Another corpus with a feature named `witness` does not participate unless its reviewed semantic mapping asserts the same relation.
 
-Example: “reading attested by witness”.
+### Example: discontinuous BHSA object
 
-- textology profile maps the semantic relation;
-- structural binding specifies Pseudepigrapha `reading` source, `witness` directed edge, manuscript target;
-- resolver compiles that explicit edge path;
-- another corpus with a `witness`-named feature does not participate unless its reviewed semantic mapping matches the same relation.
+Result identity remains the native object and its exact slot set. Rendering may expose multiple ranges, but must not fabricate one contiguous semantic span.
 
-### 11.3 Discontinuous object
+### Example: ORACC catalogue object
 
-A semantic query that returns a discontinuous BHSA functional phrase should preserve the exact native node/slot set. Rendering/export may later convert that to multiple ranges, but the semantic result identity remains the native object rather than a fabricated contiguous span.
+The semantic target can resolve through a sidecar/native-adapter selector with a required component dependency. No fake TF node or slot anchor is introduced.
 
-### 11.4 Sidecar object
+## 10. P-003 contract requirements
 
-A semantic request for an ORACC catalogue object may resolve to a sidecar/native-adapter selector rather than a TF `otype`. Context-Fabric/TFont must carry that component dependency in the plan and provenance. No fake slot anchor is required.
+### Preserve
 
-## 12. P-003 contract requirements
-
-P-003 should preserve/add the following structural requirements.
-
-### Preserve from P-001/R-003
-
-- parent component manifest identity;
-- semantically addressable sidecar/native-adapter components;
+- parent component identity;
+- sidecar/native-adapter components;
 - explicit native selectors and dependency closure;
 - fail-closed compatibility;
-- native query execution;
+- native Context-Fabric execution;
 - dense-empty non-semantic rule;
 - inspectable native plan/provenance.
 
 ### Add/version
 
-1. **native carrier kind**: at minimum TF node vs sidecar/native-adapter entity;
-2. **slot-link interpretation** for TF node families where `oslots` could otherwise be misread;
-3. exact preservation of discontinuous slot sets when object identity/extent is returned;
-4. first-class directed edge selector/path semantics;
-5. explicit distinction between valued and unvalued edge matching;
-6. value-role metadata for valued edges where the value is categorical vs scalar/open;
-7. reviewed node-feature applicability rather than inference from dense storage records;
-8. structural capability for zero-slot nodes/entities;
-9. a tiny public structural vocabulary limited to `Slot`, neutral `slotLink`, and slot-link interpretation concepts unless later research justifies more;
-10. optional POWLA/Web Annotation/RDF publication adapters kept outside the runtime execution contract.
+1. **native carrier kind**: at minimum `tf-node` versus `sidecar/native-adapter`;
+2. **TF-node extent mode** only when `carrier=tf-node`, with the four modes in section 8;
+3. schema rules forbidding extent mode on sidecar/native-adapter carriers;
+4. exact preservation of discontinuous slot sets;
+5. first-class directed edge selector/path semantics;
+6. explicit valued/unvalued edge distinction;
+7. value-role metadata for valued edges where needed;
+8. reviewed feature applicability rather than inference from dense storage records;
+9. support for valid `noSlot` TF nodes;
+10. optional POWLA/Web Annotation/RDF publication adapters outside runtime execution.
 
-## 13. TDD implications for later implementation
+## 11. TDD implications for later implementation
 
-After P-003, structural implementation tickets should begin with contract tests that demonstrate failure of tempting false assumptions.
+After P-003, structural implementation tickets should start with RED tests for false assumptions:
 
-Required RED cases should include:
+1. BHSA `lex` occurrence sets are not treated as one text span.
+2. TLH `lex` technical anchors are not treated as lexical semantic extents.
+3. identical `witness` names across corpora do not create a common relation.
+4. an ORACC source `sentence` label does not satisfy linguistic-sentence capability without a reviewed mapping.
+5. discontinuous nodes preserve exact slot sets.
+6. `noSlot` TF nodes remain addressable.
+7. sidecar entities resolve without fake `oslots` and cannot carry `TFNodeExtentMode`.
+8. valued-edge direction and value survive native plan compilation.
+9. empty/absent storage never becomes explicit omission/absence.
+10. a reviewed domain relation may compile to a native edge/path, but `oslots` alone never fabricates it.
 
-1. BHSA `lex` occurrence-set is **not** treated as one text span or containment object.
-2. TLH `lex` technical one-slot anchor is **not** treated as semantic lexical extent.
-3. identical `witness` names across Pseudepigrapha/Peshitta/TLH do not create the same edge predicate.
-4. an ORACC `sentence`-labelled source chunk does not satisfy a linguistic-sentence capability without a reviewed mapping.
-5. a discontinuous node preserves its exact slot set.
-6. a zero-slot node remains addressable.
-7. a sidecar entity can resolve without fake `oslots`.
-8. valued edge direction and value are preserved in native plan compilation.
-9. empty/absent feature/edge data never become explicit omission/absence semantics.
-10. a reviewed POWLA/CRMtex/domain relation may compile to a native edge/path, but `oslots` alone never fabricates it.
+## 12. Rejected alternatives
 
-## 14. Rejected alternatives
+### POWLA as canonical TF structural ontology
 
-### A. POWLA as the canonical TF structural ontology
+Rejected: it is linguistic, delegates textual anchoring, and gives `hasParent/hasChild` stronger coverage-inheritance semantics than generic `oslots`.
 
-Rejected. POWLA is linguistically oriented, explicitly delegates textual anchoring, and gives `hasParent` coverage-inheritance semantics that are too strong for generic `oslots`. It remains valuable alignment/publication prior art.
+### `oslots` as semantic containment
 
-### B. `oslots` = semantic containment
+Rejected by concrete occurrence-set and technical-anchor counterexamples.
 
-Rejected. R-005 provides concrete occurrence-set and technical-anchor counterexamples. TF structural embedding is useful native behavior but not a universal domain mereology.
+### Web Annotation selectors as canonical TF extents
 
-### C. `oslots` = POWLA `hasChild`
+Rejected because standard selectors do not losslessly model arbitrary TF slot sets and anchor interpretations.
 
-Rejected globally for the same reason. May be valid only for a separately reviewed explicit hierarchical relation whose native semantics satisfy POWLA's coverage-inheritance contract.
+### Reify the full TF metamodel in a new ontology
 
-### D. Web Annotation selectors as canonical TF extents
+Rejected: node-feature/edge-feature/direction/value/component mechanics belong in IR.
 
-Rejected. Standard selectors are source/media specific; text positions are contiguous character ranges and cannot losslessly encode arbitrary TF slot sets and anchor semantics. Web Annotation remains optional publication/targeting infrastructure.
+### Force sidecar entities into the warp
 
-### E. Reify every node/feature/edge in a new TFont ontology
+Rejected: this changes native identity/extent semantics and conflicts with the component-aware P-001 architecture.
 
-Rejected. This would rebuild Text-Fabric's implementation metamodel in RDF and make TFont a competing graph runtime. Only the small uncovered structural distinctions should get public vocabulary terms.
+### Treat sidecar as a slot-link interpretation
 
-### F. Force zero-span/sidecar entities into the warp
+Rejected by adversarial review of the first R-007 head. A sidecar/native-adapter entity is a different **carrier**, not a TF node with a special `oslots` interpretation.
 
-Rejected. It changes native identity/extent semantics and conflicts with R-001/P-001's component-aware architecture.
+## 13. Remaining boundaries owned elsewhere
 
-### G. Infer domain relation from edge name or node type string
+R-007 deliberately does not freeze:
 
-Rejected. Direction, applicability, corpus-native definitions, and mapping evidence are mandatory.
+- exact OLiA linguistic relation mappings;
+- OntoLex lexical/attestation semantics (R-008);
+- witness/apparatus semantics (R-009);
+- heritage/archaeological semantics (R-010);
+- empirical cross-corpus mapping strengths (R-011);
+- final target formal kinds/roles (R-013);
+- final semantic capability identifiers (R-014).
 
-## 15. Remaining boundaries owned elsewhere
+The exact namespace/serialization of the tiny structural vocabulary is a P-003 design concern after accepted research is reconciled.
 
-R-007 answers the structural-metagraph problem and deliberately does not decide domain mappings that belong to other research tickets:
+## 14. Acceptance-criteria trace
 
-- exact OLiA linguistic relation mappings: R-006/R-011 and future corpus mapping review;
-- lexical entity/attestation semantics: R-008;
-- witness/reading/apparatus semantics: R-009;
-- physical object/archaeological relations: R-010;
-- empirical mapping strengths across all pilots: R-011;
-- final semantic target formal kinds/roles: R-013;
-- final capability identifiers: R-014.
-
-No additional research ticket is required by R-007 at this point. The exact namespace and serialization of the tiny structural vocabulary are P-003/design concerns once R-007 is independently accepted.
-
-## 16. Acceptance-criteria trace
-
-- [x] **Slot coverage vs constituency/containment distinguished.** Sections 2–3 and 6 explicitly separate `oslots` from stronger domain relations.
-- [x] **Valued edges and direction covered.** Sections 2.6 and 8 define the required native assertion tuple and mapping choices.
-- [x] **Discontinuous, zero-span and sidecar semantics covered.** Sections 2.8–2.10 and 11 provide explicit contracts.
-- [x] **POWLA tested against actual TF structures.** Sections 4–6 use BHSA, TLH, Pseudepigrapha, ORACC and CUC counterexamples.
-- [x] **No RDF/SPARQL runtime requirement.** Native Context-Fabric remains the executor; RDF mechanisms are publication adapters only.
-- [x] **Local vocabulary justified and bounded.** Section 10 caps it at Slot, neutral slotLink, and a small slot-link interpretation scheme.
-- [x] **Concrete P-003/TDD requirements produced.** Sections 12–13 provide design and RED-test inputs.
+- [x] **Slot coverage vs constituency/containment distinguished.** `oslots` is explicitly kept neutral.
+- [x] **Valued edges and direction covered.** Native source/target/direction/value are first-class IR requirements.
+- [x] **Discontinuous, zero-span and sidecar semantics covered.** TF-node `noSlot` and sidecar carrier are explicitly separate.
+- [x] **POWLA tested against actual TF structures.** BHSA, TLH, Pseudepigrapha, ORACC and CUC provide counterexamples.
+- [x] **No RDF/SPARQL runtime requirement.** Native Context-Fabric remains executor.
+- [x] **Local vocabulary justified and bounded.** It is capped at `Slot`, `slotLink`, and four `TFNodeExtentMode` concepts; sidecar mechanics stay in IR.
+- [x] **Concrete P-003/TDD requirements produced.** Sections 10–11 provide schema and RED-test inputs.
 
 ## Review gate
 
 The exact final head requires a fresh logically-independent skeptical review against:
 
 - Text-Fabric's authoritative data-model documentation;
-- POWLA's maintained README and OWL semantics, especially `hasParent`/`hasChild` and relation reification;
+- POWLA's maintained README and OWL semantics;
 - W3C Web Annotation selector semantics;
-- R-005's pinned corpus evidence for BHSA, CUC, Syriac, TLHdig-TF, Pseudepigrapha-TF and ORACC-TF;
-- R-001/P-001 component-aware sidecar semantics.
+- R-005 pinned corpus evidence;
+- R-001/P-001 component-aware sidecar semantics;
+- the adversarial-review correction separating carrier kind from TF-node extent mode.
 
-The reviewer should actively try to falsify the local-vocabulary recommendation: if `Slot`, neutral `slotLink`, or the interpretation scheme can be represented precisely by a maintained open standard without semantic overclaiming, they should be removed rather than duplicated.
+The reviewer should still try to falsify the tiny local-vocabulary recommendation: if a maintained open standard precisely represents `Slot`, neutral `slotLink`, or the four TF-node extent modes without stronger semantics, the local terms should be removed rather than duplicated.
