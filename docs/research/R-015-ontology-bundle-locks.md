@@ -1,6 +1,6 @@
 # R-015: ontology-bundle composition and bridge-lock provenance semantics
 
-**Status:** research/prototype complete; hardened after exact-head adversarial reviews; pending final logically-independent review  
+**Status:** research/prototype complete; hardened after exact-head adversarial reviews; ready for final logically-independent review  
 **Issue:** #49  
 **Recorded:** 2026-09-07  
 **Depends on:** accepted P-001/R-002/R-006/R-010/R-012, accepted I-002 semantic-digest contract, and merged R-011/R-013/R-014
@@ -24,7 +24,7 @@ The main invariant is:
 
 > A dependency is executable only when its participating consumer/required locks are present under the expected release/payload identity and the dependency is satisfied either by that exact locked release or by one content-valid, reviewed, explicitly compatible bridge whose endpoint release/digests and term scope match the participating locks and dependency edge.
 
-Inactive optional-profile diagnostics remain outside active execution and active bridge closure.
+Inactive optional-profile diagnostics remain outside active execution and active bridge closure. The research prototype is explicitly schema-versioned: only exact integer `schema_version: 1` is interpreted by the v1 validator; unknown, missing, bool-coerced, string or numeric-lookalike versions fail closed.
 
 ## 1. Why individual ontology payload hashes are insufficient
 
@@ -85,6 +85,8 @@ The prototype validates this shape for:
 - exact-lock dependency digest.
 
 This avoids a second R-015-only identity dialect.
+
+The bundle contract itself is also version-gated. `schema_version` is not merely another hashed field: v1 code accepts only an exact integer `1`. A future version requires an explicit versioned contract/implementation amendment rather than being interpreted under v1 semantics because its other fields happen to look familiar.
 
 ## 3. Three identity layers
 
@@ -151,6 +153,8 @@ This is a **cross-artifact consistency check**, not ontology truth validation. A
 If an endpoint lock is absent or differs by release/payload digest, dependency evaluation reports the missing/stale endpoint instead of trying to validate term membership against the wrong release.
 
 ## 5. Dependency-edge contract
+
+Dependency activation is security/semantic state, not generic JSON truthiness. If an `active` field is present it must be an **exact JSON boolean**. Values such as `0`, `1`, `null`, `"false"`, `[]` or `{}` are schema-invalid and non-executable. When `active` is omitted, v1 defaults the dependency to active so omission cannot hide an unresolved required dependency.
 
 ### Exact locked dependency
 
@@ -231,7 +235,7 @@ The reference contract distinguishes outcomes equivalent to:
 - `unknown-bridge-compatibility`;
 - `non-exact-bridge-strength`.
 
-Malformed semantic lock records, malformed/duplicate IDs, invalid digest representation, missing endpoint release/digest, invalid scope, bridge content-digest mismatch, and exact-lock/bridge term-membership contract violations are schema/identity errors and therefore non-executable.
+Malformed semantic lock records, malformed/duplicate IDs, invalid digest representation, missing endpoint release/digest, invalid scope, bridge content-digest mismatch, exact-lock/bridge term-membership violations, non-boolean activation markers, and missing/unsupported/wrong-type schema versions are schema/identity errors and therefore non-executable.
 
 ## 7. Optional-profile semantics
 
@@ -249,7 +253,7 @@ Example:
 - a future corpus activates CRMarchaeo semantics, so those dependency edges enter its active bundle;
 - if the required old/current CRM or CRMsci bridge is missing, stale, unreviewed or incompatible, that activated capability becomes unavailable/non-executable with an explicit dependency diagnostic.
 
-Inactive diagnostic edges do not affect active bundle identity. Bridge locks referenced only by inactive edges are not valid active-bundle content.
+Inactive diagnostic edges do not affect active bundle identity. Bridge locks referenced only by inactive edges are not valid active-bundle content. Only an explicit boolean `false` may create the inactive state in v1; false-like values cannot suppress validation.
 
 ## 8. Authoritative version-skew cases
 
@@ -277,13 +281,13 @@ LRMoo 1.1.1 and CRMinf 1.2.1 use CIDOC CRM 7.1.3 as their current CRM basis. Tha
 Primary declarations:
 
 - <https://cidoc-crm.org/extensions/lrmoo/html/LRMoo_v1.1.1.html>
-- <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>
+- <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>.
 
 ### CRMarchaeo 2.1.1
 
 Stable CRMarchaeo 2.1.1 references CIDOC CRM 7.1.2 and CRMsci 2.0, while the accepted current TFont heritage/science stack uses CIDOC CRM 7.1.3 and CRMsci 3.2.
 
-Primary release/declaration source: <https://cidoc-crm.org/node/8943>.
+Primary release/declaration source: <https://cidoc-crm.org/extensions/crmarchaeo/html/CRMarchaeo_v2.1.1.html>.
 
 This independently confirms that TFont cannot model the CIDOC-family composition as one globally current import closure.
 
@@ -322,6 +326,10 @@ If endpoint `release` changes while a bridge remains pinned to the old release, 
 ### Bridge semantic edit
 
 Changing endpoint release/digest, term scope, compatibility, evidence, runtime strength or runtime limitations changes bridge content digest. The prior review no longer authorizes it until `reviewed_content_digest` is refreshed by a new review.
+
+### Bundle-contract version update
+
+Changing the bundle schema version is not treated as an ordinary data mutation. A validator that implements v1 must reject any other version until a versioned amendment defines the new semantics and migration path.
 
 ### Inactive/registry-only update
 
@@ -372,12 +380,13 @@ Pagination/results must not silently switch bundle identity.
 ### P-003 must add or expose
 
 - first-class semantic-bundle identity;
+- explicit bundle-schema versioning with unsupported-version fail-closed behavior;
 - a stable public/shared helper for I-002 ontology-lock semantic identity normalization (the research prototype currently uses the existing private helper rather than copying it);
 - multiple semantic ontology-lock identities per active profile/query bundle;
 - explicit bridge artifacts and bridge content digests;
 - endpoint lock ID + release + payload-digest binding;
 - bridge term membership against exact endpoint `terms_used`;
-- term-scoped active dependency edges;
+- term-scoped active dependency edges with exact-boolean activation semantics;
 - exact-lock release+digest binding;
 - bundle/bridge identity in normalized IR/resolution fingerprints;
 - inactive optional-profile separation;
@@ -395,6 +404,7 @@ Non-production artifacts:
 - `tests/research/test_r015_bridge_provenance.py`;
 - `tests/research/test_r015_jcs_contract.py`;
 - `tests/research/test_r015_lock_identity.py`;
+- `tests/research/test_r015_active_flag.py`;
 - `.github/workflows/r015-bundle-research.yml`.
 
 The suites cover at least:
@@ -414,8 +424,10 @@ The suites cover at least:
 13. scope/edge/source-lock graph binding;
 14. missing/stale/unreviewed/incompatible/unknown/non-exact bridge failures;
 15. inactive optional dependency separation;
-16. unreferenced/inactive-only bridge rejection;
-17. presentation/audit metadata kept outside semantic lock identity.
+16. exact-boolean activation and missing-activation defaults-to-active behavior;
+17. unsupported/malformed/missing schema-version rejection;
+18. unreferenced/inactive-only bridge rejection;
+19. presentation/audit metadata kept outside semantic lock identity.
 
 The prototype does not perform ontology reasoning and does not prove that declared `terms_used` strings occur in the pinned ontology bytes. It validates an explicit reviewed TFont composition contract.
 
@@ -443,6 +455,8 @@ R-015 does not:
 - [x] exact-lock dependencies require release + payload digest;
 - [x] missing/stale/unreviewed/incompatible/non-exact dependencies fail closed;
 - [x] inactive optional profile is distinct from active unresolved bridge dependency;
+- [x] dependency activation accepts only exact booleans and omission defaults to active;
+- [x] unsupported/missing/wrong-type bundle schema versions fail closed;
 - [x] unreferenced bridge locks cannot pollute active identity;
 - [x] P-001/I-002 retained invariants and concrete P-003 amendments are identified;
 - [x] OLiA/OntoLex/SKOS, CRM/LRMoo/CRMinf, CRMtex/R-012 and CRMarchaeo/R-010 cases are covered;
@@ -460,11 +474,12 @@ Fresh exact-head review should challenge especially:
 5. whether evidence/reviewer/date/runtime semantics are complete enough for R-012;
 6. whether exact-lock and bridge dependency graph bindings can be bypassed;
 7. whether inactive optional profiles and unused artifacts perturb active identity;
-8. whether canonical ordering really follows accepted I-002/JCS semantics, including non-BMP strings;
-9. whether CRMtex/CRMarchaeo version-skew claims still match authoritative release declarations;
-10. whether the research-only use of private I-002 normalizers is clearly delegated to a stable shared P-003 implementation rather than becoming accidental public API;
-11. whether `terms_used` membership is correctly presented as consistency validation rather than proof of ontology truth;
-12. whether any unknown/uncontrolled bridge field can silently upgrade execution semantics.
+8. whether dependency activation or schema-version coercion can create fail-open execution;
+9. whether canonical ordering really follows accepted I-002/JCS semantics, including non-BMP strings;
+10. whether CRMtex/CRMarchaeo version-skew claims still match authoritative release declarations;
+11. whether the research-only use of private I-002 normalizers is clearly delegated to a stable shared P-003 implementation rather than becoming accidental public API;
+12. whether `terms_used` membership is correctly presented as consistency validation rather than proof of ontology truth;
+13. whether any unknown/uncontrolled bridge field can silently upgrade execution semantics.
 
 ## References
 
@@ -482,4 +497,5 @@ Primary external release declarations:
 - CRMtex 2.0: <https://cidoc-crm.org/extensions/crmtex/html/CRMtex_v2.0.html>;
 - LRMoo 1.1.1: <https://cidoc-crm.org/extensions/lrmoo/html/LRMoo_v1.1.1.html>;
 - CRMinf 1.2.1: <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>;
-- CRMarchaeo 2.1.1 release: <https://cidoc-crm.org/node/8943>.
+- CRMarchaeo 2.1.1: <https://cidoc-crm.org/extensions/crmarchaeo/html/CRMarchaeo_v2.1.1.html>;
+- CRMsci 3.2: <https://cidoc-crm.org/extensions/crmsci/html/CRMsci_v3.2.html>.
