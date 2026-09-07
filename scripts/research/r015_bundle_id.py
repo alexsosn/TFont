@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Any
 
 
@@ -20,7 +21,10 @@ _BRIDGE_CONTENT_FIELDS = (
     "assertion_kind",
     "scope",
     "compatibility",
+    "evidence_id",
     "evidence_digest",
+    "runtime_strength",
+    "runtime_limitations",
 )
 _BRIDGE_FIELDS = (
     "bridge_id",
@@ -28,6 +32,9 @@ _BRIDGE_FIELDS = (
     *_BRIDGE_CONTENT_FIELDS,
     "review_status",
     "reviewed_content_digest",
+    "review_id",
+    "reviewer_id",
+    "reviewed_at",
 )
 _EDGE_FIELDS = (
     "id",
@@ -45,6 +52,15 @@ _REQUIRED_BRIDGE_ENDPOINT_FIELDS = (
     "target_lock_id",
     "target_lock_digest",
 )
+_REQUIRED_BRIDGE_STRING_FIELDS = (
+    "evidence_id",
+    "evidence_digest",
+    "review_id",
+    "reviewer_id",
+    "reviewed_at",
+    "runtime_strength",
+)
+_RUNTIME_STRENGTHS = {"exact", "approximate", "related", "composition-only"}
 
 
 def _canonical_item(value: Any) -> str:
@@ -56,7 +72,7 @@ def _project(item: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
 
 
 def bridge_content_digest(bridge: dict[str, Any]) -> str:
-    """Digest the semantic content of a bridge, excluding identity/review wrappers."""
+    """Digest semantic bridge content, excluding identity/review wrappers."""
 
     payload = _canonical_item(_project(bridge, _BRIDGE_CONTENT_FIELDS)).encode("utf-8")
     return "sha256:" + hashlib.sha256(payload).hexdigest()
@@ -69,6 +85,17 @@ def _validate_scope(scope: Any, *, label: str) -> None:
         value = scope.get(key)
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"{label} missing non-empty {key}")
+
+
+def _validate_reviewed_at(value: Any, *, bridge_id: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"bridge {bridge_id} missing reviewed_at")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"bridge {bridge_id} reviewed_at must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"bridge {bridge_id} reviewed_at must include timezone")
 
 
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
@@ -106,6 +133,27 @@ def _active_bridge_ids(bundle: dict[str, Any]) -> set[str]:
     return result
 
 
+def _validate_bridge_provenance(bridge: dict[str, Any], *, bridge_id: str) -> None:
+    for key in _REQUIRED_BRIDGE_STRING_FIELDS:
+        value = bridge.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"bridge {bridge_id} missing {key}")
+
+    _validate_reviewed_at(bridge.get("reviewed_at"), bridge_id=bridge_id)
+
+    strength = bridge["runtime_strength"]
+    if strength not in _RUNTIME_STRENGTHS:
+        raise ValueError(f"bridge {bridge_id} unknown runtime_strength: {strength}")
+
+    limitations = bridge.get("runtime_limitations")
+    if (
+        not isinstance(limitations, list)
+        or not limitations
+        or not all(isinstance(item, str) and item.strip() for item in limitations)
+    ):
+        raise ValueError(f"bridge {bridge_id} runtime_limitations must be non-empty strings")
+
+
 def _validate_content_identity(bundle: dict[str, Any]) -> None:
     for lock in bundle.get("ontology_locks", []):
         if not lock.get("digest"):
@@ -120,6 +168,7 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
             if not bridge.get(key):
                 raise ValueError(f"bridge {bridge_id} missing {key}")
         _validate_scope(bridge.get("scope"), label=f"bridge {bridge_id} scope")
+        _validate_bridge_provenance(bridge, bridge_id=bridge_id)
         digest = bridge.get("digest")
         if not digest:
             raise ValueError(f"bridge {bridge_id} missing digest")
@@ -146,9 +195,10 @@ def _validate_bundle(bundle: dict[str, Any]) -> None:
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return the semantic, order-independent active bundle projection.
 
-    The projection is an allow-list, not a deep copy. Presentation/audit metadata is
-    deliberately excluded even when nested inside lock/bridge/edge records. Inactive
-    dependency edges remain diagnostic input but are not part of active bundle identity.
+    The projection is an allow-list, not a deep copy. Presentation-only metadata is
+    deliberately excluded even when nested inside lock/bridge/edge records. Review
+    identity/date are operationally identity-bearing and remain in the projection.
+    Inactive dependency edges remain diagnostic input but are not active bundle identity.
     """
 
     _validate_bundle(bundle)
@@ -193,8 +243,8 @@ def _bridges(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
     """Evaluate active dependency edges without ontology reasoning.
 
-    Each edge is an explicit reviewed TFont dependency requirement. Optional inactive
-    edges are diagnostic `inactive`, never failures.
+    This reference validator models the exact-execution gate only. R-016 owns any
+    later mode-aware authorization for approximate/related bridge strengths.
     """
 
     _validate_bundle(bundle)
@@ -276,6 +326,10 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
                 continue
             if compatibility != "compatible":
                 states.append({"id": edge_id, "state": "unknown-bridge-compatibility"})
+                continue
+
+            if bridge.get("runtime_strength") != "exact":
+                states.append({"id": edge_id, "state": "non-exact-bridge-strength"})
                 continue
 
             states.append({"id": edge_id, "state": "satisfied-reviewed-bridge"})
