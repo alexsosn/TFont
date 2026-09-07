@@ -1,0 +1,28 @@
+name: R-011 research validation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/research/R-011-ontology-mapped-pilots.md'
+      - 'docs/research/data/r-011/**'
+      - 'scripts/research/r011_measure.py'
+      - 'tests/research/test_r011_measure.py'
+      - '.github/workflows/r011-report-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependency
+        run: python -m pip install pytest
+      - name: Measure R-011 fixture
+        run: |
+          python scripts/research/r011_measure.py --output /tmp/r011-report.json
+          cat /tmp/r011-report.json
+      - name: Run R-011 contract tests
+        run: python -m pytest -q tests/research/test_r011_measure.py
