@@ -3,7 +3,11 @@ import hashlib
 
 import pytest
 
-from scripts.research.r015_bundle_id import bridge_content_digest, bundle_digest
+from scripts.research.r015_bundle_id import (
+    bridge_content_digest,
+    bundle_digest,
+    dependency_states,
+)
 
 
 def _digest(label: str) -> str:
@@ -11,19 +15,16 @@ def _digest(label: str) -> str:
 
 
 def _lock(lock_id: str, *, terms: list[str], release: str = "1.0") -> dict:
-    # Include the legacy R-015 `digest` field so these RED tests exercise the
-    # current validator before the migration to the accepted I-002 lock shape.
     return {
         "lock_id": lock_id,
-        "digest": _digest(lock_id),
         "ontology_id": f"ontology:{lock_id}",
         "support_tier": "core",
         "term_namespace": f"urn:{lock_id}:",
         "release": release,
-        "source_uri": f"https://example.org/{lock_id}",
+        "source_uri": f"https://example.org/{lock_id}/{release}",
         "content_digest": _digest(lock_id),
         "license": "test-license",
-        "terms_used": terms,
+        "terms_used": list(terms),
     }
 
 
@@ -39,8 +40,10 @@ def _bundle(*, source_term: str = "old:F28", target_term: str = "new:F28") -> di
     bridge = {
         "bridge_id": "f28",
         "source_lock_id": "old",
+        "source_lock_release": "1.0",
         "source_lock_digest": _digest("old"),
         "target_lock_id": "new",
+        "target_lock_release": "1.0",
         "target_lock_digest": _digest("new"),
         "scope": _scope(source_term, target_term),
         "compatibility": "compatible",
@@ -88,7 +91,10 @@ def test_semantic_lock_release_is_part_of_bundle_identity_even_when_payload_dige
     a = _bundle()
     b = deepcopy(a)
     b["ontology_locks"][1]["release"] = "1.1"
-    assert b["ontology_locks"][1]["content_digest"] == a["ontology_locks"][1]["content_digest"]
+    assert (
+        b["ontology_locks"][1]["content_digest"]
+        == a["ontology_locks"][1]["content_digest"]
+    )
     assert bundle_digest(a) != bundle_digest(b)
 
 
@@ -112,9 +118,15 @@ def test_target_bridge_term_must_be_declared_by_target_lock():
         bundle_digest(b)
 
 
+def test_endpoint_release_change_with_same_payload_digest_makes_bridge_stale():
+    b = _bundle()
+    b["ontology_locks"][1]["release"] = "1.1"
+    assert dependency_states(b) == [{"id": "edge", "state": "stale-bridge"}]
+
+
 def test_retrieval_storage_metadata_is_outside_semantic_lock_input():
     b = _bundle()
     b["ontology_locks"][1]["retrieved_at"] = "2099-01-01T00:00:00Z"
     b["ontology_locks"][1]["snapshot_artifact"] = "/tmp/other-layout.owl"
-    with pytest.raises(ValueError, match="unknown projection fields"):
+    with pytest.raises(ValueError, match="projection_error|unknown projection fields"):
         bundle_digest(b)
