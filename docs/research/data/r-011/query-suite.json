@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "status": "non-production research query-suite supplement",
+  "basis": "Issue #43 minimum query intents plus R-005/R-007/R-008/R-009/R-010 reviewed constraints",
+  "query_overrides": {
+    "q-apparatus-reading": {
+      "probes": [
+        {"corpus":"pseudepigrapha","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.otype.v(n) == 'reading'","E.reading_of.f(reading)","E.witness.f(reading)"],"reason":"Full reading-at-locus witness graph exists natively, but R-009 found no accepted common apparatus target."}
+      ]
+    },
+    "q-damage": {
+      "probes": [
+        {"corpus":"cuc","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.trailer_emen.v(n) == 'restored'"],"reason":"CUC restoration/editorial semantics are source-specific and are not equated with TLH damage ranges."},
+        {"corpus":"tlhdig","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.otype.v(n) == 'cluster'"],"reason":"TLH cluster ranges preserve damage/editorial structure with different granularity and evidence semantics."}
+      ]
+    },
+    "q-period": {
+      "probes": [
+        {"corpus":"oracc","capability":"native-only-authority-candidate","mapping_strength":"native-only","native_selectors":["native catalogue period selector"],"reason":"PeriodO/external-authority resolution semantics are owned by R-017; a period string is not an ontology-class mapping."}
+      ]
+    },
+    "q-provenience": {
+      "probes": [
+        {"corpus":"oracc","capability":"native-only","mapping_strength":"native-only","native_selectors":["native catalogue provenience selector"],"reason":"Source provenience metadata exists, but current pilot evidence does not justify excavation/stratigraphy semantics or a reviewed common query target."}
+      ]
+    },
+    "q-unsafe-stem": {
+      "probes": [
+        {"corpus":"bhsa","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.vs.v(n)"],"reason":"Hebrew verbal-stem inventory remains language-specific."},
+        {"corpus":"syriac","capability":"native-only","mapping_strength":"native-only","native_selectors":["F.vs.v(n)"],"reason":"Syriac verbal-stem inventory remains language-specific; identical feature name does not establish equivalence."}
+      ]
+    },
+    "q-archaeology-negative": {
+      "probes": [
+        {"corpus":"bhsa","capability":"unsupported","mapping_strength":"unsupported","native_selectors":[],"reason":"BHSA has no excavation/stratigraphy assertion in the reviewed corpus contract; absence is not a bridge failure."}
+      ]
+    }
+  },
+  "additional_queries": [
+    {"id":"q-gender","intent":"tokens with masculine grammatical gender","target":"olia:Masculine","required_profiles":["linguistic"],"expected_multi_corpus":true},
+    {"id":"q-lemma","intent":"lemma/headword representation lookup across languages","native_roles":["lexical-form-or-headword"],"expected_multi_corpus":false,"reason":"R-008 keeps entry identity, form representation and sense identity distinct; no common form target is accepted for this pilot.","probes":[
+      {"corpus":"bhsa","capability":"native-only-form-lookup","mapping_strength":"native-only","native_selectors":["F.lex.v(word) == requested_native_lex"],"reason":"Native lexical key/representation lookup is available but is not asserted as an OntoLex Form identity."},
+      {"corpus":"syriac","capability":"native-only-form-lookup","mapping_strength":"native-only","native_selectors":["F.lex.v(word) == requested_native_lex"],"reason":"Repeated lex value supports native lookup; form identity is not promoted automatically."},
+      {"corpus":"extrabiblical","capability":"native-only-form-lookup","mapping_strength":"native-only","native_selectors":["F.lex.v(word) == requested_native_lex"],"reason":"Feature-keyed lexical lookup exists; no separate lex node/Form identity is asserted."},
+      {"corpus":"tlhdig","capability":"native-only-form-lookup","mapping_strength":"native-only","native_selectors":["F.lemma.v(lex) == requested_native_lemma"],"reason":"Converter-defined lexical grouping exposes lemma, but the representation is not automatically an OntoLex Form entity."},
+      {"corpus":"oracc","capability":"native-only-form-lookup","mapping_strength":"native-only","native_selectors":["native citation-form (cf) selector"],"reason":"ORACC citation form is reviewable native lexical data; R-008 forbids collapsing it into entry/sense/concept identity."}
+    ]},
+    {"id":"q-sense","intent":"source lexical-sense lookup","native_roles":["lexical-sense"],"expected_multi_corpus":false,"reason":"Only ORACC in the current seven-corpus pilot has reviewed evidence for explicit source sense IDs; other glosses do not create senses.","probes":[
+      {"corpus":"oracc","capability":"native-source-sense","mapping_strength":"native-only","native_selectors":["native glossary sense-id / occurrence sense selector"],"reason":"Explicit ORACC sense records are preserved natively, but this fixture does not promote them to a common OntoLex LexicalSense projection."}
+    ]},
+    {"id":"q-shared-lexical-concept","intent":"shared lexical-semantic concept lookup across languages","target":"ontolex:LexicalConcept","required_profiles":["lexical"],"expected_multi_corpus":false,"reason":"No reviewed shared LexicalConcept mapping exists in the representative fixture; gloss/guide-word string equality is prohibited.","probes":[
+      {"corpus":"oracc","capability":"native-source-sense-no-shared-concept","mapping_strength":"native-only","native_selectors":["native glossary sense-id / meaning selector"],"reason":"A source sense/meaning can support later mapping review but does not itself identify a cross-resource LexicalConcept."}
+    ]},
+    {"id":"q-structural-navigation","intent":"navigate document or tablet through surface/face/column to line","native_roles":["structural-navigation"],"expected_multi_corpus":false,"reason":"R-007 keeps corpus-native section/embedding semantics executable and does not equate all section hierarchies with one domain relation.","probes":[
+      {"corpus":"cuc","capability":"native-structural-navigation","mapping_strength":"native-only","native_selectors":["tablet -> column -> line via native TF section/embedding"],"reason":"Navigation is valid natively; stronger common containment semantics are not inferred from oslots."},
+      {"corpus":"tlhdig","capability":"native-structural-navigation","mapping_strength":"native-only","native_selectors":["document -> surface -> column -> line via native TF structure"],"reason":"Native structural path is preserved without claiming a universal CRM/POWLA containment relation."},
+      {"corpus":"oracc","capability":"native-structural-navigation","mapping_strength":"native-only","native_selectors":["document -> face -> column -> line via target native structure"],"reason":"ORACC target navigation is corpus-native and must not be collapsed into another corpus's section semantics."}
+    ]},
+    {"id":"q-physical-witness-manuscript-fragment","intent":"physical witness/manuscript/fragment lookup","native_roles":["witness","manuscript","fragment"],"expected_multi_corpus":false,"reason":"R-009 requires role-sensitive separation between textual witness identity, physical carrier and attestation; current native objects do not share one defensible target.","probes":[
+      {"corpus":"pseudepigrapha","capability":"textual-witness-identity","mapping_strength":"native-only","native_selectors":["F.otype.v(n) == 'manuscript'"],"reason":"Generic manuscript nodes are textual witness identities, including citation-only synthesized witnesses; physical carrier is not implied."},
+      {"corpus":"tlhdig","capability":"fragment-witness-structure","mapping_strength":"ambiguous","native_selectors":["F.otype.v(n) == 'fragment'","E.witness.f(line)"],"reason":"Fragment role can be physical carrier vs symbolic/textual witness and must be resolved from source evidence."}
+    ]},
+    {"id":"q-material","intent":"objects filtered by material","native_roles":["material-authority"],"expected_multi_corpus":false,"reason":"R-010/R-017 keep material values as native/external-authority candidates until authority-target semantics are accepted.","probes":[
+      {"corpus":"oracc","capability":"native-only-authority-candidate","mapping_strength":"native-only","native_selectors":["native catalogue material selector"],"reason":"Material metadata exists, but AAT authority linkage is not yet a common ontology-class query contract."}
+    ]}
+  ]
+}
