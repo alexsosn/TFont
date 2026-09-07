@@ -89,19 +89,23 @@ Authoritative sources:
 
 - CRMinf version history: <https://cidoc-crm.org/crminf/ModelVersions>
 - CRMinf 1.2.1 declarations: <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>
+- CRMinf 1.2.1 specification: <https://cidoc-crm.org/sites/default/files/CRMinf_v1.2.1%28stable%29.pdf>
 - CIDOC SIG issue 721, “Interfacing CRMinf with CRMsci, CRMbase and CRMtex”: <https://cidoc-crm.org/crminf/Issue/ID-721-interfacing-crminf-with-crmsci-crmbase-and-crmtex>
 
 The identifier/IRI for `I1 Argumentation` persists in current CRMinf, and its core scope remains the activity of making honest inferences or observations. However its formal hierarchy changed across the model's history. Current CRMinf 1.2.1 declares `I1` as a subclass of `E7 Activity` and gives it several specializations, while older CRMinf 0.7 material placed `I1` under a different hierarchy.
 
 CIDOC SIG issue 721, closed in March 2026 during the work leading into current CRMinf documentation, explicitly revisited the interface of CRMinf with CRMsci, CRMbase and CRMtex. That is evidence of active harmonization, but it is **not** a term-by-term migration table saying that CRMtex 2.0 should be re-axiomatized against CRMinf 1.2.1.
 
-Current CRMinf also defines `I16 Meaning Comprehension`, a subclass of `I1`, for interpreting the intended meaning of an information object as propositions. Its scope includes disambiguation, expansion of abbreviations, entity/reference resolution and completion of missing text. This is a useful modern semantic comparison for CRMtex `TX14 Reading`, but CRMtex 2.0 itself does not declare `TX14` as a subclass of `I16`.
+Current CRMinf also defines `I16 Meaning Comprehension`, a subclass of `I1`, for interpreting the intended meaning of an information object as propositions. Its scope includes disambiguation, expansion of abbreviations, entity/reference resolution and completion of missing text.
+
+The current CRMinf 1.2.1 explanatory text gives stronger evidence about its intended relationship to CRMtex than label comparison does. It says the prerequisite process may **start with CRMtex `TX14 Reading`**, whose CRMtex model includes deciphering/material observation, and then states that **the actual CRMinf model begins with an instance of `I16 Meaning Comprehension`** applied to an `E73 Information Object` representing the deciphered content. It describes I16 as a step typically implicit in reading, not as a published superclass or replacement class for TX14.
 
 Consequences:
 
 1. the reused `I1` IRI does not authorize importing CRMinf 1.2.1's complete axiom set into CRMtex 2.0's CRMinf 0.7(b) closure;
 2. no official term-level old-I1→current-I1 migration assertion equivalent to the LRMoo `F28` table was found;
-3. any direct CRMtex `TX14` → current CRMinf target is therefore a reviewed TFont compatibility/projection decision, not an upstream CRMtex fact.
+3. the current upstream integration evidence treats `TX14 Reading` and `I16 Meaning Comprehension` **compositionally/sequentially**, not as an established broader/narrower class mapping;
+4. any direct CRMtex `TX14` ↔ current `I16` mapping relation would therefore be a later reviewed TFont decision, not an R-012 or upstream CRMtex fact.
 
 ### 1.4 CIDOC CRM 7.1.2 → 7.1.3
 
@@ -175,13 +179,13 @@ Required negative rules:
 
 The table separates upstream evidence from TFont-local decisions. The `execution` column concerns use of the bridge in TFont's exact common-pivot resolution; it does not assert an RDF/OWL publication predicate.
 
-| source in CRMtex 2.0 dependency closure | proposed current target | upstream evidence | TFont decision | exact execution |
+| source in CRMtex 2.0 dependency closure | proposed current target/composition | upstream evidence | TFont decision | exact execution |
 |---|---|---|---|---|
 | FRBRoo 2.4 `F28 Expression Creation` reached from `TX2 Writing` | LRMoo 1.1.1 `F28 Expression Creation` | official LRMoo migration table: **retained, editorial scope note revision** | accept a reviewed, release-locked continuity bridge for this term | allowed once the exact bridge artifact/locks are present |
 | CRMinf 0.7(b) `I1 Argumentation` reached from `TX14 Reading` | CRMinf 1.2.1 `I1 Argumentation` | same maintained IRI and substantially continuous core scope, but hierarchy changed and no equivalent term-level migration table was found | do **not** treat current `I1` axioms as automatically substitutable; require a separately reviewed compatibility assertion if this route is needed | fail closed in exact mode until that assertion is accepted |
-| CRMtex 2.0 `TX14 Reading` | CRMinf 1.2.1 `I16 Meaning Comprehension` | current `I16` is a specialization of `I1` for meaning interpretation; no CRMtex 2.0 upstream assertion links TX14 to I16 | TFont-local candidate only; target is semantically broader than the CRMtex written-text-specific activity and must be reviewed in R-009/R-011 | not exact-executable from R-012 alone |
+| CRMtex 2.0 `TX14 Reading` plus its deciphered content | distinct subsequent CRMinf 1.2.1 `I16 Meaning Comprehension` activity | current CRMinf 1.2.1 explicitly says the process may start with TX14 and that the CRMinf model then begins with I16 on the deciphered information object | preserve as an upstream-supported **composition/sequence**, not a broader/narrower bridge; no direct TFont mapping assessment is established by R-012 | TX14 does not imply I16; I16 is executable only when separately supported/reviewed |
 
-R-012 deliberately does **not** publish `owl:equivalentClass` for either bridge. The runtime compatibility conclusion and RDF publication relation are independent under R-002. Even the migration-backed F28 continuity does not require TFont to mint an OWL equivalence assertion.
+R-012 deliberately does **not** publish `owl:equivalentClass` for either cross-version bridge. The runtime compatibility conclusion and RDF publication relation are independent under R-002. Even the migration-backed F28 continuity does not require TFont to mint an OWL equivalence assertion.
 
 ## 4. Pilot-use inventory
 
@@ -239,18 +243,28 @@ Old-family dependency terms expected in the first Pseudepigrapha pilot: **none**
 
 This is not a declaration that the bridges are unnecessary to TFont. It means they are **available but dormant** for the first empirical pilots. A later corpus profile may legitimately activate them when native evidence contains a writing event or meaning-comprehension/reading activity.
 
-## 5. Modern CRMinf mapping for reading semantics
+## 5. Modern CRMinf composition for reading semantics
 
-Current `I16 Meaning Comprehension` is a better semantic comparison for CRMtex `TX14` than generic current `I1`, because its explicit subject is interpretation of the intended meaning of an information object. However there are still important differences:
+The current CRMinf 1.2.1 model resolves the TX14/I16 relationship more carefully than a direct target mapping would.
 
-- `TX14` is specific to reading written text and explicitly begins from CRMtex text-recognition semantics;
-- `I16` applies to meaning comprehension of information objects generally;
-- `I16` can cover interpretive work such as disambiguation and completing missing text;
-- CRMtex 2.0 did not publish `TX14 ⊑ I16` because that current class was not part of its declared dependency model.
+Its explanatory workflow says:
 
-Therefore a future TFont projection from TX14 to current I16 is at most a reviewed **broader-target candidate** under the R-002 direction convention (the target is broader than the source). R-009 must decide whether the textology profile needs it; R-011 must test actual corpus cases; R-016 owns whether such a non-exact projection may execute in approximate mode.
+1. prerequisite source-use may start with CRMtex `TX14 Reading` of a material embodiment;
+2. CRMtex handles deciphering/material observation as part of that reading;
+3. the **CRMinf model begins with a distinct `I16 Meaning Comprehension` activity** interpreting the deciphered `E73 Information Object` as propositions;
+4. later belief/provenance/adoption activities can build on that comprehension.
 
-R-012 does not make it executable.
+This matches the formal scopes:
+
+- `TX14` is written-text-specific and is a complete reading activity that contains a `TX5 Text Recognition` subactivity;
+- `I16` is information-object-general and models interpretation of intended meaning;
+- the two classes differ both by object scope and by process boundary.
+
+R-012 therefore establishes **no direct `broader`, `narrower`, `exact`, or `close` mapping assessment between TX14 and I16**. The authoritative current evidence supports composition/sequencing, not a class-order assertion.
+
+A TFont profile may map a native scholarly activity directly to I16 if the native evidence independently supports meaning comprehension. It may separately map a native reading activity to TX14 if that evidence supports CRMtex's complete reading process. One mapping must not be synthesized from the other.
+
+R-009/R-011 may later determine whether an additional explicitly `related` projection is useful for discovery, but R-012 does not pre-authorize it and R-016 approximate-execution policy is not invoked by this composition alone.
 
 ## 6. CRMsci 2.0 remains a separate version-composition dependency
 
@@ -303,7 +317,8 @@ The following should become contract/regression tests when the bridge/bundle sch
 7. **editorial-event collision:** TLHdig `edit` → CRMtex TX2 based on generic creation/editing vocabulary → rejected;
 8. **converter-as-recognition:** generated sign/transcription data → TX5 without a native scholarly recognition activity → rejected;
 9. **old/new union reasoning:** loading both dependency releases must not generate mappings not explicitly present in reviewed TFont indexes;
-10. **bridge mutation:** changing target ontology digest or bridge evidence while retaining prior semantic-bundle identity → validation failure.
+10. **bridge mutation:** changing target ontology digest or bridge evidence while retaining prior semantic-bundle identity → validation failure;
+11. **TX14/I16 collapse:** presence of a reviewed TX14 mapping must not synthesize an I16 mapping, or vice versa, without separate native evidence/review.
 
 ## 9. Inputs to P-003
 
@@ -314,7 +329,7 @@ P-003 should incorporate these reviewed R-012 constraints unless later research 
 3. Bridge activation is term/query scoped.
 4. FRBRoo 2.4 `F28` → LRMoo 1.1.1 `F28` has official migration evidence sufficient for a reviewed continuity bridge.
 5. CRMinf old `I1` → current `I1` requires an explicit compatibility decision because hierarchy/axioms changed; stable IRI alone is insufficient.
-6. CRMtex `TX14` → current CRMinf `I16` is a TFont-local broader-target candidate, not an upstream migration assertion and not exact-executable from this research.
+6. CRMtex `TX14` and current CRMinf `I16` are distinct activities connected compositionally in current CRMinf guidance; R-012 establishes no direct broader/narrower mapping between them.
 7. Bridge identity/evidence/digests participate in the effective ontology-bundle identity and explanation chain.
 8. The first R-011 pilots can use CRMtex written-text/segment semantics without activating TX2/F28 or TX14/I1 bridges unless new native evidence demonstrates those activities.
 9. Pseudepigrapha textual-critical `reading` must not be mapped to CRMtex TX14 by label similarity.
@@ -342,7 +357,11 @@ Rejected. R-002 already separates stable term URI from tested release/snapshot. 
 
 Rejected. Pseudepigrapha's `reading` is a textual-critical alternative, while TX14 is an intellectual reading/comprehension activity.
 
-### F. Defer CRMtex entirely until a future release
+### F. Collapse CRMtex TX14 into CRMinf I16
+
+Rejected. Current CRMinf 1.2.1 describes a composition in which material-text reading/deciphering may precede a distinct meaning-comprehension activity. It does not publish a class-order relation between TX14 and I16.
+
+### G. Defer CRMtex entirely until a future release
 
 Rejected. The stable 2.0 written-text/segment layer is already useful, and the problematic old-family dependency surface is narrow enough to isolate safely.
 
@@ -350,8 +369,8 @@ Rejected. The stable 2.0 written-text/segment layer is already useful, and the p
 
 - [x] Enumerated the relevant CRMtex 2.0 cross-version dependencies and the CRMtex properties that activate them.
 - [x] Inspected official FRBRoo 2.4 → LRMoo migration evidence for the required `F28` term.
-- [x] Inspected old/current CRMinf `I1` semantics and current `I16 Meaning Comprehension`, including the 2026 CIDOC SIG CRMtex/CRMinf harmonization work.
-- [x] Distinguished official migration evidence from TFont-local compatibility/projection decisions.
+- [x] Inspected old/current CRMinf `I1` semantics and current `I16 Meaning Comprehension`, including the 2026 CIDOC SIG CRMtex/CRMinf harmonization work and CRMinf 1.2.1's explicit TX14→I16 workflow explanation.
+- [x] Distinguished official migration/composition evidence from TFont-local compatibility/projection decisions.
 - [x] Provided an explicit pilot table for Pseudepigrapha-TF, CUC, ORACC-TF and TLHdig-TF; none currently requires the old F28/I1 bridge terms.
 - [x] Defined a selective fail-closed bridge policy and negative tests for code/IRI equivalence mistakes.
 - [x] Defined minimum bridge-lock/provenance requirements for R-015/P-003.
@@ -367,6 +386,7 @@ Rejected. The stable 2.0 written-text/segment layer is already useful, and the p
 - LRMoo 1.1.1 specification/migration tables: <https://cidoc-crm.org/sites/default/files/LRMoo_V1.1.1.pdf>
 - CRMinf releases: <https://cidoc-crm.org/crminf/ModelVersions>
 - CRMinf 1.2.1 declarations: <https://cidoc-crm.org/extensions/crminf/html/CRMinf_v1.2.1.html>
+- CRMinf 1.2.1 specification: <https://cidoc-crm.org/sites/default/files/CRMinf_v1.2.1%28stable%29.pdf>
 - CIDOC SIG issue 721: <https://cidoc-crm.org/crminf/Issue/ID-721-interfacing-crminf-with-crmsci-crmbase-and-crmtex>
 - CIDOC CRM 7.1.2: <https://cidoc-crm.org/Version/version-7.1.2>
 - CIDOC CRM 7.1.3: <https://cidoc-crm.org/Version/version-7.1.3>
