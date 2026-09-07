@@ -10,6 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "docs/research/data/r-011/pilots.json"
+OVERRIDES = ROOT / "docs/research/data/r-011/mapping-overrides.json"
 RAW_POLICY = ROOT / "docs/research/data/r-011/raw-schema-policy.json"
 QUERY_SUITE = ROOT / "docs/research/data/r-011/query-suite.json"
 SCRIPT = ROOT / "scripts/research/r011_measure.py"
@@ -26,9 +27,15 @@ def _load_script():
 def _inputs():
     return (
         json.loads(FIXTURE.read_text(encoding="utf-8")),
+        json.loads(OVERRIDES.read_text(encoding="utf-8")),
         json.loads(RAW_POLICY.read_text(encoding="utf-8")),
         json.loads(QUERY_SUITE.read_text(encoding="utf-8")),
     )
+
+
+def _effective(module):
+    data, overrides, _, _ = _inputs()
+    return module.apply_mapping_overrides(data, overrides)
 
 
 def _queries(module, data, supplement):
@@ -36,20 +43,21 @@ def _queries(module, data, supplement):
     return {query["id"]: query for query in module.compile_queries(data, merged)}
 
 
-def test_r011_fixture_contract() -> None:
-    data, _, _ = _inputs()
+def test_r011_effective_fixture_contract() -> None:
+    data, overrides, _, _ = _inputs()
     module = _load_script()
-    module.validate_fixture(data)
+    effective = module.apply_mapping_overrides(data, overrides)
+    module.validate_fixture(effective)
 
-    summary = module.weighted_summary(data)
-    assert summary["mapping_rows"] == 53
-    assert summary["weighted_total"] == 109
-    assert summary["weighted_target"] == 69
-    assert summary["weighted_target_pct"] == 63.3
+    summary = module.weighted_summary(effective)
+    assert summary["mapping_rows"] == 52
+    assert summary["weighted_total"] == 108
+    assert summary["weighted_target"] == 67
+    assert summary["weighted_target_pct"] == 62.0
 
     assessments = summary["assessment_rows"]
     assert assessments["exact"] == 15
-    assert assessments["close"] == 12
+    assert assessments["close"] == 11
     assert assessments["ambiguous"] == 3
     assert assessments["native-only"] == 22
     assert assessments["unsupported"] == 1
@@ -57,11 +65,25 @@ def test_r011_fixture_contract() -> None:
     assert assessments["narrower"] == 0
     assert assessments["related"] == 0
 
+    ids = {row["id"] for row in effective["mappings"]}
+    assert "extra-gloss" not in ids
+    oracc = next(row for row in effective["mappings"] if row["id"] == "oracc-document")
+    assert oracc["assessment"] == "native-only"
+    assert oracc["target"] is None
+
+
+def test_r011_all_corpora_are_exactly_pinned() -> None:
+    module = _load_script()
+    effective = _effective(module)
+    module.validate_fixture(effective)
+    assert all(len(meta["revision"]) >= 7 for meta in effective["corpora"].values())
+
 
 def test_r011_raw_schema_coverage_includes_bounded_values() -> None:
-    data, policy, _ = _inputs()
+    _, _, policy, _ = _inputs()
     module = _load_script()
-    raw = module.raw_schema_coverage(data, ROOT, policy)
+    effective = _effective(module)
+    raw = module.raw_schema_coverage(effective, ROOT, policy)
 
     for corpus in module.REQUIRED_CORPORA:
         result = raw["corpora"][corpus]
@@ -87,6 +109,9 @@ def test_r011_raw_schema_coverage_includes_bounded_values() -> None:
     assert "node_feature:sp" not in bhsa["reviewed_refs"]
     assert bhsa["unreviewed_items"] > 0
 
+    extra = raw["corpora"]["extrabiblical"]
+    assert "node_feature:gloss" not in extra["reviewed_refs"]
+
     aggregate = raw["aggregate"]
     assert aggregate["raw_items"] > aggregate["reviewed_items"]
     assert aggregate["reviewed_items"] >= aggregate["common_target_items"]
@@ -98,23 +123,24 @@ def test_r011_raw_schema_coverage_includes_bounded_values() -> None:
 
 
 def test_r011_raw_policy_refs_fail_closed() -> None:
-    data, policy, _ = _inputs()
+    _, _, policy, _ = _inputs()
     module = _load_script()
+    effective = _effective(module)
     broken = copy.deepcopy(policy)
     broken["corpora"]["bhsa"]["mapping_refs"]["bhsa-pos-noun"].append(
         'node_value:sp="definitely-not-a-native-value"'
     )
     with pytest.raises(ValueError, match="raw policy refs absent"):
-        module.raw_schema_coverage(data, ROOT, broken)
+        module.raw_schema_coverage(effective, ROOT, broken)
 
 
 def test_r011_query_compilation_contract() -> None:
-    data, _, supplement = _inputs()
+    _, _, _, supplement = _inputs()
     module = _load_script()
-    by_id = _queries(module, data, supplement)
+    effective = _effective(module)
+    by_id = _queries(module, effective, supplement)
 
     assert len(by_id) == 19
-
     for query_id in (
         "q-noun",
         "q-verb-plural",
@@ -132,8 +158,9 @@ def test_r011_query_compilation_contract() -> None:
     assert by_id["q-gender"]["compiled_corpora"] == 2
     assert by_id["q-lex-entry"]["compiled_corpora"] == 5
     assert by_id["q-line"]["compiled_corpora"] == 3
-    assert by_id["q-physical-object"]["compiled_corpora"] == 3
-    assert "pseudepigrapha" not in by_id["q-physical-object"]["compiled"]
+    assert by_id["q-physical-object"]["compiled_corpora"] == 2
+    assert set(by_id["q-physical-object"]["compiled"]) == {"cuc", "tlhdig"}
+    assert by_id["q-physical-object"]["capability_outcomes"]["oracc"]["execution"] == "non-executable-common-pivot"
 
     for query_id in (
         "q-apparatus-reading",
@@ -162,9 +189,10 @@ def test_r011_query_compilation_contract() -> None:
 
 
 def test_r011_every_reported_query_outcome_is_explainable() -> None:
-    data, _, supplement = _inputs()
+    _, _, _, supplement = _inputs()
     module = _load_script()
-    by_id = _queries(module, data, supplement)
+    effective = _effective(module)
+    by_id = _queries(module, effective, supplement)
 
     for query in by_id.values():
         for outcome in query["capability_outcomes"].values():
@@ -180,9 +208,10 @@ def test_r011_every_reported_query_outcome_is_explainable() -> None:
 
 
 def test_r011_approximate_compilation_is_not_authorization() -> None:
-    data, _, supplement = _inputs()
+    _, _, _, supplement = _inputs()
     module = _load_script()
-    by_id = _queries(module, data, supplement)
+    effective = _effective(module)
+    by_id = _queries(module, effective, supplement)
 
     assert all(
         plan["authorization"] == "exact-candidate"
@@ -199,15 +228,27 @@ def test_r011_approximate_compilation_is_not_authorization() -> None:
     )
 
 
+def test_r011_report_measures_gaps_and_multiple_projections() -> None:
+    data, overrides, policy, supplement = _inputs()
+    module = _load_script()
+    report = module.build_report(data, ROOT, policy, supplement, overrides)
+    assert report["recurrent_gap_query_count"] >= 1
+    assert report["recurrent_gap_queries"]
+    assert report["complementary_projection_rows"] == 0
+    assert report["policy"]["raw_unreviewed_items_are_not_native_only"] is True
+
+
 def test_r011_pseudepigrapha_manuscript_is_not_physical_by_default() -> None:
-    data, _, _ = _inputs()
-    row = next(row for row in data["mappings"] if row["id"] == "pseudo-manuscript")
+    module = _load_script()
+    effective = _effective(module)
+    row = next(row for row in effective["mappings"] if row["id"] == "pseudo-manuscript")
     assert row["assessment"] == "native-only"
     assert row["target"] is None
 
 
 def test_r011_tlh_surface_is_not_written_text_segment() -> None:
-    data, _, _ = _inputs()
-    row = next(row for row in data["mappings"] if row["id"] == "tlh-surface")
+    module = _load_script()
+    effective = _effective(module)
+    row = next(row for row in effective["mappings"] if row["id"] == "tlh-surface")
     assert row["assessment"] == "native-only"
     assert row["target"] is None
