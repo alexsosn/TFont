@@ -26,14 +26,14 @@ def test_r011_fixture_contract() -> None:
     summary = module.weighted_summary(data)
     assert summary["mapping_rows"] == 53
     assert summary["weighted_total"] == 109
-    assert summary["weighted_target"] == 72
-    assert summary["weighted_target_pct"] == 66.1
+    assert summary["weighted_target"] == 70
+    assert summary["weighted_target_pct"] == 64.2
 
     assessments = summary["assessment_rows"]
     assert assessments["exact"] == 15
-    assert assessments["close"] == 14
+    assert assessments["close"] == 13
     assert assessments["ambiguous"] == 3
-    assert assessments["native-only"] == 20
+    assert assessments["native-only"] == 21
     assert assessments["unsupported"] == 1
 
 
@@ -58,7 +58,8 @@ def test_r011_query_compilation_contract() -> None:
     assert by_id["q-first-person"]["compiled_corpora"] == 3
     assert by_id["q-lex-entry"]["compiled_corpora"] == 5
     assert by_id["q-line"]["compiled_corpora"] == 3
-    assert by_id["q-physical-object"]["compiled_corpora"] == 4
+    assert by_id["q-physical-object"]["compiled_corpora"] == 3
+    assert "pseudepigrapha" not in by_id["q-physical-object"]["compiled"]
 
     for query_id in (
         "q-apparatus-reading",
@@ -103,3 +104,10 @@ def test_r011_machine_inventory_refs_fail_closed() -> None:
 
     assert raw["pseudepigrapha"]["status"] == "not-machine-inventoried-in-r005-generated-set"
     assert raw["oracc"]["status"] == "not-machine-inventoried-in-r005-generated-set"
+
+
+def test_r011_pseudepigrapha_manuscript_is_not_physical_by_default() -> None:
+    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    row = next(row for row in data["mappings"] if row["id"] == "pseudo-manuscript")
+    assert row["assessment"] == "native-only"
+    assert row["target"] is None
