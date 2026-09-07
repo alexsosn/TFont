@@ -12,17 +12,22 @@ from typing import Any
 
 
 _ONTOLOGY_REF_FIELDS = ("lock_id", "digest")
-_BRIDGE_FIELDS = (
-    "bridge_id",
-    "digest",
+_BRIDGE_CONTENT_FIELDS = (
     "source_lock_id",
     "source_lock_digest",
     "target_lock_id",
     "target_lock_digest",
+    "assertion_kind",
     "scope",
+    "compatibility",
+    "evidence_digest",
+)
+_BRIDGE_FIELDS = (
+    "bridge_id",
+    "digest",
+    *_BRIDGE_CONTENT_FIELDS,
     "review_status",
     "reviewed_content_digest",
-    "compatibility",
 )
 _EDGE_FIELDS = (
     "id",
@@ -43,7 +48,20 @@ def _project(item: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
     return {key: item[key] for key in fields if key in item}
 
 
+def bridge_content_digest(bridge: dict[str, Any]) -> str:
+    """Digest the semantic content of a bridge, excluding identity/review wrappers."""
+
+    payload = _canonical_item(_project(bridge, _BRIDGE_CONTENT_FIELDS)).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
 def _validate_unique_ids(bundle: dict[str, Any]) -> None:
+    profile_contracts = bundle.get("profile_contracts", [])
+    if not all(isinstance(item, str) and item for item in profile_contracts):
+        raise ValueError("profile_contracts must contain non-empty contract IDs")
+    if len(profile_contracts) != len(set(profile_contracts)):
+        raise ValueError("duplicate profile contract ID")
+
     for collection, id_key in (
         ("ontology_locks", "lock_id"),
         ("bridge_locks", "bridge_id"),
@@ -59,6 +77,26 @@ def _validate_unique_ids(bundle: dict[str, Any]) -> None:
             seen.add(item_id)
 
 
+def _validate_content_identity(bundle: dict[str, Any]) -> None:
+    for lock in bundle.get("ontology_locks", []):
+        if not lock.get("digest"):
+            raise ValueError(f"ontology lock {lock.get('lock_id', '<unknown>')} missing digest")
+
+    for bridge in bundle.get("bridge_locks", []):
+        bridge_id = bridge.get("bridge_id", "<unknown>")
+        digest = bridge.get("digest")
+        if not digest:
+            raise ValueError(f"bridge {bridge_id} missing digest")
+        expected = bridge_content_digest(bridge)
+        if digest != expected:
+            raise ValueError(f"bridge {bridge_id} content digest mismatch")
+
+
+def _validate_bundle(bundle: dict[str, Any]) -> None:
+    _validate_unique_ids(bundle)
+    _validate_content_identity(bundle)
+
+
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return the semantic, order-independent active bundle projection.
 
@@ -67,10 +105,8 @@ def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     dependency edges remain diagnostic input but are not part of active bundle identity.
     """
 
-    _validate_unique_ids(bundle)
+    _validate_bundle(bundle)
     profile_contracts = list(bundle.get("profile_contracts", []))
-    if not all(isinstance(item, str) and item for item in profile_contracts):
-        raise ValueError("profile_contracts must contain non-empty contract IDs")
 
     ontology_refs = [
         _project(item, _ONTOLOGY_REF_FIELDS) for item in bundle.get("ontology_locks", [])
@@ -99,12 +135,12 @@ def bundle_digest(bundle: dict[str, Any]) -> str:
 
 
 def _locks(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    _validate_unique_ids(bundle)
+    _validate_bundle(bundle)
     return {item["lock_id"]: item for item in bundle.get("ontology_locks", [])}
 
 
 def _bridges(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    _validate_unique_ids(bundle)
+    _validate_bundle(bundle)
     return {item["bridge_id"]: item for item in bundle.get("bridge_locks", [])}
 
 
@@ -115,7 +151,7 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
     edges are diagnostic `inactive`, never failures.
     """
 
-    _validate_unique_ids(bundle)
+    _validate_bundle(bundle)
     locks = _locks(bundle)
     bridges = _bridges(bundle)
     states: list[dict[str, str]] = []
