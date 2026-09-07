@@ -148,3 +148,41 @@ def test_duplicate_semantic_ids_are_rejected(collection):
 
 def test_same_namespace_does_not_override_content_identity():
     a=_bundle(); b=deepcopy(a); a["ontology_locks"][0]["namespace"]="http://example.org/model/"; b["ontology_locks"][0]["namespace"]="http://example.org/model/"; b["ontology_locks"][0]["digest"]=_d("different-release"); assert bundle_digest(a)!=bundle_digest(b)
+
+
+def _enrich_lock(lock, *, ontology_id, term_namespace, release, terms_used):
+    lock.update({
+        "ontology_id": ontology_id,
+        "support_tier": "core",
+        "term_namespace": term_namespace,
+        "release": release,
+        "source_uri": f"https://example.org/{ontology_id}/{release}",
+        "content_digest": lock["digest"],
+        "license": "CC-BY-4.0",
+        "terms_used": list(terms_used),
+    })
+
+
+def _bundle_with_i002_lock_identity():
+    b = _bundle()
+    _enrich_lock(b["ontology_locks"][0], ontology_id="crm-old", term_namespace="crm-old:", release="7.1.2", terms_used=["crm-old:E22"])
+    _enrich_lock(b["ontology_locks"][1], ontology_id="crm-current", term_namespace="crm-current:", release="7.1.3", terms_used=["crm-current:E22"])
+    _enrich_lock(b["ontology_locks"][2], ontology_id="crmtex", term_namespace="crmtex:", release="2.0", terms_used=["crmtex:TX1"])
+    return b
+
+
+def test_i002_semantic_lock_fields_change_bundle_identity_when_payload_digest_is_stable():
+    a = _bundle_with_i002_lock_identity()
+    b = deepcopy(a)
+    b["ontology_locks"][0]["terms_used"] = ["crm-old:E22", "crm-old:E55"]
+    assert b["ontology_locks"][0]["content_digest"] == a["ontology_locks"][0]["content_digest"]
+    assert bundle_digest(a) != bundle_digest(b)
+
+
+def test_bridge_terms_must_be_declared_by_corresponding_pinned_locks():
+    b = _bundle_with_i002_lock_identity()
+    b["bridge_locks"][0]["scope"]["source_term"] = "crm-old:E288"
+    b["dependency_edges"][0]["required_bridge_scope"]["source_term"] = "crm-old:E288"
+    _refresh_bridge(b["bridge_locks"][0])
+    with pytest.raises(ValueError, match="terms_used|source_term"):
+        bundle_digest(b)
