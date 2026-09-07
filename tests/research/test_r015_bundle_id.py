@@ -182,6 +182,41 @@ def test_exact_lock_without_required_digest_fails_closed():
     assert not executable(b)
 
 
+def test_exact_lock_must_match_edge_requires():
+    b = _bundle()
+    b["bridge_locks"] = []
+    b["dependency_edges"][0] = {
+        "id": "crmtex-crm",
+        "consumer": "crmtex",
+        "requires": "crm-old",
+        "satisfied_by": "lock:crm-current",
+        "required_lock_digest": "sha256:crm-current",
+        "active": True,
+    }
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "dependency-lock-mismatch"}
+    ]
+    assert not executable(b)
+
+
+def test_bridge_source_lock_must_match_edge_requires():
+    b = _bundle()
+    b["dependency_edges"][0]["requires"] = "crm-current"
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "bridge-requires-mismatch"}
+    ]
+    assert not executable(b)
+
+
+def test_active_edge_consumer_must_be_participating_lock():
+    b = _bundle()
+    b["dependency_edges"][0]["consumer"] = "missing-consumer"
+    assert dependency_states(b) == [
+        {"id": "crmtex-crm", "state": "missing-consumer-lock"}
+    ]
+    assert not executable(b)
+
+
 def test_bridge_scope_must_match_dependency_scope():
     b = _bundle()
     b["dependency_edges"][0]["required_bridge_scope"] = {
