@@ -7,9 +7,11 @@ schema/loading belongs to P-003 and later implementation tickets.
 from __future__ import annotations
 
 import hashlib
-import json
+import re
 from datetime import datetime
 from typing import Any
+
+from tfont.digests import canonical_json_bytes
 
 
 _ONTOLOGY_REF_FIELDS = ("lock_id", "digest")
@@ -61,21 +63,33 @@ _REQUIRED_BRIDGE_STRING_FIELDS = (
     "runtime_strength",
 )
 _RUNTIME_STRENGTHS = {"exact", "approximate", "related", "composition-only"}
+_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
-def _canonical_item(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def _canonical_bytes(value: Any) -> bytes:
+    """Reuse the accepted I-002 RFC 8785/JCS byte contract."""
+
+    return canonical_json_bytes(value)
+
+
+def _sha256_digest(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
 def _project(item: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
     return {key: item[key] for key in fields if key in item}
 
 
-def bridge_content_digest(bridge: dict[str, Any]) -> str:
-    """Digest semantic bridge content, excluding identity/review wrappers."""
+def _validate_digest(value: Any, *, label: str) -> str:
+    if not isinstance(value, str) or _DIGEST_RE.fullmatch(value) is None:
+        raise ValueError(f"{label} must be sha256:<64 lowercase hex digits>")
+    return value
 
-    payload = _canonical_item(_project(bridge, _BRIDGE_CONTENT_FIELDS)).encode("utf-8")
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+def bridge_content_digest(bridge: dict[str, Any]) -> str:
+    """Digest semantic bridge content with the accepted I-002 JCS contract."""
+
+    return _sha256_digest(_canonical_bytes(_project(bridge, _BRIDGE_CONTENT_FIELDS)))
 
 
 def _validate_scope(scope: Any, *, label: str) -> None:
@@ -126,7 +140,7 @@ def _active_bridge_ids(bundle: dict[str, Any]) -> set[str]:
         if not edge.get("active", True):
             continue
         satisfied_by = edge.get("satisfied_by", "")
-        if satisfied_by.startswith("bridge:"):
+        if isinstance(satisfied_by, str) and satisfied_by.startswith("bridge:"):
             bridge_id = satisfied_by.removeprefix("bridge:")
             if bridge_id:
                 result.add(bridge_id)
@@ -139,6 +153,7 @@ def _validate_bridge_provenance(bridge: dict[str, Any], *, bridge_id: str) -> No
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"bridge {bridge_id} missing {key}")
 
+    _validate_digest(bridge["evidence_digest"], label=f"bridge {bridge_id} evidence_digest")
     _validate_reviewed_at(bridge.get("reviewed_at"), bridge_id=bridge_id)
 
     strength = bridge["runtime_strength"]
@@ -156,8 +171,8 @@ def _validate_bridge_provenance(bridge: dict[str, Any], *, bridge_id: str) -> No
 
 def _validate_content_identity(bundle: dict[str, Any]) -> None:
     for lock in bundle.get("ontology_locks", []):
-        if not lock.get("digest"):
-            raise ValueError(f"ontology lock {lock.get('lock_id', '<unknown>')} missing digest")
+        lock_id = lock.get("lock_id", "<unknown>")
+        _validate_digest(lock.get("digest"), label=f"ontology lock {lock_id} digest")
 
     active_bridge_ids = _active_bridge_ids(bundle)
     for bridge in bundle.get("bridge_locks", []):
@@ -167,23 +182,42 @@ def _validate_content_identity(bundle: dict[str, Any]) -> None:
         for key in _REQUIRED_BRIDGE_ENDPOINT_FIELDS:
             if not bridge.get(key):
                 raise ValueError(f"bridge {bridge_id} missing {key}")
+        _validate_digest(
+            bridge["source_lock_digest"],
+            label=f"bridge {bridge_id} source_lock_digest",
+        )
+        _validate_digest(
+            bridge["target_lock_digest"],
+            label=f"bridge {bridge_id} target_lock_digest",
+        )
         _validate_scope(bridge.get("scope"), label=f"bridge {bridge_id} scope")
         _validate_bridge_provenance(bridge, bridge_id=bridge_id)
-        digest = bridge.get("digest")
-        if not digest:
-            raise ValueError(f"bridge {bridge_id} missing digest")
+        digest = _validate_digest(bridge.get("digest"), label=f"bridge {bridge_id} digest")
+        reviewed_digest = _validate_digest(
+            bridge.get("reviewed_content_digest"),
+            label=f"bridge {bridge_id} reviewed_content_digest",
+        )
         expected = bridge_content_digest(bridge)
         if digest != expected:
             raise ValueError(f"bridge {bridge_id} content digest mismatch")
+        if bridge.get("review_status") == "reviewed" and reviewed_digest != digest:
+            # Keep this as an operational state in dependency_states; validation only
+            # guarantees that both values use the canonical digest representation.
+            pass
 
     for edge in bundle.get("dependency_edges", []):
         if not edge.get("active", True):
             continue
         satisfied_by = edge.get("satisfied_by", "")
-        if satisfied_by.startswith("bridge:"):
+        if isinstance(satisfied_by, str) and satisfied_by.startswith("bridge:"):
             _validate_scope(
                 edge.get("required_bridge_scope"),
                 label=f"dependency {edge.get('id', '<unknown>')} required_bridge_scope",
+            )
+        elif isinstance(satisfied_by, str) and satisfied_by.startswith("lock:"):
+            _validate_digest(
+                edge.get("required_lock_digest"),
+                label=f"dependency {edge.get('id', '<unknown>')} required_lock_digest",
             )
 
 
@@ -195,10 +229,9 @@ def _validate_bundle(bundle: dict[str, Any]) -> None:
 def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return the semantic, order-independent active bundle projection.
 
-    The projection is an allow-list, not a deep copy. Presentation-only metadata is
-    deliberately excluded even when nested inside lock/bridge/edge records. Review
-    identity/date are operationally identity-bearing and remain in the projection.
-    Inactive dependency edges remain diagnostic input but are not active bundle identity.
+    The projection is an allow-list. Presentation-only metadata is excluded even when
+    nested inside records. Review identity/date are operationally identity-bearing.
+    Inactive dependency edges remain diagnostic input but are not bundle identity.
     """
 
     _validate_bundle(bundle)
@@ -219,15 +252,14 @@ def semantic_projection(bundle: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": bundle["schema_version"],
         "profile_contracts": sorted(profile_contracts),
-        "ontology_locks": sorted(ontology_refs, key=_canonical_item),
-        "bridge_locks": sorted(bridge_refs, key=_canonical_item),
-        "dependency_edges": sorted(active_edges, key=_canonical_item),
+        "ontology_locks": sorted(ontology_refs, key=_canonical_bytes),
+        "bridge_locks": sorted(bridge_refs, key=_canonical_bytes),
+        "dependency_edges": sorted(active_edges, key=_canonical_bytes),
     }
 
 
 def bundle_digest(bundle: dict[str, Any]) -> str:
-    payload = _canonical_item(semantic_projection(bundle)).encode("utf-8")
-    return "sha256:" + hashlib.sha256(payload).hexdigest()
+    return _sha256_digest(_canonical_bytes(semantic_projection(bundle)))
 
 
 def _locks(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -266,7 +298,7 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
         required_id = edge.get("requires")
         satisfied_by = edge.get("satisfied_by", "")
 
-        if satisfied_by.startswith("lock:"):
+        if isinstance(satisfied_by, str) and satisfied_by.startswith("lock:"):
             lock_id = satisfied_by.removeprefix("lock:")
             if not required_id or lock_id != required_id:
                 states.append({"id": edge_id, "state": "dependency-lock-mismatch"})
@@ -276,16 +308,13 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
             expected = edge.get("required_lock_digest")
-            if not expected:
-                states.append({"id": edge_id, "state": "unbound-exact-lock"})
-                continue
             if lock.get("digest") != expected:
                 states.append({"id": edge_id, "state": "missing-lock"})
                 continue
             states.append({"id": edge_id, "state": "satisfied-exact-lock"})
             continue
 
-        if satisfied_by.startswith("bridge:"):
+        if isinstance(satisfied_by, str) and satisfied_by.startswith("bridge:"):
             bridge_id = satisfied_by.removeprefix("bridge:")
             bridge = bridges.get(bridge_id)
             if bridge is None:
@@ -298,7 +327,7 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
 
             required_scope = edge.get("required_bridge_scope")
             bridge_scope = bridge.get("scope")
-            if _canonical_item(required_scope) != _canonical_item(bridge_scope):
+            if _canonical_bytes(required_scope) != _canonical_bytes(bridge_scope):
                 states.append({"id": edge_id, "state": "bridge-scope-mismatch"})
                 continue
 
@@ -350,6 +379,7 @@ def executable(bundle: dict[str, Any]) -> bool:
 
 if __name__ == "__main__":
     import argparse
+    import json
     from pathlib import Path
 
     parser = argparse.ArgumentParser()
