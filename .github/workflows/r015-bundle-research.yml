@@ -9,12 +9,14 @@ on:
       - docs/research/R-015-ontology-bundle-locks.md
       - scripts/research/r015_bundle_id.py
       - tests/research/test_r015_bundle_id.py
+      - tests/research/test_r015_bridge_provenance.py
   pull_request:
     paths:
       - .github/workflows/r015-bundle-research.yml
       - docs/research/R-015-ontology-bundle-locks.md
       - scripts/research/r015_bundle_id.py
       - tests/research/test_r015_bundle_id.py
+      - tests/research/test_r015_bridge_provenance.py
   workflow_dispatch:
 
 permissions:
@@ -36,4 +38,4 @@ jobs:
         run: python -m pip install pytest
 
       - name: Run R-015 research contract tests
-        run: python -m pytest -q tests/research/test_r015_bundle_id.py
+        run: python -m pytest -q tests/research/test_r015_bundle_id.py tests/research/test_r015_bridge_provenance.py
