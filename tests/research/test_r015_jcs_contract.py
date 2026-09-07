@@ -1,3 +1,4 @@
+from copy import deepcopy
 import hashlib
 import re
 
@@ -12,6 +13,20 @@ DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 def _digest(label: str) -> str:
     return "sha256:" + hashlib.sha256(label.encode("utf-8")).hexdigest()
+
+
+def _lock(lock_id: str, *, release: str, terms_used: list[str]) -> dict:
+    return {
+        "lock_id": lock_id,
+        "ontology_id": lock_id,
+        "support_tier": "core",
+        "term_namespace": f"{lock_id}:",
+        "release": release,
+        "source_uri": f"https://example.org/{lock_id}/{release}",
+        "content_digest": _digest(lock_id),
+        "license": "test-license",
+        "terms_used": list(terms_used),
+    }
 
 
 def _scope():
@@ -30,8 +45,10 @@ def _bridge():
     return {
         "bridge_id": "f28",
         "source_lock_id": "old",
+        "source_lock_release": "1.0",
         "source_lock_digest": _digest("old"),
         "target_lock_id": "new",
+        "target_lock_release": "2.0",
         "target_lock_digest": _digest("new"),
         "scope": _scope(),
         "compatibility": "compatible",
@@ -49,8 +66,10 @@ def _bridge():
 def _semantic_bridge_payload(bridge):
     fields = (
         "source_lock_id",
+        "source_lock_release",
         "source_lock_digest",
         "target_lock_id",
+        "target_lock_release",
         "target_lock_digest",
         "assertion_kind",
         "scope",
@@ -63,26 +82,17 @@ def _semantic_bridge_payload(bridge):
     return {key: bridge[key] for key in fields if key in bridge}
 
 
-def test_bridge_digest_is_sha256_of_i002_jcs_bytes():
-    bridge = _bridge()
-    expected = "sha256:" + hashlib.sha256(
-        canonical_json_bytes(_semantic_bridge_payload(bridge))
-    ).hexdigest()
-    assert bridge_content_digest(bridge) == expected
-    assert DIGEST_RE.fullmatch(expected)
-
-
-def test_bundle_digest_uses_i002_jcs_and_has_canonical_digest_shape():
+def _bundle():
     bridge = _bridge()
     bridge["digest"] = bridge_content_digest(bridge)
     bridge["reviewed_content_digest"] = bridge["digest"]
-    bundle = {
+    return {
         "schema_version": 1,
         "profile_contracts": ["written-text@1"],
         "ontology_locks": [
-            {"lock_id": "consumer", "digest": _digest("consumer")},
-            {"lock_id": "old", "digest": _digest("old")},
-            {"lock_id": "new", "digest": _digest("new")},
+            _lock("consumer", release="1.0", terms_used=["consumer:TX1"]),
+            _lock("old", release="1.0", terms_used=["old:F28"]),
+            _lock("new", release="2.0", terms_used=["new:F28"]),
         ],
         "bridge_locks": [bridge],
         "dependency_edges": [
@@ -96,8 +106,28 @@ def test_bundle_digest_uses_i002_jcs_and_has_canonical_digest_shape():
             }
         ],
     }
-    result = bundle_digest(bundle)
+
+
+def test_bridge_digest_is_sha256_of_i002_jcs_bytes():
+    bridge = _bridge()
+    expected = "sha256:" + hashlib.sha256(
+        canonical_json_bytes(_semantic_bridge_payload(bridge))
+    ).hexdigest()
+    assert bridge_content_digest(bridge) == expected
+    assert DIGEST_RE.fullmatch(expected)
+
+
+def test_bundle_digest_uses_i002_jcs_and_has_canonical_digest_shape():
+    result = bundle_digest(_bundle())
     assert DIGEST_RE.fullmatch(result)
+
+
+def test_profile_contract_set_order_uses_i002_utf16_semantics():
+    a = _bundle()
+    a["profile_contracts"] = ["\ue000", "\U00010000"]
+    b = deepcopy(a)
+    b["profile_contracts"].reverse()
+    assert bundle_digest(a) == bundle_digest(b)
 
 
 @pytest.mark.parametrize(
@@ -109,41 +139,34 @@ def test_bundle_digest_uses_i002_jcs_and_has_canonical_digest_shape():
     ],
 )
 def test_bridge_digest_fields_must_use_i002_sha256_representation(field, value):
-    bridge = _bridge()
+    bundle = _bundle()
+    bridge = bundle["bridge_locks"][0]
     bridge[field] = value
     bridge["digest"] = bridge_content_digest(bridge)
     bridge["reviewed_content_digest"] = bridge["digest"]
-    bundle = {
-        "schema_version": 1,
-        "profile_contracts": ["written-text@1"],
-        "ontology_locks": [
-            {"lock_id": "consumer", "digest": _digest("consumer")},
-            {"lock_id": "old", "digest": _digest("old")},
-            {"lock_id": "new", "digest": _digest("new")},
-        ],
-        "bridge_locks": [bridge],
-        "dependency_edges": [
-            {
-                "id": "edge",
-                "consumer": "consumer",
-                "requires": "old",
-                "satisfied_by": "bridge:f28",
-                "required_bridge_scope": _scope(),
-                "active": True,
-            }
-        ],
-    }
     with pytest.raises(ValueError, match="digest"):
         bundle_digest(bundle)
 
 
-def test_ontology_lock_digest_must_use_i002_sha256_representation():
+def test_ontology_lock_content_digest_must_use_i002_sha256_representation():
     bundle = {
         "schema_version": 1,
         "profile_contracts": ["linguistic@1"],
-        "ontology_locks": [{"lock_id": "olia", "digest": "sha256:fake"}],
+        "ontology_locks": [
+            {
+                "lock_id": "olia",
+                "ontology_id": "olia",
+                "support_tier": "core",
+                "term_namespace": "http://purl.org/olia/olia.owl#",
+                "release": "current-pinned",
+                "source_uri": "http://purl.org/olia/olia.owl",
+                "content_digest": "sha256:fake",
+                "license": "CC-BY-3.0",
+                "terms_used": ["http://purl.org/olia/olia.owl#Noun"],
+            }
+        ],
         "bridge_locks": [],
         "dependency_edges": [],
     }
-    with pytest.raises(ValueError, match="digest"):
+    with pytest.raises(ValueError, match="content_digest|digest"):
         bundle_digest(bundle)
