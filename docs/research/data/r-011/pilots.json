@@ -18,40 +18,13 @@
     "exact_mode_note": "R-011 measures compilability only; R-016 owns approximate execution authorization"
   },
   "corpora": {
-    "bhsa": {
-      "repository": "ETCBC/bhsa",
-      "revision": "4db00e2157915495e1a4d3d57e41223df24775da",
-      "tf_version": "2021",
-      "inventory": "docs/research/data/generated/r005/bhsa.json"
-    },
-    "cuc": {
-      "repository": "DT-UCPH/cuc",
-      "revision": "ad69400f5446e1c8217af01659c7c10ab00c015b",
-      "tf_version": "0.2.8",
-      "inventory": "docs/research/data/generated/r005/cuc.json"
-    },
-    "syriac": {
-      "repository": "ETCBC/syriac",
-      "revision": "bb0eaa7e21b020a26b7566d2e495da9b1f84a919",
-      "tf_version": "0.9",
-      "inventory": "docs/research/data/generated/r005/syriac.json"
-    },
-    "extrabiblical": {
-      "repository": "ETCBC/extrabiblical",
-      "inventory": "docs/research/data/generated/r005/extrabiblical.json"
-    },
-    "pseudepigrapha": {
-      "repository": "alexsosn/Pseudepigrapha-TF",
-      "evidence": "current repository docs + R-005 census"
-    },
-    "oracc": {
-      "repository": "alexsosn/ORACC-TF",
-      "evidence": "current repository docs + R-005 census"
-    },
-    "tlhdig": {
-      "repository": "alexsosn/TLHdig-TF",
-      "inventory": "docs/research/data/generated/r005/tlhdig-tf.json"
-    }
+    "bhsa": {"repository":"ETCBC/bhsa","revision":"4db00e2157915495e1a4d3d57e41223df24775da","tf_version":"2021","inventory":"docs/research/data/generated/r005/bhsa.json"},
+    "cuc": {"repository":"DT-UCPH/cuc","revision":"ad69400f5446e1c8217af01659c7c10ab00c015b","tf_version":"0.2.8","inventory":"docs/research/data/generated/r005/cuc.json"},
+    "syriac": {"repository":"ETCBC/syriac","revision":"bb0eaa7e21b020a26b7566d2e495da9b1f84a919","tf_version":"0.9","inventory":"docs/research/data/generated/r005/syriac.json"},
+    "extrabiblical": {"repository":"ETCBC/extrabiblical","inventory":"docs/research/data/generated/r005/extrabiblical.json"},
+    "pseudepigrapha": {"repository":"alexsosn/Pseudepigrapha-TF","evidence":"current repository docs + R-005 census"},
+    "oracc": {"repository":"alexsosn/ORACC-TF","evidence":"current repository docs + R-005 census"},
+    "tlhdig": {"repository":"alexsosn/TLHdig-TF","inventory":"docs/research/data/generated/r005/tlhdig-tf.json"}
   },
   "mappings": [
     {"corpus":"bhsa","id":"bhsa-pos-noun","native":"word.sp=subs","profile":"linguistic","assessment":"exact","target":"olia:Noun","weight":3,"plan":"F.sp.v(n) == 'subs'","notes":"","inventory_refs":["node_feature:sp"]},
@@ -62,6 +35,7 @@
     {"corpus":"bhsa","id":"bhsa-lex-entry","native":"otype=lex","profile":"lexical","assessment":"exact","target":"ontolex:LexicalEntry","weight":3,"plan":"F.otype.v(n) == 'lex'","notes":"","inventory_refs":["node_type:lex"]},
     {"corpus":"bhsa","id":"bhsa-gloss","native":"lex.gloss","profile":"lexical","assessment":"native-only","target":null,"weight":1,"plan":"F.gloss.v(n)","notes":"Literal display annotation; not a sense/concept.","inventory_refs":["node_feature:gloss"]},
     {"corpus":"bhsa","id":"bhsa-verbal-stem","native":"word.vs","profile":"linguistic","assessment":"native-only","target":null,"weight":2,"plan":"F.vs.v(n)","notes":"Language-specific stem system; unsafe shared-category comparison.","inventory_refs":["node_feature:vs"]},
+    {"corpus":"bhsa","id":"bhsa-archaeology","native":"no excavation/stratigraphy assertion in corpus contract","profile":"archaeology","assessment":"unsupported","target":null,"weight":1,"plan":"refuse: capability absent","notes":"Negative control: absence is not a bridge failure.","inventory_refs":["source_contract:archaeology-absent"]},
 
     {"corpus":"syriac","id":"syriac-pos-noun","native":"word.sp=subs","profile":"linguistic","assessment":"exact","target":"olia:Noun","weight":3,"plan":"F.sp.v(n) == 'subs'","notes":"","inventory_refs":["node_feature:sp"]},
     {"corpus":"syriac","id":"syriac-pos-verb","native":"word.sp=verb","profile":"linguistic","assessment":"exact","target":"olia:Verb","weight":3,"plan":"F.sp.v(n) == 'verb'","notes":"","inventory_refs":["node_feature:sp"]},
@@ -110,7 +84,7 @@
     {"corpus":"tlhdig","id":"tlh-lex-entry","native":"otype=lex","profile":"lexical","assessment":"close","target":"ontolex:LexicalEntry","weight":3,"plan":"F.otype.v(n) == 'lex'","notes":"Converter-defined (lemma, gloss) identity; not cross-corpus entity equality.","inventory_refs":["node_type:lex"]},
     {"corpus":"tlhdig","id":"tlh-fragment","native":"otype=fragment","profile":"textology","assessment":"ambiguous","target":null,"weight":2,"plan":"F.otype.v(n) == 'fragment'","notes":"Physical carrier vs symbolic fragment must be resolved per source.","inventory_refs":["node_type:fragment"]},
     {"corpus":"tlhdig","id":"tlh-witness","native":"line -> fragment witness edge","profile":"textology","assessment":"native-only","target":null,"weight":2,"plan":"E.witness.f(line)","notes":"","inventory_refs":["edge_feature:witness"]},
-    {"corpus":"tlhdig","id":"tlh-damage","native":"cluster damage/editorial states","profile":"scholarly-annotation","assessment":"native-only","target":null,"weight":2,"plan":"native cluster selector","notes":"","inventory_refs":["node_type:cluster"]},
+    {"corpus":"tlhdig","id":"tlh-damage","native":"cluster damage/editorial states","profile":"scholarly-annotation","assessment":"native-only","target":null,"weight":1,"plan":"native cluster selector","notes":"","inventory_refs":["node_type:cluster"]},
     {"corpus":"tlhdig","id":"tlh-edit","native":"otype=edit","profile":"provenance","assessment":"native-only","target":null,"weight":1,"plan":"F.otype.v(n) == 'edit'","notes":"Editorial provenance event, not automatically CRMinf inference.","inventory_refs":["node_type:edit"]}
   ],
   "queries": [
