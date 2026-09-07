@@ -88,9 +88,19 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             states.append({"id": edge_id, "state": "inactive"})
             continue
 
+        consumer_id = edge.get("consumer")
+        if not consumer_id or consumer_id not in locks:
+            states.append({"id": edge_id, "state": "missing-consumer-lock"})
+            continue
+
+        required_id = edge.get("requires")
         satisfied_by = edge.get("satisfied_by", "")
+
         if satisfied_by.startswith("lock:"):
             lock_id = satisfied_by.removeprefix("lock:")
+            if not required_id or lock_id != required_id:
+                states.append({"id": edge_id, "state": "dependency-lock-mismatch"})
+                continue
             lock = locks.get(lock_id)
             if lock is None:
                 states.append({"id": edge_id, "state": "missing-lock"})
@@ -110,6 +120,10 @@ def dependency_states(bundle: dict[str, Any]) -> list[dict[str, str]]:
             bridge = bridges.get(bridge_id)
             if bridge is None:
                 states.append({"id": edge_id, "state": "missing-bridge"})
+                continue
+
+            if not required_id or bridge.get("source_lock_id") != required_id:
+                states.append({"id": edge_id, "state": "bridge-requires-mismatch"})
                 continue
 
             required_scope = edge.get("required_bridge_scope")
