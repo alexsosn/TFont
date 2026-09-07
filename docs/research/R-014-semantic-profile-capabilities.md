@@ -1,98 +1,101 @@
 # R-014: controlled semantic profile and capability identifiers
 
-**Status:** research complete; pending fresh logically-independent adversarial review  
+**Status:** research complete; revised against merged R-011/R-013 after skeptical review; pending final logically-independent adversarial review  
 **Issue:** #48  
 **Recorded:** 2026-09-07  
-**Depends on:** accepted R-003/R-005, merged R-006/R-007/R-008/R-009/R-010/R-012; consumes R-013's formal-kind/semantic-role separation but does not require its production enum spellings
+**Depends on:** accepted R-003/R-005 and merged R-006/R-007/R-008/R-009/R-010/R-011/R-012/R-013
 
 ## Decision
 
-TFont should replace free-form `semantic_domains` with a **two-level controlled discovery contract**:
+TFont should replace free-form `profile.semantic_domains` strings with a controlled three-level discovery contract:
 
-1. a small set of stable **TFont semantic profile IDs** that describe interoperability domains;
-2. profile-scoped **capability IDs** that summarize query abilities for agent discovery without implying support for every ontology term.
+1. **profile** — a stable TFont interoperability domain;
+2. **capability** — a controlled, profile-scoped query-ability family;
+3. **concept/projection** — the exact reviewed semantic target/native binding that alone can authorize semantic query compilation.
 
-Execution is still authorized only by reviewed **concept/target bindings**. Profile or capability activation is never sufficient by itself to compile a query.
+The three levels have deliberately different state semantics.
 
-The first profile families are:
+### Profile operational state
 
-- `structural`
-- `linguistic`
-- `lexical`
-- `written-text`
-- `textology`
-- `heritage`
-- `scholarly-inference`
+`active | absent | unavailable`
 
-Optional profiles, activated only when native evidence warrants them, are:
+- `active`: at least one capability in the profile has reviewed positive native support and the profile contract/dependencies are inspectable;
+- `absent`: the mapping release has no reviewed positive native capability in this profile;
+- `unavailable`: positive reviewed profile content exists, but required parent/mapping/ontology/bridge components are currently missing, stale, incompatible, or unloadable.
 
-- `archaeology`
-- `scientific-analysis`
-- `lexicography`
+### Capability operational state
 
-These are TFont interoperability contracts, **not aliases for ontology namespaces**. A profile may compose several ontology models and a single ontology may participate in several profiles.
+`active | absent | unavailable`
+
+- `active`: at least one reviewed **positive native semantic record** belongs to the capability;
+- `absent`: no positive native record advertises the capability in this mapping release;
+- `unavailable`: positive reviewed capability records exist, but current compatibility/dependency state prevents safe inspection/execution.
+
+An `unsupported` concept record is useful negative knowledge **inside an otherwise active profile/capability**, but it cannot by itself activate either level.
+
+### Concept/projection state
+
+The accepted R-002 assessment remains authoritative:
+
+`exact | close | broader | narrower | related | ambiguous | native-only | unsupported`
+
+Operational availability/executability is reported separately. No profile or capability state replaces these concept-level assessments.
 
 The governing invariant is:
 
-> **Profile activation means “this corpus has a reviewed mapping contract in this semantic domain,” not “this corpus supports every term in the profile's ontologies.” Capability activation means “at least one reviewed query ability in this capability family exists,” not “all concepts in that family are executable.” Per-concept support remains authoritative.**
+> **Profile activation means that this corpus has at least one reviewed positive native ability in the domain. Capability activation means that at least one reviewed positive native ability exists in that capability family. Neither implies a shared ontology projection, whole-ontology coverage, or execution of an arbitrary requested concept. Only the exact concept/projection binding can authorize semantic query planning.**
 
-## 1. Why free-form `semantic_domains` is unsafe
+## 1. Why free-form semantic domains are unsafe
 
-Free strings cannot reliably answer any of these agent questions:
+Free strings cannot reliably answer whether:
 
-- Does `linguistics`, `linguistic`, `morphology`, and `OLiA` denote the same profile?
-- Does a corpus marked `crmtex` support glyphs, writing systems, written segments, or only lines?
-- Does `archaeology` mean physical ancient objects, or actual excavation/stratigraphic semantics?
-- Does `lexical` mean lemma strings, lexical-entry identity, source senses, shared concepts, or a full dictionary?
-- Does `manuscript` imply physical codicology, textual witness identity, or critical apparatus?
+- `linguistics`, `morphology`, and `OLiA` denote the same discovery domain;
+- a `crmtex` label means line segmentation, glyphs, writing systems, or reading activity;
+- `archaeology` means a physical ancient object or actual excavation/stratigraphic assertions;
+- `lexical` means lemma lookup, lexical-entry identity, source senses, shared concepts, or dictionary structure;
+- `manuscript` denotes a textual witness identity or a physical carrier.
 
-Free strings also make comparison brittle: two profiles can describe the same domain with different labels, while one overly broad label can falsely suggest complete ontology coverage.
+They also encourage whole-ontology claims: two corpora may both be labelled `OntoLex` while supporting very different lexical capabilities.
 
-## 2. Profile IDs are TFont contracts, not ontology IDs
+## 2. Profile IDs are TFont contracts, not ontology namespaces
 
-### 2.1 Independent profile identity
-
-A profile ID should have stable TFont identity independent of ontology release identity.
+A profile ID has stable TFont identity independent of ontology release identity.
 
 Conceptually:
 
 ```yaml
 profile:
-  id: linguistic
+  id: lexical
   contract_version: 1
-  ontology_bundle: <separate locked bundle identity>
+  ontology_bundle: <separate R-015 bundle identity>
 ```
 
-The profile ID answers **what interoperability contract is being exposed**. The ontology bundle answers **which exact standards/releases/bridges implement that contract in this mapping release**.
+The profile says **what interoperability domain is exposed**. The ontology bundle says **which exact standard releases/bridges implement the released mappings**.
 
-This separation is required because:
+Therefore:
 
-- `lexical` can compose OntoLex core + SKOS + optional LexInfo/VarTrans/Lexicog;
-- `textology` can compose LRMoo + CIDOC CRM + CRMtex + CRMinf plus profile-local apparatus roles;
-- `heritage` uses CIDOC CRM plus optional authority resources;
-- `written-text` uses CRMtex but must respect CRM/R-012 composition;
-- `structural` intentionally keeps native TF mechanics primary and only uses a tiny aligned structural vocabulary where justified.
+- `lexical` may compose OntoLex + SKOS + optional LexInfo/VarTrans/Lexicog;
+- `textology` may use LRMoo/CRM/CRMtex/CRMinf plus native-only apparatus roles;
+- `heritage` may use CRM plus external authority resources;
+- `written-text` may use CRMtex while preserving R-012 release/bridge constraints;
+- `structural` primarily exposes reviewed native TF/Context-Fabric graph semantics rather than pretending all structure has one ontology relation.
 
-### 2.2 No profile inheritance semantics
-
-Profile IDs should be **flat** in activation semantics. Composition/dependency can be explicit, but activation does not inherit.
+Profile activation is flat. Dependencies are explicit and versioned; they never auto-activate another profile.
 
 Examples:
 
-- `textology` does **not** imply `written-text`: a digital critical apparatus can model textual witnesses/readings without physical-writing semantics;
-- `heritage` does **not** imply `archaeology`: a tablet or manuscript is a heritage object without excavation/stratigraphy data;
-- `lexical` does **not** imply `lexicography`: lemma/lexeme identity does not make the corpus a dictionary;
-- `written-text` does **not** imply `scholarly-inference`: damage/editorial states are not automatically argumentation graphs.
+- `textology` does not imply `written-text`;
+- `heritage` does not imply `archaeology`;
+- `lexical` does not imply `lexicography`;
+- `written-text` does not imply `scholarly-inference`.
 
-If a profile requires another profile for a particular released contract, that dependency is an explicit versioned dependency, not a taxonomy rule.
+## 3. Controlled profile catalog
 
-## 3. First controlled profile catalog
+The first catalog contains seven recurring profiles and three optional evidence-gated profiles.
 
 ### 3.1 `structural`
 
-Purpose: recurring TF/Context-Fabric graph mechanics needed to compose semantic queries.
-
-Primary basis: R-007.
+Purpose: reviewed native graph mechanics needed to compose queries across TF-family corpora.
 
 Representative capabilities:
 
@@ -101,28 +104,24 @@ Representative capabilities:
 - `structural.edge-traversal`
 - `structural.section-navigation`
 
-Activation does not assert that `oslots` means constituency or containment.
+R-007 remains authoritative: `oslots` is storage/coverage machinery and does not automatically mean constituency, dependency, containment, or physical parthood.
 
 ### 3.2 `linguistic`
 
 Purpose: linguistic annotation categories and relations.
-
-Primary basis: OLiA + accepted linguistic mappings.
 
 Representative capabilities:
 
 - `linguistic.part-of-speech`
 - `linguistic.morphology`
 - `linguistic.syntax`
-- `linguistic.discourse` (only when present)
+- `linguistic.discourse`
 
-A corpus may activate `linguistic.morphology` while particular categories remain `native-only` or unsupported.
+A capability may be active from reviewed native linguistic semantics even when all current common-pivot projections in that capability are `native-only` or absent.
 
 ### 3.3 `lexical`
 
 Purpose: lexical identity and lexical-semantic interoperability.
-
-Primary basis: R-008, OntoLex/SKOS.
 
 Representative capabilities:
 
@@ -132,24 +131,24 @@ Representative capabilities:
 - `lexical.concept`
 - `lexical.relation`
 
-Activation of `lexical.entry` does not imply `lexical.sense` or `lexical.concept`.
+`lexical.entry` does not imply sense or concept support.
 
 ### 3.4 `written-text`
 
-Purpose: physical writing and written-text segmentation where source semantics warrant CRMtex-style interpretation.
+Purpose: physical writing and written-text segmentation where native evidence warrants CRMtex-like semantics.
 
 Representative capabilities:
 
 - `written-text.segment`
 - `written-text.sign`
 - `written-text.writing-system`
-- `written-text.transcription-recognition` (only when explicit activities exist)
+- `written-text.transcription-recognition`
 
-A TF `sign` or `line` node does not activate these capabilities from storage shape alone.
+A TF `sign`, `line`, or `surface` node never activates one of these capabilities from storage shape alone.
 
 ### 3.5 `textology`
 
-Purpose: intellectual textual realizations, witness/transmission relations, fragments and critical-apparatus semantics.
+Purpose: textual realizations, witness/transmission relations, fragments, critical apparatus, omission/attestation semantics.
 
 Representative capabilities:
 
@@ -160,7 +159,7 @@ Representative capabilities:
 - `textology.witness-attestation`
 - `textology.explicit-omission`
 
-R-009 permits profile-local/native-only apparatus roles while no accepted common target exists. Therefore the profile may be active even when some capabilities have no common-pivot target.
+A textology capability may be active entirely through native-only records when no accepted common target exists.
 
 ### 3.6 `heritage`
 
@@ -175,7 +174,7 @@ Representative capabilities:
 - `heritage.place-provenance`
 - `heritage.custody-location`
 
-External authority references remain distinct from common semantic targets under R-017.
+Authority-reference semantics remain separate under R-017.
 
 ### 3.7 `scholarly-inference`
 
@@ -188,145 +187,157 @@ Representative capabilities:
 - `scholarly-inference.meaning-comprehension`
 - `scholarly-inference.provenance-assessment`
 
-A flat source fact or editor code does not activate this profile.
+A source fact, damage flag, catalogue field, or editor code does not activate this profile without an attributed proposition/process assertion shape.
 
 ### 3.8 Optional `archaeology`
 
-Purpose: excavation/stratigraphic/find-context semantics.
-
-Representative capabilities:
+Capabilities:
 
 - `archaeology.excavation`
 - `archaeology.stratigraphy`
 - `archaeology.embedding-find-context`
 
-Activation gate: actual CRMarchaeo-like excavation/stratigraphic assertion shape. Ancient object + provenience string is insufficient.
+Activation requires actual excavation/stratigraphic/find-context assertions. Ancient-object identity or a `provenience` string is insufficient.
 
 ### 3.9 Optional `scientific-analysis`
 
-Purpose: observation, measurement, sampling and scientific-analysis processes/results.
-
-Representative capabilities:
+Capabilities:
 
 - `scientific-analysis.observation`
 - `scientific-analysis.measurement`
 - `scientific-analysis.sampling`
 - `scientific-analysis.position-determination`
 
-Activation gate: source records actual observation/measurement process/result semantics. Material labels and catalogue coordinates alone are insufficient.
+Activation requires explicit observation/measurement/sampling/analysis process/result semantics. Material labels, catalogue coordinates, damage state, or converter-derived Unicode values are insufficient.
 
 ### 3.10 Optional `lexicography`
 
-Purpose: dictionary-specific organization beyond lexical identity.
-
-Representative capabilities:
+Capabilities:
 
 - `lexicography.entry-structure`
 - `lexicography.sense-order`
 - `lexicography.dictionary-component`
 
-Activation gate: genuine dictionary structure such as ordered senses/entry components. Repeated lemma/gloss strings are insufficient.
+Activation requires reviewed dictionary-specific organization beyond lexical identity. Lemma/gloss strings or a lexical-entry mapping alone are insufficient.
 
 ## 4. Capability IDs are discovery buckets, not execution predicates
 
-Capability IDs exist to let an agent ask compact questions such as:
+Capability IDs let an agent ask questions such as:
 
 ```text
-Which loaded corpora have lexical sense support?
-Which corpora can navigate physical written-text segments?
+Which loaded corpora have lexical-sense support?
+Which corpora expose physical written-text segments?
 Which corpora expose witness-attestation semantics?
 ```
 
-They do **not** replace semantic target identities.
+They do not replace ontology targets or R-013 semantic roles.
 
-Execution key remains concept/target-specific:
+The concept execution key remains concept-specific:
 
 ```text
-(profile ID
- + capability ID
- + semantic target IRI
- + formal kind
- + semantic role)
-   -> reviewed corpus-native binding
+(profile-id
+ + capability-id
+ + target
+ + formal-kind
+ + semantic-role)
+ -> reviewed corpus-native binding
 ```
 
-A capability can therefore contain mixed concept-level states:
+A single active capability can contain mixed concept assessments:
 
 ```text
 linguistic.morphology
-  Number/Plural       exact
-  Gender/Feminine     exact
-  language-specific stem category  native-only
-  another requested category       unsupported
+  olia:Plural                  exact
+  olia:Masculine               exact
+  native verbal-stem category  native-only
+  requested absent category    unsupported
 ```
 
-## 5. Profile-level states
+The last `unsupported` record is negative evidence; it does not activate the capability.
 
-The profile lifecycle needs only three operational states:
+## 5. Activation rules
 
-- `active` — a reviewed profile contract is loaded and parent/ontology compatibility permits inspection; concept execution still depends on concept-level status;
-- `absent` — the mapping release does not declare this profile for the corpus;
-- `unavailable` — the profile is declared but cannot currently be used because required mapping/ontology/bridge/parent components are missing, stale, incompatible or unloadable.
+### 5.1 Positive support set
 
-Do not create `partial`, `exact`, `close`, or `unsupported` as profile-level mapping states. Those meanings belong to concepts/capabilities.
+For activation, a **positive native semantic record** is one whose native semantics actually exist and have been reviewed. This includes records assessed:
 
-`unavailable` is operational and must not be confused with R-002 `unsupported`.
+- `exact`
+- `close`
+- `broader`
+- `narrower`
+- `related`
+- `ambiguous` when the native semantic assertion exists but the common projection is unresolved
+- `native-only`
 
-### 5.1 Activation minimum
+It excludes `unsupported`, which means the requested semantic capability/concept is not provided by the reviewed corpus contract.
 
-A profile may be declared `active` only if:
+### 5.2 Capability activation
 
-1. the profile contract/version is recognized;
-2. its declared ontology bundle/dependencies are reviewable;
-3. parent compatibility allows the profile to load for inspection;
-4. the release contains at least one reviewed mapping/native-role record belonging to the profile.
+A capability is `active` only when:
 
-A profile with zero records is omitted/`absent`, not advertised as an empty active profile.
+1. the capability ID is recognized by the profile contract;
+2. at least one positive native semantic record belongs to it;
+3. required parent/profile components are compatible enough for inspection;
+4. required mapping/ontology artifacts for the advertised summary can be loaded or, for purely native-only capability content, the native record remains inspectable without fabricating a common target.
 
-## 6. Capability-level summary states
+A capability with only `unsupported` records is `absent`, while requested unsupported concepts may still be reported as explicit negative concept knowledge.
 
-A capability summary should not invent another mapping-assessment taxonomy. It aggregates existing records into counts/booleans:
+If positive records exist but required components are currently incompatible or unloadable, capability state is `unavailable`.
+
+### 5.3 Profile activation
+
+A profile is `active` only when at least one capability is `active`.
+
+A profile with no active capability is `absent` unless positive reviewed capability records exist but are operationally blocked, in which case it is `unavailable`.
+
+This prevents a single negative control such as “BHSA archaeology unsupported” from falsely activating the archaeology profile.
+
+## 6. Capability summaries
+
+Capability state is reported explicitly and separately from aggregate concept counts:
 
 ```yaml
 capability: lexical.sense
+state: active
 records: 12
 shared_projections: 8
 exact: 5
 approximate: 3
 ambiguous: 0
 native_only: 4
-unsupported: 0
+unsupported: 2
 executable_exact: true
 ```
 
-Where:
+Definitions:
 
-- `shared_projections` counts records with approved common semantic targets;
-- `approximate` aggregates `close|broader|narrower|related` for discovery only; detailed assessment remains available per concept;
-- `native_only` remains a legitimate no-target state and is never added to shared coverage;
-- `unsupported` records represent known negative support within an active profile;
-- `executable_exact` means at least one exact concept binding in the capability is operationally executable, not that every concept is exact.
+- `state` is `active|absent|unavailable` under §5;
+- `shared_projections` counts approved target-bearing records only;
+- `approximate` is a discovery aggregate over `close|broader|narrower|related`; detailed assessment remains per concept;
+- `native_only` is legitimate native support but never shared-target coverage;
+- `unsupported` counts explicit negative concept records and never contributes to activation;
+- `executable_exact` means at least one exact binding is currently executable, not that the capability as a whole is exact.
 
-For a requested concept, return the exact R-002 assessment rather than only aggregate counts.
+No profile- or capability-level `exact`, `close`, `unsupported`, or `partial` state is introduced.
 
-## 7. Concept-level support is authoritative
+## 7. Concept-level support remains authoritative
 
-For a requested common semantic target, the agent-facing result must report separately:
+For a requested common target, return separately:
 
 - profile state;
-- capability ID;
-- target identity + formal kind + semantic role;
-- mapping assessment (`exact`, `close`, `broader`, `narrower`, `related`, `ambiguous`, `native-only`, `unsupported` as applicable to the underlying record);
+- capability state and ID;
+- target identity, R-013 formal kind and semantic role;
+- R-002 mapping assessment;
 - operational availability/compatibility;
-- executable/non-executable under requested semantic mode;
+- executable/non-executable state under the requested semantic mode;
 - compact native binding summary;
-- profile contract version and ontology/parent provenance fingerprints.
+- profile contract/catalog version and relevant parent/ontology provenance fingerprints.
 
-For a common-target request, a corpus with only relevant `native-only` records still returns **non-resolvable for that target**. Native-only records are discoverable in native capability inspection but do not masquerade as common semantic support.
+If the profile or capability is active only through `native-only` records, a common-target request still fails closed unless the requested target has its own reviewed projection.
 
-## 8. Compact agent discovery contract
+## 8. Compact `semantic_capabilities` contract
 
-R-003 requires progressive disclosure. The default `semantic_capabilities` response should therefore show summary information, not mapping rows.
+R-003 requires progressive disclosure. Default discovery output should show summaries, not mapping rows.
 
 Conceptual response:
 
@@ -334,206 +345,198 @@ Conceptual response:
 {
   "catalog_version": 1,
   "corpora": {
-    "bhsa": {
-      "compatibility": "verified-exact",
+    "oracc": {
       "profiles": {
-        "structural": {"state": "active"},
-        "linguistic": {
+        "lexical": {
           "state": "active",
           "capabilities": {
-            "linguistic.part-of-speech": {"shared": 8, "native_only": 0},
-            "linguistic.morphology": {"shared": 19, "native_only": 6}
+            "lexical.entry": {
+              "state": "active",
+              "shared_projections": 1,
+              "native_only": 0
+            },
+            "lexical.sense": {
+              "state": "active",
+              "shared_projections": 0,
+              "native_only": 1
+            }
           }
         },
-        "lexical": {"state": "active"}
-      }
-    },
-    "cuc": {
-      "profiles": {
-        "structural": {"state": "active"},
-        "written-text": {"state": "active"},
-        "heritage": {"state": "active"}
+        "heritage": {
+          "state": "active",
+          "capabilities": {
+            "heritage.physical-object": {
+              "state": "active",
+              "shared_projections": 0,
+              "native_only": 1
+            }
+          }
+        }
       }
     }
   }
 }
 ```
 
-When `concepts=[...]` is supplied, add only those concept support rows. When `compare=true`, provide a matrix keyed by requested profile/capability/concept rather than repeating full mapping provenance.
+The ORACC example is intentional: the heritage profile can be active from reviewed native object/material/authority semantics while generic `otype=document -> crm:E22` remains fail-closed under accepted R-011.
 
-Full mapping rationale remains an explicit drill-down/explain operation.
+Optional filters:
+
+```text
+corpora
+profiles
+capabilities
+concepts
+compare
+verbosity=compact|full
+```
+
+When `concepts=[...]` is supplied, return only requested concept rows. `compare=true` produces a compact profile/capability/concept matrix. Full mapping rationale remains an explicit drill-down/explain operation.
 
 ## 9. Comparison semantics
 
 ### 9.1 Profile comparison
 
-For each profile:
+Report exactly:
 
 ```text
-corpus A: active
-corpus B: active
-corpus C: absent
-corpus D: unavailable
+active | absent | unavailable
 ```
 
-`absent` and `unavailable` are intentionally different:
-
-- absent = profile not claimed by this mapping release;
-- unavailable = profile is claimed but cannot safely be used now.
+Do not infer profile coverage from ontology namespace size or sibling profiles.
 
 ### 9.2 Capability comparison
 
-Compare capability presence plus counts, not ontology size.
+Report capability state plus aggregate counts.
 
-Good output:
+Example:
 
 ```text
 lexical.sense
-  ORACC          active, 2 exact shared sense bindings in requested fixture
-  BHSA           active lexical profile, capability absent/unsupported
-  Syriac         active lexical profile, capability unsupported
-  CUC            lexical profile absent
+  ORACC   capability active; native source-sense support; no shared LexicalSense projection in R-011
+  BHSA    lexical profile active; capability absent in current reviewed pilot
+  Syriac  lexical profile active; capability absent in current reviewed pilot
+  CUC     lexical profile absent
 ```
 
-Bad output:
-
-```text
-ORACC supports OntoLex
-BHSA supports OntoLex
-```
-
-because that implies whole-ontology support.
+A requested concept may still return explicit `unsupported` even when its capability is absent; that is concept-level negative knowledge, not a capability state.
 
 ### 9.3 Concept comparison
 
-For requested semantic concepts, show per-corpus assessment and execution state directly. This is the only level that can justify cross-corpus query planning.
+Only concept-level comparison can justify cross-corpus semantic query planning. Return each corpus's exact assessment and execution state.
 
-## 10. Fail-closed rules
+## 10. Accepted seven-pilot evidence
 
-1. Unknown profile ID -> schema/contract error; do not treat as user-defined domain string.
-2. Unknown capability ID -> schema/contract error or explicit unsupported-extension diagnostic; no fuzzy matching.
-3. Profile `absent` -> common query requiring it is non-executable; do not search native features for similar labels.
-4. Profile `unavailable` -> non-executable even if concept mappings are known from an older cached profile.
-5. Active profile + missing capability -> non-executable for that capability; no sibling capability fallback.
-6. Active capability + missing target binding -> concept `unsupported`/non-resolvable; no label/ontology inference.
-7. `native-only` -> never counted as shared semantic target coverage.
-8. `ambiguous` -> never counted as executable shared support until resolved/explicit mode permits a reviewed alternative.
-9. Optional profile is never activated by age/domain heuristics (`ancient`, `tablet`, `manuscript`, `excavated`, etc.).
-10. Profile hierarchy/dependency never auto-activates another profile.
+The catalog is tested against merged R-005 and R-011 evidence. The table below is deliberately conservative. `active/shared` means at least one accepted R-011 common projection is present; `active/native` means reviewed native semantics justify the profile but the cited capability is not established as a shared pivot in R-011. `absent` means no positive reviewed profile ability is claimed by this R-014 pilot classification. These annotations explain evidence; production profile state remains simply `active|absent|unavailable`.
 
-## 11. Seven-pilot stress matrix
+| corpus | structural | linguistic | lexical | written-text | textology | heritage | scholarly-inference |
+|---|---|---|---|---|---|---|---|
+| BHSA | active/native | active/shared | active/shared | absent | absent | absent | absent |
+| ETCBC Syriac | active/native | active/shared | active/shared | absent | absent | absent | absent |
+| ETCBC ExtraBiblical | active/native | active/shared | active/shared | absent | absent | absent | absent |
+| CUC 0.2.8 | active/native | absent | absent | active/shared | absent | active/shared | absent |
+| Pseudepigrapha-TF | active/native | absent for current R-011 profile | absent for current R-011 profile | absent | active/shared+native | absent without carrier evidence | absent |
+| ORACC-TF | active/native | active/native from reviewed R-005 POS/morphology, no R-011 OLiA projection | active/shared+native | active/shared | absent for current R-011 transmission profile | active/native; generic E22 projection fails closed | absent |
+| TLHdig-TF | active/native | active/native from reviewed R-005 analysis/POS/morphology, no R-011 OLiA projection | active/shared+native | active/shared | active/native for witness/fragment/editorial subset | active/shared | absent |
 
-This matrix records **profile candidates supported by merged research**, not production mapping releases. R-011 owns empirical final fixture activation/counts.
+Evidence boundaries carried forward from R-011:
 
-| corpus | structural | linguistic | lexical | written-text | textology | heritage | scholarly-inference | optional notes |
-|---|---|---|---|---|---|---|---|---|
-| BHSA | active | active | active | absent | absent | absent | absent | verbal-stem concepts may remain native-only |
-| ETCBC Syriac | active | active | active | absent | absent | absent | absent | lexical sense/concept depth can be unsupported despite lexical entry support |
-| ETCBC extrabiblical | active | active | active | absent | absent | absent | absent | high-similarity control; do not infer exact mappings from shared ETCBC names |
-| CUC 0.2.8 | active | limited/absent until reviewed linguistic targets | absent for released lexical layer | active candidate | absent | active candidate | absent | archaeology/scientific-analysis absent on current evidence |
-| Pseudepigrapha-TF | active | not required | not required | absent by default | active | absent unless manuscript physical-carrier evidence exists | absent unless attributed claims are modeled | apparatus capabilities can be native-only while profile remains active |
-| ORACC-TF | active | active candidate where POS/morphology is mapped | active | active | limited transmission only if reviewed | active | absent by default | lexicography candidate for explicit glossary structure; archaeology/science not activated by catalogue data alone |
-| TLHdig-TF | active | active | active | active | active candidate for witness/fragment transmission subset | active | absent by default | edit/damage facts do not activate CRMinf; archaeology/science absent on current evidence |
+- OLiA shared query reuse is demonstrated for BHSA, Syriac and ExtraBiblical, not ORACC/TLH;
+- OntoLex lexical-entry reuse is demonstrated for BHSA, Syriac, ExtraBiblical, ORACC and TLH;
+- CRMtex TX7 line reuse is demonstrated for CUC, ORACC and TLH;
+- CRM E22 physical-object projection is demonstrated for CUC and TLH only;
+- ORACC generic `otype=document` is `native-only` for physical-object capability until a reviewed object-bearing selector exists;
+- Pseudepigrapha manuscript identity does not activate physical heritage without carrier evidence;
+- Pseudepigrapha textology includes native apparatus/witness semantics and a conservative LRMoo F2 textual-version candidate;
+- TLH surface remains native physical support, not TX7;
+- no current pilot activates scholarly-inference merely from source/editorial facts.
 
-`active candidate` / `limited` in this research matrix means R-014 recognizes the profile family as appropriate for reviewed mappings evidenced by prior research, but R-011 must still decide the exact fixture activation and counts. Production API states remain only `active|absent|unavailable`.
+This classification does not require every active profile to have a common target. Native-only capability is first-class discovery information.
 
-## 12. Optional-profile activation tests
+## 11. Optional-profile activation
 
-### 12.1 Archaeology
+### Archaeology
 
-Do **not** activate because:
+Do not activate from object age, tablet/manuscript type, `provenience` string, or generic catalogue metadata. Current seven-pilot R-011 evidence does not activate archaeology.
 
-- object is ancient;
-- source has `provenience` or `findspot` string;
-- corpus is ORACC/TLH/CUC;
-- physical object is a tablet/fragment.
+### Scientific analysis
 
-Activate only when reviewed native semantics expose excavation/stratigraphic/find-context assertion shapes required by the profile.
+Do not activate from material labels, coordinates, damage states, or converter computations. Current seven-pilot R-011 evidence does not activate scientific-analysis.
 
-### 12.2 Scientific analysis
+### Lexicography
 
-Do **not** activate because:
+Do not activate merely from lemma/gloss/entry/sense existence. ORACC's glossary structure is evidence that deserves a later explicit lexicography-profile review, but R-011 did not establish this optional profile contract, so R-014 does not activate it retrospectively.
 
-- material is known;
-- coordinates exist;
-- damage state exists;
-- converter computes sign or Unicode properties.
+## 12. Fail-closed rules
 
-Activate only for explicit observation/measurement/sampling/analysis semantics.
+1. Unknown profile ID -> contract error; no free-string fallback.
+2. Unknown capability ID -> contract error or explicit unsupported-extension diagnostic; no fuzzy matching.
+3. Profile `absent` -> required profile query non-executable; no native-label search fallback.
+4. Profile `unavailable` -> non-executable even if stale cached bindings exist.
+5. Capability `absent` -> required capability query non-executable; no sibling capability fallback.
+6. Capability `unavailable` -> non-executable even if its concept was previously executable.
+7. Profile/capability activation never follows from `unsupported` records alone.
+8. Active profile never implies every capability active.
+9. Active capability never implies every concept executable.
+10. Missing target binding never falls back to ontology hierarchy or label similarity.
+11. `native-only` never contributes to shared semantic target coverage.
+12. `ambiguous` never becomes executable shared support without the appropriate reviewed resolution/mode.
+13. Optional profiles never auto-activate from domain labels or corpus age/type.
+14. Profile dependency/hierarchy never auto-activates another profile.
+15. Same profile/capability in two corpora never authorizes a cross-corpus plan without matching requested concept bindings.
 
-### 12.3 Lexicography
+## 13. Versioning
 
-Do **not** activate because:
+The controlled vocabulary has three separate identity/version layers:
 
-- lemma/gloss strings exist;
-- lexical entries exist;
-- a corpus has an OntoLex mapping.
+1. `catalog_version` — profile/capability identifier catalog;
+2. per-profile `contract_version` — meaning/requirements of that profile and its capability IDs;
+3. R-015 ontology bundle identity — exact ontology releases/bridges used by mappings.
 
-Activate when dictionary-specific organization (entry components, ordered senses, lexicographic structure) is represented and reviewed.
+Corpus mapping release and parent component identity remain separate again.
 
-## 13. Profile/catalog versioning
+Do not encode ontology versions into profile IDs such as `written-text-crmtex-2.0`.
 
-### 13.1 Catalog version
-
-The controlled set of profile/capability IDs has a `catalog_version`. Adding/removing/changing the meaning of an identifier requires a catalog version change.
-
-### 13.2 Profile contract version
-
-Each profile has an independent `contract_version` because its required roles/capability definitions may evolve without changing unrelated profiles.
-
-### 13.3 Ontology bundle is separate
-
-Do not encode ontology versions into profile IDs such as:
-
-```text
-written-text-crmtex-2.0
-lexical-ontolex-2016
-```
-
-The same TFont profile can be implemented by a version-locked bundle whose identity is governed separately by R-015. A profile contract change and ontology release change are different events.
-
-### 13.4 Mapping release remains separate
-
-Corpus-specific mapping/profile release version remains independent again. Therefore reproducible capability identity is conceptually:
-
-```text
-profile catalog version
-+ profile ID / contract version
-+ ontology bundle identity
-+ corpus mapping release
-+ parent component manifest
-```
+Adding/removing/changing a profile/capability identifier requires catalog or profile-contract versioning. Released mappings retain their original vocabulary interpretation.
 
 ## 14. RED-style contract cases for P-003/TDD
 
-1. Free-form `semantic_domains=["whatever"]` accepted -> reject under new schema version.
-2. Profile ID inferred from ontology namespace (`crmtex` -> written-text) -> reject.
-3. `heritage` auto-activates `archaeology` -> reject.
-4. `lexical` auto-activates `lexicography` -> reject.
-5. `textology` auto-activates `written-text` -> reject.
-6. `written-text` auto-activates `scholarly-inference` from editorial flags -> reject.
-7. Active profile with zero mapping/native-role records -> reject/omit profile.
-8. Active profile treated as whole-ontology support -> reject capability response/test expectation.
-9. Active capability treated as every target executable -> reject.
-10. `native-only` included in shared projection count -> reject.
-11. `unsupported` concept silently omitted from comparison -> reject.
-12. Profile `absent` falls back to similarly named native feature -> reject.
-13. Profile `unavailable` executes cached old binding -> reject.
-14. Unknown capability fuzzy-matched to nearest known capability -> reject.
-15. Optional archaeology activates from `provenience` literal alone -> reject.
-16. Optional scientific-analysis activates from material/coordinate literals alone -> reject.
-17. Optional lexicography activates from lemma+gloss alone -> reject.
-18. Pseudepigrapha `manuscript` node automatically activates physical heritage profile -> reject without carrier evidence.
-19. TLH edit/damage nodes automatically activate CRMinf scholarly-inference -> reject without attributed proposition/process evidence.
-20. Profile ID includes live ontology version and silently changes identity after ontology update -> reject.
-21. Capability comparison dumps all mapping rows by default -> fail ergonomics/token-budget gate.
-22. `absent` and `unavailable` collapsed into one state -> reject because operational diagnosis/execution differs.
-23. Profile-level `exact/close` state introduced -> reject; mapping assessment belongs to concept/projection records.
-24. Cross-corpus plan executes because both corpora advertise the same profile while the requested concept differs/unsupported -> reject.
+The following must fail in the future production contract:
+
+1. free-form `semantic_domains=["whatever"]` accepted;
+2. profile inferred from ontology namespace;
+3. `heritage` auto-activates `archaeology`;
+4. `lexical` auto-activates `lexicography`;
+5. `textology` auto-activates `written-text`;
+6. `written-text` auto-activates scholarly-inference from editorial flags;
+7. active profile with zero active capabilities;
+8. active capability with zero positive native semantic records;
+9. a profile/capability activated only by `unsupported` records;
+10. active profile treated as whole-ontology support;
+11. active capability treated as every target executable;
+12. `native-only` included in shared projection count;
+13. `unsupported` concept silently omitted from requested comparison;
+14. `unsupported` concept used as capability state;
+15. profile `absent` falls back to similarly named native feature;
+16. capability `absent` falls back to a sibling capability;
+17. profile/capability `unavailable` executes cached old binding;
+18. unknown capability fuzzy-matched to nearest known capability;
+19. archaeology activated from `provenience` literal alone;
+20. scientific-analysis activated from material/coordinate literals alone;
+21. lexicography activated from lemma+gloss alone;
+22. Pseudepigrapha `manuscript` automatically activates physical heritage;
+23. ORACC generic `otype=document` advertised as shared E22 physical-object support;
+24. TLH `surface` advertised as CRMtex TX7;
+25. TLH edit/damage nodes activate CRMinf scholarly-inference without attributed proposition/process evidence;
+26. profile-level `exact|close|unsupported|partial` mapping state introduced;
+27. capability-level `exact|close|unsupported|partial` mapping state introduced;
+28. cross-corpus plan executes merely because both corpora advertise the same profile/capability;
+29. compact capability discovery dumps all mapping rows by default;
+30. ontology release silently changes profile identity.
 
 ## 15. P-003 profile/IR inputs
 
-Conceptual profile declaration:
+Conceptual declaration:
 
 ```yaml
 profile_catalog_version: 1
@@ -544,24 +547,29 @@ profiles:
     ontology_bundle: <bundle-id>
     capabilities:
       - id: lexical.entry
+        state: active
         records: [<mapping/native-role IDs>]
       - id: lexical.sense
-        records: [<mapping/native-role IDs>]
+        state: absent
+        records: []
 ```
 
-Conceptual capability index:
+Indexes:
 
 ```text
-(corpus, profile-id, capability-id)
-  -> summary counts + record IDs + operational state
+(corpus, profile-id)
+  -> profile operational state + active capability IDs
 
-(corpus, profile-id, target, formal-kind, semantic-role)
+(corpus, profile-id, capability-id)
+  -> capability operational state + summary counts + record IDs
+
+(corpus, profile-id, capability-id, target, formal-kind, semantic-role)
   -> reviewed concept binding(s)
 ```
 
-The second/concept index is authoritative for execution. The first is an agent-discovery acceleration index.
+The third index is authoritative for execution. The first two exist for compact discovery/comparison.
 
-For `native-only` profile records, the first index includes them in `native_only` counts; the target-keyed reverse index does not fabricate a semantic key.
+For `native-only` records, capability summaries include native support but target-keyed reverse indexes never fabricate a semantic key.
 
 ## 16. Agent-facing API inputs
 
@@ -576,58 +584,59 @@ compare
 verbosity=compact|full
 ```
 
-Compact default returns:
+Compact output returns:
 
 - profile state;
-- contract/catalog versions;
-- capability counts;
-- exact/approximate/native-only/unsupported summary counts;
-- parent compatibility state;
+- capability state;
+- catalog/profile contract versions;
+- shared/exact/approximate/ambiguous/native-only/unsupported counts;
+- parent/ontology operational compatibility summary;
 - requested concept rows only when requested.
 
 Full mode may expose mapping IDs, native selectors, ontology locks and review evidence.
 
-No default call should enumerate all ontology terms or all mapping rows.
+No default call should enumerate all ontology terms or mapping rows.
 
 ## 17. Rejected alternatives
 
 ### Ontology-name profiles
 
-Rejected because ontology boundaries do not match agent tasks and many profiles compose several ontologies.
+Rejected because ontology boundaries do not match agent tasks and several profiles compose multiple models.
 
 ### Deep inherited taxonomy
 
-Rejected because semantic-domain inclusion does not imply data/capability inclusion. Explicit dependencies are safer and auditable.
+Rejected because semantic-domain inclusion does not imply corpus capability inclusion. Explicit dependencies are safer.
 
 ### Capability == ontology target URI
 
-Rejected for discovery ergonomics. Agents often need to ask “which corpora have lexical senses?” before knowing a particular target URI. Target URI remains the execution key, not the sole discovery vocabulary.
+Rejected because an agent often needs to discover “lexical sense support” before knowing a particular target URI. Target remains the execution key, not the sole discovery vocabulary.
 
 ### Capability == native feature name
 
-Rejected because it recreates corpus-specific discovery and prevents cross-corpus comparison.
+Rejected because it destroys cross-corpus discovery portability.
 
-### One profile state summarizing mapping quality
+### One profile/capability state summarizing mapping quality
 
-Rejected because mapping strengths vary per concept; a profile can contain exact, approximate, native-only and unsupported records simultaneously.
+Rejected because exact/approximate/native-only/unsupported vary per concept. Operational state and mapping assessment are orthogonal.
 
 ## 18. Acceptance-criteria closure
 
-- **Controlled vocabulary:** seven core profile IDs plus three optional evidence-gated profiles; capability IDs are profile-scoped and controlled.
-- **Activation vs concept assessment separated:** profile state is operational; R-002 assessment remains concept/projection-level.
-- **All seven R-011 pilots covered:** matrix includes BHSA, CUC, Syriac, ExtraBiblical, Pseudepigrapha-TF, ORACC-TF and TLHdig-TF without forcing archaeology/science/physical-codicology claims.
-- **Agent comparison/fail-closed behavior:** compact summary, requested-concept matrix, `active|absent|unavailable`, no fuzzy/native fallback.
-- **P-003 inputs:** catalog/profile versioning, activation record, capability summary index, concept execution index and RED cases are explicit.
+- **Controlled vocabulary:** seven recurring profile IDs plus three optional evidence-gated profiles; capability IDs are controlled and profile-scoped.
+- **Three levels separated:** profile operational state, capability operational state, concept mapping assessment.
+- **All seven R-011 pilots covered:** current evidence matrix consumes merged R-005/R-011 instead of deferring activation back to unfinished research.
+- **No forced empty profiles:** negative controls do not activate a profile; optional archaeology/science/lexicography remain absent until positive reviewed evidence establishes their contracts.
+- **Agent comparison/fail-closed behavior:** compact summaries preserve `active|absent|unavailable`, capability state, native-only support, requested concept assessment and no fuzzy fallback.
+- **P-003 inputs:** catalog/profile versioning, activation rules, discovery indexes, concept execution index and RED cases are explicit.
 
 ## 19. Remaining boundaries
 
 R-014 intentionally leaves these decisions elsewhere:
 
-- final URI/namespace spelling of profile/capability IDs — P-003/public vocabulary packaging;
-- target formal-kind/semantic-role enum spellings — R-013/P-003;
+- final public URI/namespace spelling of profile/capability IDs — P-003/public vocabulary packaging;
+- target formal-kind/semantic-role spellings — accepted R-013/P-003;
 - ontology bundle/bridge identity — R-015;
-- approximate execution policy — R-016;
-- external-authority query role — R-017;
-- final empirical activation/counts for seven pilots — R-011.
+- approximate execution authorization — R-016;
+- external-authority query semantics — R-017;
+- production schema/runtime/API implementation — P-003 and later implementation tickets.
 
-Future research may add profile/capability IDs, but additions require demonstrated recurring agent-query semantics rather than labels copied from an ontology or corpus schema.
+Future profile/capability additions require demonstrated recurring agent-query semantics, not labels copied from an ontology or corpus schema.
