@@ -1,22 +1,22 @@
 # R-016: approximate semantic execution policy
 
-**Status:** research/prototype complete; pending exact-head CI and fresh logically-independent adversarial review  
+**Status:** research/prototype complete; hardened after adversarial review; pending fresh exact-head review  
 **Issue:** #50  
 **Recorded:** 2026-09-07  
-**Depends on:** accepted R-002/R-003/R-006 and current R-011 pilot evidence
+**Depends on:** accepted R-002/R-003/R-006/R-011 and merged R-015
 
 ## Decision
 
-Approximate semantic execution must be **explicit, directional, per-mapping authorized, and loss-visible**. TFont must not interpret `semantic_mode=approximate` as “execute every non-exact mapping”.
+Approximate semantic execution must be **explicit, directional, per-mapping authorized, upstream-gated, and loss-visible**. `semantic_mode=approximate` is not permission to execute every non-exact mapping, and mapping-level approximation can never repair an unresolved parent/profile/ontology-bundle dependency.
 
-The first policy is:
+The v1 policy is:
 
 | assessment | exact mode | approximate mode | required loss disclosure |
 |---|---|---|---|
-| `exact` | executable | executable | none |
-| `broader` | refuse | executable only when mapping is reviewed as approximation-eligible and caller accepts undercoverage | undercoverage |
-| `narrower` | refuse | executable only when mapping is reviewed as approximation-eligible and caller accepts overcoverage | overcoverage |
-| `close` | refuse | **informative-only by default**; executable only when a separate reviewed approximation contract states the loss direction and caller accepts it | reviewed `undercoverage`, `overcoverage`, or both |
+| `exact` | executable only after upstream execution prerequisites pass | same | none |
+| `broader` | refuse as substitute | executable only after upstream prerequisites pass, mapping is reviewed approximation-eligible, and caller accepts undercoverage | undercoverage |
+| `narrower` | refuse as substitute | executable only after upstream prerequisites pass, mapping is reviewed approximation-eligible, and caller accepts overcoverage | overcoverage |
+| `close` | refuse | informative-only by default; executable only with a separate reviewed loss contract plus caller acceptance | reviewed undercoverage, overcoverage, or both |
 | `related` | refuse | refuse as substitute constraint | non-substitutive relation |
 | `ambiguous` | refuse | refuse | unresolved target choice |
 | `native-only` | no common-target reverse execution | no common-target reverse execution | no shared target |
@@ -24,55 +24,73 @@ The first policy is:
 
 The governing invariant is:
 
-> **Mapping assessment describes semantic relation; execution authorization is a separate reviewed decision. Approximate mode relaxes policy only where both the mapping and the caller explicitly permit the known loss shape.**
+> **Assessment describes the reviewed semantic relation. Upstream execution validity, mapping-level approximation authorization, and caller loss acceptance are separate gates. Every gate must pass before a non-exact native plan may execute.**
 
 ## 1. Direction semantics
 
-TFont assessment direction is always:
+TFont assessment direction is fixed by R-002:
 
 ```text
-native/source concept -> requested external/common target
+native/source concept -> external/common target
 ```
 
 Therefore:
 
 ### `broader`
 
-The **external target is broader** than the native concept.
-
-Executing the native selector returns a subset of the requested target:
+The external target is broader than the native/source concept:
 
 ```text
 native ⊂ target
 ```
 
-Result: **undercoverage** / false negatives relative to the common request, but no false positives from this mapping relation alone.
+When resolving the external target back to the native selector, the selector returns only a subset of what the common request denotes. The approximation has **undercoverage** / false-negative risk.
 
 ### `narrower`
 
-The **external target is narrower** than the native concept.
-
-Executing the native selector returns a superset of the requested target:
+The external target is narrower than the native/source concept:
 
 ```text
 target ⊂ native
 ```
 
-Result: **overcoverage** / false positives relative to the common request.
+Reverse execution through the native selector returns a superset of the requested target. The approximation has **overcoverage** / false-positive risk.
 
 ### `close`
 
-`close` means substantial semantic overlap without coextensiveness. The direction of set difference is not guaranteed by the assessment itself.
+`close` establishes substantial overlap / near-equivalence but not coextensiveness. It does not establish which set difference dominates.
 
-Therefore the assessment alone cannot authorize execution. A separate reviewed approximation contract must state one of:
+Consequently `close` is informative-only unless a separate review for the exact mapping/native selector records one of:
 
 - `undercoverage`;
 - `overcoverage`;
-- `bidirectional` (both false negatives and false positives possible).
+- both (`bidirectional` loss).
 
-If the reviewer cannot justify one of these loss shapes for the exact native selector and common target, the mapping remains **informative-only even in approximate mode**.
+If that loss shape cannot be defended, the mapping remains informative-only even in approximate mode.
 
-## 2. Separate approximation authorization
+## 2. R-003/R-015 execution prerequisite
+
+R-016 owns **only mapping-assessment approximation policy**. It does not supersede existing execution gates.
+
+Before `exact`, `broader`, `narrower`, or reviewed `close` can execute, P-003/runtime must already have established the upstream prerequisites for that mapping/plan, including as applicable:
+
+- executable parent/profile compatibility under the R-003/R-001 contract;
+- a valid active semantic bundle under R-015;
+- all required ontology locks present under the expected identities;
+- every required R-015 bridge present, current, reviewed, compatible, and exact-executable;
+- any other profile/dependency prerequisite required by the compiled plan.
+
+R-016 consumes this as a **derived upstream execution gate**. It is not a caller-controlled opt-in and must default fail-closed when absent.
+
+In the research prototype this appears as `prerequisites_executable`. It defaults to `False`; only exact boolean `True` permits further policy evaluation. This is deliberately an integration seam, not a second implementation of the R-015 validator.
+
+Important consequence:
+
+> A mapping may be approximation-eligible while its current semantic bundle is non-executable. Approximate mode must still refuse it.
+
+In particular, R-016 cannot turn an R-015 `approximate`, `related`, stale, unreviewed, incompatible, or missing bridge into an executable bridge. The R-015 exact dependency/bridge gate remains authoritative for bundle composition.
+
+## 3. Separate mapping approximation authorization
 
 A non-exact mapping may conceptually carry:
 
@@ -89,18 +107,19 @@ A non-exact mapping may conceptually carry:
 }
 ```
 
-P-003 owns final schema names. R-016 requires the semantic separation only.
+P-003 owns final field names and digest/review binding. R-016 requires the semantic separation.
 
-For `broader` and `narrower`, the assessment supplies the direction, but execution eligibility is still reviewable independently. A mapping can remain informative-only if its native selector is unstable, operationally incomplete, depends on unavailable side data, or otherwise cannot serve as a defensible query approximation.
+For `broader` and `narrower`, the assessment determines the possible loss direction, but does not itself authorize execution. A selector can remain informative-only because it is incomplete, unstable, not operationally available, or otherwise unsuitable as a query approximation.
 
-For `close`, a reviewed loss contract is mandatory; `close + approximate mode` alone is never enough.
+For `close`, the reviewed loss contract is mandatory.
 
-## 3. Caller authorization
+The boolean authorization itself is strict state. The prototype accepts only exact booleans for `approximation_eligible`; values such as `1`, `0`, `"yes"`, `"false"`, `null`, lists, or objects may not authorize approximate execution through host-language truthiness.
 
-Approximate execution requires both:
+P-003 must content/review-bind approximation authorization and loss shape to the mapping semantic identity; a bare mutable boolean is not the final production provenance contract.
 
-1. mapping-level reviewed eligibility; and
-2. request-level acceptance of the actual losses.
+## 4. Caller authorization
+
+Approximate execution also requires request-level acceptance of the actual loss vocabulary.
 
 Conceptually:
 
@@ -111,20 +130,27 @@ Conceptually:
 }
 ```
 
+The accepted-loss vocabulary is closed in v1:
+
+- `undercoverage`;
+- `overcoverage`.
+
+Bidirectional loss is represented by accepting both tokens.
+
+Unknown/future loss tokens fail closed rather than being ignored. This matters because a request such as `{"undercoverage", "future-loss-token"}` must not accidentally authorize execution under an older runtime that does not understand the future token.
+
 Examples:
 
-- caller accepts only undercoverage -> a reviewed `broader` mapping may execute; `narrower` may not;
-- caller accepts only overcoverage -> reviewed `narrower` may execute; `broader` may not;
-- caller accepts both -> either directional mapping may execute; a reviewed `close` with `bidirectional` loss may also execute;
-- caller says only `approximate` but does not accept concrete losses -> no non-exact constraint executes.
+- accept undercoverage only -> reviewed eligible `broader` can execute; `narrower` cannot;
+- accept overcoverage only -> reviewed eligible `narrower` can execute; `broader` cannot;
+- accept both -> either directional mapping can execute, and reviewed bidirectional `close` can execute;
+- approximate mode with no accepted concrete loss -> no non-exact atom executes.
 
-This prevents one vague flag from silently changing query semantics.
+## 5. Loss records
 
-## 4. Loss records
+Every approximate executable atom must expose a loss record sufficient for agents to understand the semantic mismatch.
 
-Every approximate semantic atom that compiles into a native constraint emits an agent-visible loss record.
-
-Minimum shape:
+Minimum conceptual content:
 
 ```json
 {
@@ -137,192 +163,191 @@ Minimum shape:
   "authorization": {
     "mapping_review": "...",
     "caller_accepted": ["undercoverage"]
-  }
+  },
+  "upstream_prerequisites": "satisfied"
 }
 ```
 
-Loss records are part of the resolution fingerprint/provenance and survive into search results.
+Loss/authorization state participates in the resolution fingerprint/provenance and survives into search results. A search must not return only the native result rows and discard the approximation explanation.
 
-## 5. Conjunctions
+## 6. Conjunctions
 
-For conjunctions, each semantic atom resolves independently. The plan is executable only if **every required atom** is executable under the requested mode.
+Each required semantic atom resolves independently. No atom may be silently dropped.
 
-Aggregate loss is the union of atom losses:
+A conjunction executes only when all required atoms are executable.
+
+Loss composition is conservative set union:
 
 - exact + exact -> exact;
 - exact + undercoverage -> undercoverage;
 - exact + overcoverage -> overcoverage;
-- undercoverage + undercoverage -> undercoverage;
-- overcoverage + overcoverage -> overcoverage;
-- undercoverage + overcoverage -> bidirectional;
-- any executable bidirectional close + anything -> bidirectional;
-- one non-executable required atom -> whole conjunction non-executable by default.
+- under + under -> undercoverage;
+- over + over -> overcoverage;
+- under + over -> bidirectional;
+- bidirectional + anything -> bidirectional;
+- any refused atom -> whole required conjunction non-executable.
 
-No required semantic atom is silently dropped.
+For an intersection query this union records every direction in which any conjunct can distort the result. It does not claim a quantitative error bound.
 
-This follows R-003's fail-closed conjunction rule.
+## 7. Multi-corpus comparison
 
-## 6. Multi-corpus requests
+Each corpus retains its independent plan and loss set.
 
-Each corpus gets an independent plan and loss summary.
+Comparison state:
 
-Example:
+- `exactly-comparable` — every participating executed plan has no semantic loss;
+- `approximately-comparable` — plans execute and all non-empty loss sets have the same loss shape (exact corpora may coexist with them);
+- `heterogeneous-loss` — executed corpora have different non-empty loss shapes;
+- `partial/non-executable` — at least one required plan cannot execute, or no plans exist.
 
-```text
-request: shared concept X
+Cross-corpus aggregate counts/statistics are exact-only by default.
 
-Corpus A -> exact       -> executable, no semantic loss
-Corpus B -> broader     -> executable only with undercoverage acceptance
-Corpus C -> narrower    -> executable only with overcoverage acceptance
-Corpus D -> close       -> informative-only unless reviewed close-loss contract exists
-```
+A generic approximate-aggregate opt-in is accepted only when:
 
-The API must not label those result sets “equivalent cross-corpus results”.
+1. it is exact boolean `true`; and
+2. the plans are `approximately-comparable`, i.e. the non-empty loss shape is uniform.
 
-Agent comparison state should distinguish:
+Host-language truthiness is forbidden: `1`, `"true"`, `"false"`, lists/objects, etc. do not count as opt-in.
 
-- `exactly-comparable` — all participating executed plans are exact for requested atoms;
-- `approximately-comparable` — all executed plans are authorized but one or more have disclosed losses;
-- `heterogeneous-loss` — executed corpora have different loss shapes;
-- `partial/non-executable` — one or more required corpus plans cannot execute.
+**Heterogeneous-loss plans remain non-aggregatable in R-016 v1 even with the generic opt-in.** One corpus that under-covers while another over-covers does not form a bounded common approximation. A later statistical policy may define a stronger, explicitly reviewed aggregation mode if there is evidence for it; R-016 does not invent one.
 
-Cross-corpus aggregate counts/statistics should be exact-only by default. Approximate aggregate comparison requires an explicit caller opt-in and preserves per-corpus loss annotations.
+Per-corpus result inspection remains allowed whenever each individual plan is executable.
 
-## 7. Representative corpus cases
+## 8. Representative corpus cases
 
-### 7.1 Exact linguistic controls
+### 8.1 Exact linguistic controls
 
-R-011's reviewed OLiA cases such as noun/plural/first-person across BHSA, Syriac and ExtraBiblical remain exact controls. Approximate mode must not alter their native plans or mark them lossy.
+Current accepted R-011 contains exact OLiA controls across the linguistic pilots:
 
-### 7.2 CRMtex line candidates
+- noun across BHSA, Syriac, ExtraBiblical;
+- plural-verb conjunctions across those corpora;
+- first person across those corpora;
+- masculine in BHSA and Syriac.
 
-R-011 uses `close` candidates for some native line objects to CRMtex `TX7 Written Text Segment` when the physical-written-text semantics fit.
+Approximate mode must not change their loss status or native plan. They still require ordinary upstream execution prerequisites.
 
-R-016 conclusion: those `close` rows are **not executable merely because R-011 can compile a native selector**. They require a reviewed approximation contract that states what mismatch remains between the native line object and TX7. Until that contract exists, they are plan-research candidates / informative-only.
+### 8.2 Lexical-entry mixed-strength case
 
-### 7.3 Lexical-entry candidates
+R-011 has an exact BHSA OntoLex `LexicalEntry` candidate while Syriac, ExtraBiblical, ORACC, and TLHdig candidates are `close` because their native lexical identity construction differs.
 
-Feature-keyed or converter-derived lexical identities may be `close` to OntoLex `LexicalEntry`. Again, close mapping strength does not authorize a lookup as an OntoLex-equivalent entry query. A reviewed identity/coverage contract must state the approximation loss before common-target execution.
+The four `close` rows are not executable just because the pilot compiler can produce native plans. Each needs a separate reviewed loss contract and approximation authorization.
 
-### 7.4 Structural/textological controls
+### 8.3 CRMtex written-text lines
 
-Physical carrier vs written segment, textual witness vs physical manuscript, and edition record vs tablet are not “approximate enough” merely because they are related. Where the native selector changes semantic object kind, the mapping should normally be `related`, `ambiguous`, or native-only rather than abusing approximate execution.
+R-011 has `close` CRMtex TX7 candidates for CUC, ORACC, and TLHdig where native line semantics plausibly denote physical written-text segments.
 
-R-016 must not rescue an invalid mapping-strength decision.
+Again, compileability does not imply substitutability. A specific line→TX7 projection remains informative-only until review states the extensional mismatch and approves approximate execution.
 
-## 8. Informative-only cases
+### 8.4 Physical/textological negative controls
 
-Even in approximate mode, these never compile as substitute constraints by default:
+Physical carrier vs written segment, textual witness vs physical manuscript, physical fragment vs symbolic fragment, and apparatus `reading` vs CRMtex `TX14 Reading` are object-kind/assertion-shape distinctions, not approximation opportunities.
 
-### `related`
+R-016 must not rescue an incorrect mapping-strength decision. Such cases belong in `related`, `ambiguous`, `native-only`, or `unsupported` as appropriate.
 
-A related concept is not a subset/superset/near-equivalent constraint. It may appear in explanation/discovery but not execute for the requested target.
+## 9. Non-substitutive assessments
 
-### `ambiguous`
+Even in approximate mode:
 
-No unique target is justified. Approximate mode does not choose among candidates.
+- `related` may be shown for discovery/explanation but is not a substitute constraint;
+- `ambiguous` does not auto-select one candidate;
+- `native-only` has no common semantic reverse target;
+- `unsupported` refuses;
+- unreviewed `close` refuses;
+- a mapping with no executable native plan refuses;
+- a mapping whose upstream execution prerequisites are blocked refuses.
 
-### `native-only`
+## 10. Ontology hierarchy is not execution authorization
 
-There is no shared target for reverse semantic resolution.
-
-### `unsupported`
-
-No usable semantic representation exists.
-
-### unreviewed `close`
-
-Substantial overlap without a reviewed loss contract is insufficient.
-
-## 9. Ontology hierarchy is not execution policy
-
-The resolver must not turn ontology reasoning into runtime widening/narrowing authorization.
+R-016 does not permit runtime widening/narrowing by traversing ontology structure and inventing a mapping assessment.
 
 Forbidden examples:
 
-- requested superclass -> search for any native mapping to an ontology subclass and execute it automatically;
-- requested SKOS broader concept -> follow `broader` links until a mapped concept is found;
-- requested class -> substitute a sibling/related class because labels are similar;
-- derive `broader`/`narrower` execution from ontology graph edges when the TFont mapping assessment was not reviewed for that native concept.
+- request a superclass and execute an arbitrary mapped subclass automatically;
+- follow SKOS broader links until some native mapping is found;
+- substitute a sibling/related class because labels look similar;
+- derive executable `broader`/`narrower` from ontology graph edges when the native→target TFont mapping was not reviewed;
+- use ontology hierarchy to bypass R-015 bridge/version rules.
 
-Ontology structure can assist mapping research, validation and documentation. Runtime execution uses explicit reviewed mappings plus explicit approximation policy only.
-
-## 10. Query/result ergonomics
-
-Compact `semantic_resolve` output for an approximate atom should expose:
-
-- assessment;
-- execution status;
-- native plan;
-- loss direction(s);
-- whether mapping authorization exists;
-- whether caller accepted each loss;
-- refusal reason if informative-only.
-
-Full explanation adds rationale/evidence/review identity and any corpus-specific caveats.
-
-A model should be able to answer “why did corpus B return fewer kinds of things than corpus A?” from the plan itself, not from hidden policy.
+Ontology structure can inform mapping research/validation/documentation. Runtime execution uses explicit reviewed mappings plus explicit policy only.
 
 ## 11. Prototype policy model
 
-The research prototype uses:
+The non-production prototype consumes:
 
 ```text
-assessment
-mapping_approximation_eligible
-reviewed_loss_set
-request semantic_mode
-request accepted_loss_set
+mapping assessment
+upstream execution-prerequisite gate
+mapping approximation-eligible gate
+reviewed loss set
+native plan fragment
+request semantic mode
+request accepted loss set
 ```
 
-Resolution output is one of:
+Output is:
 
 - `executable-exact`;
 - `executable-approximate`;
-- `informative-only`;
-- `unsupported` / other explicit refusal reason.
+- `informative-only` with refusal reason;
+- conjunction `non-executable` where any required atom refuses.
 
-The prototype does not generate Text-Fabric syntax. It evaluates execution policy against already-reviewed native plan fragments.
+It does not execute Text-Fabric and does not validate R-015 artifacts itself. It tests the policy layer P-003 must compose with those contracts.
 
-## 12. Required contract tests
+## 12. Executable contract tests
 
-1. exact executes in exact mode;
-2. broader refuses in exact mode;
-3. broader executes only with reviewed eligibility + accepted undercoverage;
-4. narrower executes only with reviewed eligibility + accepted overcoverage;
-5. close without reviewed loss contract is informative-only in approximate mode;
-6. close with reviewed undercoverage contract can execute only if caller accepts undercoverage;
-7. close with bidirectional loss requires acceptance of both under- and overcoverage;
-8. related never substitutes;
-9. ambiguous never auto-selects;
-10. native-only has no common reverse execution;
-11. unsupported refuses;
-12. exact + broader conjunction reports undercoverage;
-13. broader + narrower conjunction reports bidirectional loss;
-14. one refused required atom blocks whole conjunction;
-15. two corpora with different loss shapes report heterogeneous-loss;
-16. approximate cross-corpus aggregate comparison is disabled by default;
-17. approximate aggregate comparison requires explicit opt-in;
-18. ontology hierarchy metadata cannot make an unreviewed mapping executable;
-19. compile-able native plan fragment alone cannot make `close` executable;
-20. mapping loss authorization must be content/review-bound in later P-003 schema.
+The exact research suite covers:
+
+1. exact execution after upstream prerequisites;
+2. broader/narrower exact-mode refusal;
+3. broader reviewed eligibility + undercoverage acceptance;
+4. narrower reviewed eligibility + overcoverage acceptance;
+5. close without loss review refusal;
+6. directional and bidirectional close caller acceptance;
+7. unknown/contradictory reviewed loss rejection;
+8. all four non-substitutive assessments;
+9. missing native plan refusal;
+10. unknown semantic mode refusal;
+11. conjunction loss union and all-atoms-required behavior;
+12. exact multi-corpus aggregation;
+13. approximate aggregation disabled by default;
+14. uniform-loss approximate aggregation only after exact-boolean opt-in;
+15. heterogeneous-loss detection and forced aggregate refusal;
+16. compileable native plan not sufficient for close execution;
+17. exact-boolean `approximation_eligible` gate;
+18. closed caller accepted-loss vocabulary;
+19. missing/blocked/non-boolean upstream prerequisite gate;
+20. non-boolean aggregate opt-in rejection.
+
+Adversarial RED after R-015 merge: **23 passed / 5 expected failures**, precisely on truthy approximation authorization, unknown accepted-loss token, missing upstream dependency gate, truthy aggregate opt-in, and heterogeneous aggregate opt-in.
+
+GREEN after the policy fix: **30 passed**.
 
 ## 13. P-003 inputs
 
-P-003 must preserve separate fields/concepts for:
+P-003 must preserve separate concepts for:
 
 - mapping assessment;
-- approximation eligibility/review;
-- reviewed loss direction(s);
+- derived upstream execution prerequisite state (not caller-supplied);
+- mapping approximation eligibility/review;
+- reviewed loss directions;
 - request semantic mode;
-- caller-accepted loss direction(s);
-- atom execution status;
-- aggregate conjunction loss;
+- caller-accepted loss directions;
+- atom execution status and refusal reason;
+- conjunction aggregate loss;
 - per-corpus comparison state;
 - exact native plan fragment;
-- explanation/provenance.
+- explanation/provenance/fingerprint.
 
-Do not encode approximate policy as a single boolean on the request or mapping.
+Specific integration requirements:
+
+1. evaluate R-003 parent/profile compatibility and R-015 semantic bundle/bridge dependencies **before** R-016 mapping policy;
+2. approximation authorization cannot weaken R-015 bridge runtime strength or stale/missing/unreviewed dependency failures;
+3. content/review-bind approximation eligibility and reviewed loss set to mapping semantic identity;
+4. validate boolean authorization fields as exact booleans;
+5. validate request loss tokens against the closed supported vocabulary/version;
+6. generic aggregate opt-in never authorizes heterogeneous-loss aggregation.
+
+Do not encode approximation as one request boolean or one mapping boolean.
 
 ## 14. Non-goals
 
@@ -330,33 +355,42 @@ R-016 does not:
 
 - change mapping assessments;
 - automatically infer mappings from ontology hierarchy;
-- define production API field names;
+- define production field names;
+- implement R-003 parent compatibility;
+- implement R-015 ontology bundle/bridge validation;
+- make a non-exact R-015 bridge executable;
 - execute Context-Fabric queries;
 - authorize invalid object-kind substitutions;
-- make approximate results statistically equivalent across corpora;
+- claim approximate results are statistically equivalent;
+- define a statistical correction model for heterogeneous loss;
 - define external authority-reference semantics (R-017).
 
 ## 15. Acceptance trace
 
 - [x] executable/non-executable rules defined for every non-exact assessment;
-- [x] direction-specific under/over/bidirectional loss semantics defined;
-- [x] close mapping separated from close execution authorization;
-- [x] representative linguistic/lexical/written-text/textology cases included;
+- [x] direction-specific under/over/bidirectional loss semantics grounded in R-002 direction;
+- [x] mapping assessment separated from reviewed approximation authorization;
+- [x] R-003/R-015 upstream execution gates preserved and represented fail-closed;
+- [x] caller accepted-loss vocabulary fail-closed;
+- [x] representative R-011 exact/close corpus cases included;
 - [x] conjunction loss composition defined;
-- [x] multi-corpus comparison semantics defined;
+- [x] multi-corpus exact/uniform/heterogeneous behavior defined;
+- [x] approximate aggregation requires exact-boolean opt-in and is forbidden for heterogeneous loss in v1;
 - [x] related/ambiguous/native-only/unsupported negative controls preserved;
 - [x] ontology hierarchy kept separate from runtime authorization;
-- [x] concrete prototype/test contract supplied for P-003.
+- [x] executable RED/GREEN contract supplied for P-003.
 
-## Review targets
+## 16. Final review targets
 
 A fresh logically-independent reviewer should challenge especially:
 
-1. whether `broader`/`narrower` direction is interpreted correctly from R-002's native->external convention;
-2. whether broader/narrower should ever execute without an additional mapping eligibility review;
-3. whether close should be more permissive or even more restrictive;
-4. whether the caller-loss acceptance contract is ergonomic but still fail-closed;
-5. whether conjunction loss union is semantically sound;
-6. whether approximate multi-corpus comparison should permit aggregate statistics at all;
-7. whether any representative corpus case accidentally treats a mapping-strength defect as an approximation problem;
-8. whether the prototype tests cover all refusal paths.
+1. broader/narrower direction against R-002 native→external semantics;
+2. whether separate mapping eligibility is necessary in addition to assessment direction;
+3. whether `close` is too permissive or too restrictive;
+4. whether caller loss acceptance is sufficiently explicit and version/fail-closed safe;
+5. whether R-016 can bypass R-003/R-015 anywhere;
+6. whether conjunction loss union is conservative and valid;
+7. whether uniform-loss approximate aggregate opt-in is acceptable while heterogeneous loss is refused;
+8. whether boolean/state inputs can be coerced by host-language truthiness;
+9. whether any corpus example is really a mapping-quality defect rather than an approximation case;
+10. whether production P-003 review/digest binding is sufficiently specified without being implemented here.
