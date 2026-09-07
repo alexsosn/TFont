@@ -44,14 +44,14 @@ def test_r011_fixture_contract() -> None:
     summary = module.weighted_summary(data)
     assert summary["mapping_rows"] == 53
     assert summary["weighted_total"] == 109
-    assert summary["weighted_target"] == 70
-    assert summary["weighted_target_pct"] == 64.2
+    assert summary["weighted_target"] == 69
+    assert summary["weighted_target_pct"] == 63.3
 
     assessments = summary["assessment_rows"]
     assert assessments["exact"] == 15
-    assert assessments["close"] == 13
+    assert assessments["close"] == 12
     assert assessments["ambiguous"] == 3
-    assert assessments["native-only"] == 21
+    assert assessments["native-only"] == 22
     assert assessments["unsupported"] == 1
     assert assessments["broader"] == 0
     assert assessments["narrower"] == 0
@@ -202,5 +202,12 @@ def test_r011_approximate_compilation_is_not_authorization() -> None:
 def test_r011_pseudepigrapha_manuscript_is_not_physical_by_default() -> None:
     data, _, _ = _inputs()
     row = next(row for row in data["mappings"] if row["id"] == "pseudo-manuscript")
+    assert row["assessment"] == "native-only"
+    assert row["target"] is None
+
+
+def test_r011_tlh_surface_is_not_written_text_segment() -> None:
+    data, _, _ = _inputs()
+    row = next(row for row in data["mappings"] if row["id"] == "tlh-surface")
     assert row["assessment"] == "native-only"
     assert row["target"] is None
