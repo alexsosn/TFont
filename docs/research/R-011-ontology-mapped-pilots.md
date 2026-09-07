@@ -9,9 +9,9 @@
 
 The seven-model common semantic basis is **viable as TFont's interoperability pivot**, provided P-003 keeps native semantics, mapping assessment, capability state, authority references, and common ontology projections distinct.
 
-The representative non-production fixture contains all seven required corpora, **53 reviewed rows**, **109 agent-useful weight units**, and **72/109 = 66.1% weighted common-target coverage**. Mapping assessments are: 15 `exact`, 14 `close`, 3 `ambiguous`, 20 `native-only`, 1 `unsupported`, and zero `broader`/`narrower`/`related` in this deliberately conservative sample.
+The representative non-production fixture contains all seven required corpora, **53 reviewed rows**, **109 agent-useful weight units**, and **70/109 = 64.2% weighted common-target coverage**. Mapping assessments are: 15 `exact`, 13 `close`, 3 `ambiguous`, 21 `native-only`, 1 `unsupported`, and zero `broader`/`narrower`/`related` in this deliberately conservative sample.
 
-This 66.1% figure is **not raw schema coverage**. Raw schema consideration is computed separately from accepted R-005 inventories by `scripts/research/r011_measure.py`.
+This 64.2% figure is **not raw schema coverage**. Raw schema consideration is computed separately from accepted R-005 inventories by `scripts/research/r011_measure.py`.
 
 The result is a qualified **GO** for the common pivot and a **NO-GO** for minting a broad TFont ontology before R-013–R-017/P-003.
 
@@ -53,13 +53,13 @@ Pseudepigrapha-TF and ORACC-TF do not have generated R-005 JSON inventories in t
 | linguistic | 40 | 34 | 85.0% |
 | lexical | 18 | 14 | 77.8% |
 | written text | 16 | 11 | 68.8% |
-| heritage/object | 14 | 10 | 71.4% |
+| heritage/object | 14 | 8 | 57.1% |
 | textology | 7 | 3 | 42.9% |
 | apparatus | 9 | 0 | 0.0% |
 | scholarly annotation | 3 | 0 | 0.0% |
 | provenance/editorial | 1 | 0 | 0.0% |
 | archaeology negative control | 1 | 0 | 0.0% |
-| **total** | **109** | **72** | **66.1%** |
+| **total** | **109** | **70** | **64.2%** |
 
 Weights express pilot research usefulness, not corpus frequency or ontology confidence. `native-only` remains legitimate reviewed content and is intentionally excluded from common-target weight.
 
@@ -78,13 +78,16 @@ The prototype has twelve query probes. Six common-target queries compile to nati
 3. **First person — `olia:First`**: exact mapping from BHSA/extrabiblical `ps=p1` and Syriac `ps=first`. OLiA linking models map annotation-model “FirstPerson” classes to the Reference Model class `olia:First`; R-011 therefore uses the Reference Model identifier, not `olia:FirstPerson`.
 4. **Lexical entry — `ontolex:LexicalEntry`**: BHSA exact candidate; Syriac, extrabiblical, ORACC, and TLHdig are `close` because their native lexical identity construction differs.
 5. **Written-text line — `crmtex:TX7`**: `close` candidates for CUC, ORACC-TF, and TLHdig-TF when physical-written-text semantics are active.
-6. **Physical textual object — `crm:E22_Human-Made_Object`**: `close` candidates for CUC tablet, Pseudepigrapha physical manuscript carrier, ORACC object-bearing document, and TLHdig document.
+6. **Physical textual object — `crm:E22_Human-Made_Object`**: `close` candidates for CUC tablet, ORACC object-bearing document, and TLHdig document.
+
+Pseudepigrapha is deliberately **not** part of the generic physical-object query. R-009 established that its native `manuscript` node is a textual witness identity; some such identities may correspond to physical carriers, but `otype=manuscript` alone does not establish a physical object. Citation-only synthetic witness nodes make the over-projection especially concrete. A future physical-carrier mapping needs a separate source-backed carrier identity/predicate.
 
 A compiled `close` plan is **not execution authorization**. The prototype marks it `approximate-candidate-R016-required`; R-016 owns production approximate-mode policy.
 
 ## Fail-closed probes
 
 - **Apparatus reading/witness attestation:** Pseudepigrapha has a strong native graph, but R-009 found no accepted common apparatus target. It remains native/profile-local.
+- **Pseudepigrapha manuscript/witness identity:** generic `otype=manuscript` remains `native-only`; it is not automatically a CRM physical object or LRMoo item/expression.
 - **Damage/restoration:** CUC restoration and TLHdig damage/editorial ranges remain native because their granularity and assertion semantics differ.
 - **Period:** ORACC period values remain native authority candidates until R-017 defines PeriodO/external-authority resolution semantics.
 - **Provenience/archaeology:** current pilot evidence does not establish reusable excavation/stratigraphy semantics. BHSA carries an explicit `unsupported` negative control; absent archaeology capability is not a bridge failure.
@@ -96,12 +99,13 @@ A compiled `close` plan is **not execution authorization**. The prototype marks 
 2. `line` storage does not automatically imply CRMtex TX7 semantics.
 3. `sign` does not select glyph vs grapheme without source evidence.
 4. Pseudepigrapha `reading` is not CRMtex `TX14 Reading`.
-5. TLHdig physical fragment cannot be collapsed into LRMoo symbolic fragment.
-6. `witness` has materially different assertion shapes across corpora.
-7. material/period strings are authority values, not ontology classes by default.
-8. catalogue/source facts are not CRMinf inference events.
-9. ancient-object metadata does not imply CRMarchaeo excavation capability.
-10. common feature names do not make language-specific verbal categories equivalent.
+5. Pseudepigrapha `manuscript` is a textual witness identity, not automatically a physical carrier.
+6. TLHdig physical fragment cannot be collapsed into LRMoo symbolic fragment.
+7. `witness` has materially different assertion shapes across corpora.
+8. material/period strings are authority values, not ontology classes by default.
+9. catalogue/source facts are not CRMinf inference events.
+10. ancient-object metadata does not imply CRMarchaeo excavation capability.
+11. common feature names do not make language-specific verbal categories equivalent.
 
 ## Multiple complementary projections
 
@@ -118,6 +122,7 @@ P-003 must support:
 - common-target → corpus-native plan indexes;
 - conjunction compilation;
 - explanations exposing the exact native plan and assessment;
+- role-sensitive witness/carrier distinctions rather than `otype`-name projection;
 - R-015 bundle/bridge identity;
 - R-016 approximate execution authorization;
 - R-017 authority-resource separation;
@@ -127,7 +132,7 @@ The resolver must never manufacture mappings from label similarity, shared TF fe
 
 ## Go/no-go
 
-**GO:** the common pivot shows real reuse across heterogeneous corpora: OLiA across three linguistic corpora, OntoLex lexical-entry semantics across five, CRMtex written-text segments across three, CRM physical-object semantics across four, plus an LRMoo text-version candidate.
+**GO:** the common pivot shows real reuse across heterogeneous corpora: OLiA across three linguistic corpora, OntoLex lexical-entry semantics across five, CRMtex written-text segments across three, CRM physical-object semantics across three, plus an LRMoo text-version candidate.
 
 **NO-GO for a broad new TFont ontology:** the strongest unresolved gap is apparatus/witness-attestation semantics, and only Pseudepigrapha currently supplies the complete reading-at-locus graph. Keep profile-local/native-only semantics until recurrence or a governed external apparatus profile justifies more.
 
@@ -136,15 +141,15 @@ The resolver must never manufacture mappings from label similarity, shared TF fe
 - [x] all seven required corpora represented;
 - [x] extrabiblical retained as high-similarity control;
 - [x] raw schema consideration reproducibly measured where R-005 machine inventories exist;
-- [x] weighted common-target coverage measured independently: 72/109 = 66.1%;
+- [x] weighted common-target coverage measured independently: 70/109 = 64.2%;
 - [x] all eight assessment categories reported, including zero-count categories and an explicit `unsupported` control;
 - [x] six reusable common-target query probes compile across multiple corpora;
 - [x] linguistic, lexical, structural/written-text, textological, and heritage cases included;
-- [x] apparatus, damage/editorial, archaeology and unsafe verbal-category controls fail closed;
+- [x] apparatus, witness/carrier ambiguity, damage/editorial, archaeology and unsafe verbal-category controls fail closed;
 - [x] native-only rows preserved rather than optimized away;
 - [x] P-003 schema/IR/runtime requirements identified;
 - [x] qualified GO for the pivot and NO-GO for a broad local ontology.
 
 ## Review targets
 
-A fresh reviewer should challenge the exact OLiA mappings, lexical-entry identity strength, CRMtex TX7 preconditions, CRM E22 projections, LRMoo F2 use, native-only gap decisions, metric separation, R-016 execution boundary, and every fixture reference against pinned native evidence.
+A fresh reviewer should challenge the exact OLiA mappings, lexical-entry identity strength, CRMtex TX7 preconditions, CRM E22 projections, LRMoo F2 use, witness/carrier separation, native-only gap decisions, metric separation, R-016 execution boundary, and every fixture reference against pinned native evidence.
