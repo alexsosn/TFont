@@ -52,7 +52,6 @@
         "extra-number-plural": ["node_value:nu=\"pl\""],
         "extra-person-first": ["node_value:ps=\"p1\""],
         "extra-lex-entry": ["node_feature:lex"],
-        "extra-gloss": ["node_feature:gloss"],
         "extra-verbal-stem": ["node_feature:vs"]
       },
       "mapping_value_families": {"extra-verbal-stem": ["vs"]}
