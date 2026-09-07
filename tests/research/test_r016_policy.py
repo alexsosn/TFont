@@ -271,3 +271,77 @@ def test_compileable_native_plan_does_not_make_close_executable():
     )
     assert r.status == "informative-only"
     assert r.native_plan == ""
+
+
+# Fresh adversarial RED regressions after R-015 merge.
+
+def test_approximation_eligibility_must_be_exact_boolean():
+    for value in (1, 0, "yes", "false", None, [], {}):
+        mapping = m("broader", eligible=value)
+        r = resolve_atom(
+            mapping,
+            semantic_mode="approximate",
+            accepted_losses={LOSS_UNDER},
+        )
+        assert r.status == "informative-only", value
+        assert r.native_plan == "", value
+        assert "boolean" in r.reason, value
+
+
+def test_unknown_accepted_loss_token_cannot_authorize_execution():
+    mapping = m("broader", eligible=True)
+    r = resolve_atom(
+        mapping,
+        semantic_mode="approximate",
+        accepted_losses={LOSS_UNDER, "future-loss-token"},
+    )
+    assert r.status == "informative-only"
+    assert r.native_plan == ""
+    assert "loss" in r.reason
+
+
+def test_blocked_upstream_semantic_dependencies_cannot_be_bypassed_by_approximation():
+    mapping = m("broader", eligible=True)
+    # R-016 must consume an explicit upstream gate from R-003/R-015 rather than
+    # treating mapping-level approximation as sufficient execution authority.
+    object.__setattr__(mapping, "prerequisites_executable", False)
+    r = resolve_atom(
+        mapping,
+        semantic_mode="approximate",
+        accepted_losses={LOSS_UNDER},
+    )
+    assert r.status == "informative-only"
+    assert r.native_plan == ""
+    assert "prerequisite" in r.reason
+
+
+def test_false_like_aggregate_opt_in_never_enables_statistics():
+    plans = [
+        resolve_conjunction(
+            [m("broader", eligible=True, mid="a")],
+            semantic_mode="approximate",
+            accepted_losses={LOSS_UNDER},
+        ),
+        resolve_conjunction([m("exact", mid="b")]),
+    ]
+    for value in (1, 0, "true", "false", None, [], {}):
+        c = comparison_state(plans, allow_approximate_aggregates=value)
+        assert c["aggregate_allowed"] is False, value
+
+
+def test_heterogeneous_loss_aggregate_stays_disabled_even_with_generic_opt_in():
+    plans = [
+        resolve_conjunction(
+            [m("broader", eligible=True, mid="a")],
+            semantic_mode="approximate",
+            accepted_losses={LOSS_UNDER},
+        ),
+        resolve_conjunction(
+            [m("narrower", eligible=True, mid="b")],
+            semantic_mode="approximate",
+            accepted_losses={LOSS_OVER},
+        ),
+    ]
+    c = comparison_state(plans, allow_approximate_aggregates=True)
+    assert c["state"] == "heterogeneous-loss"
+    assert c["aggregate_allowed"] is False
