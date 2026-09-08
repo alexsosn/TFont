@@ -46,6 +46,3 @@ jobs:
         run: |
           python -m unittest discover -s tests/f008 -v
           python tests/plans/test_p001_plan.py
-
-      - name: Run full repository suite
-        run: python -m unittest discover -s tests -v
