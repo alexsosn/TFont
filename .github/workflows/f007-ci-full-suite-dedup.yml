@@ -1,0 +1,40 @@
+name: F-007 CI full-suite deduplication
+
+on:
+  push:
+    branches:
+      - perf/ci-full-suite-dedup
+    paths:
+      - .github/workflows/**
+      - tests/ci/**
+      - docs/research/F-007-ci-full-suite-deduplication.md
+      - docs/plans/F-007-ci-full-suite-deduplication-plan.md
+      - docs/plans/F-007-concurrency-amendment.md
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - tests/ci/**
+      - docs/research/F-007-ci-full-suite-deduplication.md
+      - docs/plans/F-007-ci-full-suite-deduplication-plan.md
+      - docs/plans/F-007-concurrency-amendment.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Run F-007 CI ownership contract
+        run: python -m unittest tests.ci.test_full_suite_workflow_contract -v

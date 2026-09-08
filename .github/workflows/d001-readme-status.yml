@@ -41,6 +41,3 @@ jobs:
 
       - name: Run README status contract
         run: python -m unittest tests.docs.test_readme_status -v
-
-      - name: Run repository test suite
-        run: python -m unittest discover -s tests -v

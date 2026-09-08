@@ -53,6 +53,3 @@ jobs:
 
       - name: Run I-003 identity regressions
         run: python -m unittest discover -s tests/i003 -v
-
-      - name: Run full repository suite
-        run: python -m unittest discover -s tests -v
