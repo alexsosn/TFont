@@ -77,6 +77,12 @@ class I004DeclarationContractTests(unittest.TestCase):
         declaration["ontology_lock_content_digest"] = "sha256:stale"
         self.assert_problem("bundle_closure", sources)
 
+    def test_untrusted_declaration_is_rejected_before_role_semantics(self):
+        sources = self.property_projection(role="relation", value_kind="literal")
+        declaration = sources["mappings"]["mappings"][0]["projections"][0]["ontology_declaration_evidence"]
+        declaration["ontology_lock_content_digest"] = "sha256:stale"
+        self.assert_problem("bundle_closure", sources)
+
     def test_declaration_binding_is_semantic_digest_input(self):
         sources = self.property_projection(role="attribute", value_kind="literal")
         projection = sources["mappings"]["mappings"][0]["projections"][0]
