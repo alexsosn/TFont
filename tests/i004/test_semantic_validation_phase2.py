@@ -4,7 +4,11 @@ import copy
 import unittest
 
 from tfont.semantic_validation import SemanticValidationError, validate_semantic_bundle
-from test_semantic_validation_phase1 import base_sources, bundle
+
+try:
+    from test_semantic_validation_phase1 import base_sources, bundle
+except ModuleNotFoundError:
+    from i004.test_semantic_validation_phase1 import base_sources, bundle
 
 
 class I004Phase2Tests(unittest.TestCase):
