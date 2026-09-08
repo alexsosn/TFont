@@ -4,17 +4,17 @@
 
 Cross-platform F-012 CI exposed an existing I-003 portability defect. On Windows, `file_component_digest(<regular-file> + os.sep + ".")` can reach `os.lstat()` as the underlying regular file, while POSIX rejects the same conceptual spelling. TFont therefore currently lets host pathname normalization decide whether an exact-file component spelling is accepted.
 
-The F-012 object-binding tests themselves pass on Windows. This research is intentionally independent of F-012 production code.
+The F-012 object-binding tests themselves pass on Windows. This research is independent of F-012 production code.
 
 ## Existing contract
 
-`file_component_digest()` represents one exact regular file. Unlike directory and TF roots, it does not call `_root_inspection_path()` to strip directory-root spellings. Existing I-003 regression coverage already requires file spellings with terminal directory syntax to fail rather than silently canonicalize.
+`file_component_digest()` represents one exact regular file. Unlike directory and TF roots, it does not strip terminal directory-root spellings. Existing I-003 coverage requires a terminal directory spelling such as `<file>/.` to fail.
 
-Ambiguous spellings should fail through `IdentityError` before a host can reinterpret them.
+At the same time, ordinary nonterminal relative traversal (`./file`, `dir/../dir/file`) was previously delegated to the host and is not the portability defect that triggered this work. F-014 should not remove that behavior without separate evidence.
 
 ## Host behavior
 
-Windows path parsing can normalize spelling before the final filesystem object is inspected. A `.` path segment denotes the current directory. Microsoft also documents that ordinary Win32 path handling strips trailing ASCII periods and ASCII spaces from path-name components before opening; this can make a spelling resolve to a different stored name.
+Windows path parsing can normalize spelling before the final filesystem object is inspected. Microsoft documents that ordinary Win32 path handling strips trailing ASCII periods and ASCII spaces from file/directory name components before opening; this can make a spelling resolve to a different stored name.
 
 Primary evidence:
 
@@ -22,45 +22,41 @@ Primary evidence:
 - Microsoft Windows support, **Whitespace characters in file and folder names**: trailing ASCII space/period are removed by ordinary Windows naming behavior.
 - Microsoft Windows Server support, **Can't delete files on NTFS file system**: typical Win32 syntax strips trailing spaces/periods before opening, potentially opening a different file; `\\?\` is a special namespace escape hatch.
 
-The risk is not confined to the basename. An ancestor spelling such as `directory.\file.tf` can also be normalized at the directory component before lookup reaches the final file. Therefore checking only the last component leaves the same cross-platform alias problem in an ancestor.
+The risk is not confined to the basename. An ancestor spelling such as `directory.\file.tf` can be normalized at the directory component before lookup reaches the final file. Checking only the last component leaves the same alias problem in an ancestor.
 
-TFont does not define a separate extended-namespace identity mode. Accepting these spellings on POSIX while allowing ordinary Windows APIs to alias another object would make the same identity input platform-dependent.
+TFont does not define a separate extended-namespace identity mode. Accepting these stored-name spellings on POSIX while ordinary Windows APIs can alias another object would make identity input platform-dependent.
 
 ## Chosen contract
 
 For `file_component_digest()` only, reject before filesystem inspection when:
 
-1. the supplied path ends in a native path separator; or
-2. **any non-empty native path component** ends in ASCII period (`.`) or ASCII space (` `).
+1. the supplied path ends in a native path separator;
+2. the **final** non-empty component is exactly `.`, preserving the existing `<file>/.` rejection; or
+3. any native path component other than the navigation tokens `.` and `..` ends in ASCII period (`.`) or ASCII space (` `).
 
-Rule 2 includes a component equal to `.` and covers both final and ancestor components. It is cross-platform on purpose: POSIX names with these terminal characters are outside TFont's portable exact-file identity input domain because the same spelling is unsafe under ordinary Win32 path handling.
+Rule 3 covers final and ancestor stored-name components. It is cross-platform on purpose: POSIX names ending in these characters are outside TFont's portable exact-file identity input domain because ordinary Win32 handling can reinterpret them.
 
-Do not normalize or rewrite the path. Reject it.
+Nonterminal `.` and `..` navigation tokens remain accepted as before. Leading periods (`.hidden`) and internal periods (`a.b`) remain valid. Non-native separator characters retain existing host semantics. Extended Win32 `\\?\` namespace semantics are not introduced.
 
-Leading periods (`.hidden`) and internal periods (`a.b`) remain valid. Non-native separator characters retain existing host semantics. Extended Win32 `\\?\` namespace semantics are not introduced by this patch.
-
-Directory and TF roots retain their current `_root_inspection_path()` behavior; changing their naming domain requires separate research because they intentionally accept equivalent root spellings.
+Directory and TF roots retain their current `_root_inspection_path()` behavior; changing their naming domain requires separate research.
 
 ## Error category
 
-Use existing `wrong_path_type` for these non-portable exact-file spellings. The original supplied path is retained in `IdentityProblem.path`.
+Use existing `wrong_path_type` for rejected non-portable exact-file spellings. The original supplied path is retained in `IdentityProblem.path`.
 
 Embedded NUL remains `filesystem_error` through `_lstat()` and is not intercepted by this lexical check.
 
-## RED strategy
+## RED strategy and review history
 
-The existing `<file>/.` I-003 regression is naturally RED on Windows but GREEN on POSIX. Focused F-014 tests make the lexical contract deterministic on every host by asserting rejection before `_lstat()`.
+The initial tests-only RED pinned terminal separators and terminal dot-segment rejection. Existing I-003 coverage reproduced `<file>/.` on Windows.
 
-Focused cases include terminal separators, terminal dot segment, final trailing ASCII period/space, ancestor components ending in ASCII period/space, `.hidden` and `a.b` controls, unchanged fixed digest, unchanged directory/TF root spelling behavior, and embedded-NUL category preservation.
+Independent adversarial passes then found three edge classes, each converted into deterministic RED before production hardening:
 
-## Review history
+1. final stored-name components ending in ASCII period/space;
+2. ancestor stored-name components with the same Win32 alias risk;
+3. over-rejection of nonterminal `.` / `..` navigation tokens introduced by the second hardening.
 
-The first GREEN fixed terminal directory syntax. Independent adversarial review then found two broader Win32 alias classes:
-
-- trailing ASCII period/space on the final filename;
-- the same normalization on ancestor components.
-
-Each finding was converted into deterministic RED coverage before the corresponding production hardening.
+Focused controls also pin `.hidden`, `a.b`, unchanged fixed digest, directory/TF root behavior, and embedded-NUL category preservation.
 
 ## Non-goals
 
@@ -75,4 +71,4 @@ Each finding was converted into deterministic RED coverage before the correspond
 
 ## Conclusion
 
-Exact-file identity needs a lexical portability boundary independent of host filesystem normalization. Reject Win32-ambiguous trailing ASCII period/space in every native path component, plus terminal directory syntax, before `lstat()`.
+Reject Win32-ambiguous trailing ASCII period/space in stored-name components and terminal directory syntax before `lstat()`, while preserving existing nonterminal relative-navigation semantics.
