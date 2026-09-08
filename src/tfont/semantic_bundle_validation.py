@@ -8,55 +8,25 @@ from .digests import canonical_json_bytes
 Fail = Callable[[str, str, tuple[str | int, ...], str | None], None]
 
 _LOCK_REQUIRED_FIELDS = (
-    "lock_id",
-    "ontology_id",
-    "support_tier",
-    "term_namespace",
-    "release",
-    "source_uri",
-    "content_digest",
-    "license",
-    "terms_used",
+    "lock_id", "ontology_id", "support_tier", "term_namespace", "release",
+    "source_uri", "content_digest", "license", "terms_used",
 )
 _LOCK_OPTIONAL_FIELDS = (
-    "upstream_release_status",
-    "source_revision",
-    "redistribution_policy",
+    "upstream_release_status", "source_revision", "redistribution_policy",
 )
 _BRIDGE_CONTENT_FIELDS = (
-    "source_lock_id",
-    "source_lock_release",
-    "source_lock_digest",
-    "target_lock_id",
-    "target_lock_release",
-    "target_lock_digest",
-    "assertion_kind",
-    "scope",
-    "compatibility",
-    "evidence_id",
-    "evidence_digest",
-    "runtime_strength",
-    "runtime_limitations",
+    "source_lock_id", "source_lock_release", "source_lock_digest",
+    "target_lock_id", "target_lock_release", "target_lock_digest",
+    "assertion_kind", "scope", "compatibility", "evidence_id", "evidence_digest",
+    "runtime_strength", "runtime_limitations",
 )
 _BRIDGE_IDENTITY_FIELDS = (
-    "bridge_id",
-    "digest",
-    *_BRIDGE_CONTENT_FIELDS,
-    "review_status",
-    "reviewed_content_digest",
-    "review_id",
-    "reviewer_id",
-    "reviewed_at",
+    "bridge_id", "digest", *_BRIDGE_CONTENT_FIELDS, "review_status",
+    "reviewed_content_digest", "review_id", "reviewer_id", "reviewed_at",
 )
 _EDGE_FIELDS = (
-    "id",
-    "consumer",
-    "requires",
-    "satisfied_by",
-    "active",
-    "required_lock_release",
-    "required_lock_digest",
-    "required_bridge_scope",
+    "id", "consumer", "requires", "satisfied_by", "active",
+    "required_lock_release", "required_lock_digest", "required_bridge_scope",
 )
 
 
@@ -118,6 +88,7 @@ def _validate_bridge(
     bridge: dict[str, Any],
     *,
     canonical_locks: dict[str, dict[str, Any]],
+    evidences: dict[str, dict[str, Any]],
     path: tuple[str | int, ...],
     fail: Fail,
 ) -> None:
@@ -143,6 +114,12 @@ def _validate_bridge(
     if scope["target_term"] not in canonical_locks[bridge["target_lock_id"]].get("terms_used", []):
         fail("bridge_closure", "bridge target term is outside endpoint terms_used", path + ("scope", "target_term"), bridge_id)
 
+    evidence_id = bridge.get("evidence_id")
+    if type(evidence_id) is not str or evidence_id not in evidences:
+        fail("bridge_closure", f"bridge evidence does not resolve: {evidence_id!r}", path + ("evidence_id",), evidence_id if type(evidence_id) is str else None)
+    if bridge.get("evidence_digest") != evidences[evidence_id].get("content_digest"):
+        fail("bridge_closure", "bridge evidence digest does not match current evidence artifact", path + ("evidence_digest",), evidence_id)
+
     computed = bridge_content_digest_v1(bridge)
     if bridge.get("digest") != computed:
         fail("bridge_closure", "bridge content digest mismatch", path + ("digest",), bridge_id)
@@ -157,6 +134,7 @@ def validate_bundle_source_closure(
     *,
     canonical_locks: dict[str, dict[str, Any]],
     bridge_artifacts: tuple[dict[str, Any], ...],
+    evidences: dict[str, dict[str, Any]],
     fail: Fail,
 ) -> str | None:
     if ontology_bundle is None:
@@ -205,7 +183,7 @@ def validate_bundle_source_closure(
             fail("bridge_closure", f"embedded bridge has no source artifact: {bridge_id}", ("ontology_bundle", "bridge_locks", index, "bridge_id"), bridge_id)
         if _bridge_projection(bridge) != _bridge_projection(external_bridges[bridge_id]):
             fail("bridge_closure", f"embedded bridge identity differs from source artifact: {bridge_id}", ("ontology_bundle", "bridge_locks", index), bridge_id)
-        _validate_bridge(bridge, canonical_locks=canonical_locks, path=("ontology_bundle", "bridge_locks", index), fail=fail)
+        _validate_bridge(bridge, canonical_locks=canonical_locks, evidences=evidences, path=("ontology_bundle", "bridge_locks", index), fail=fail)
         bundle_bridges[bridge_id] = bridge
 
     edges = ontology_bundle.get("dependency_edges")
@@ -252,6 +230,13 @@ def validate_bundle_source_closure(
             lock_id = satisfied_by.removeprefix("lock:")
             if lock_id != required or lock_id not in canonical_locks:
                 fail("bundle_closure", "exact-lock dependency does not resolve to required lock", ("ontology_bundle", "dependency_edges", index, "satisfied_by"), lock_id or None)
+            required_release = edge.get("required_lock_release")
+            required_digest = edge.get("required_lock_digest")
+            lock = canonical_locks[lock_id]
+            if type(required_release) is not str or not required_release or type(required_digest) is not str or not required_digest:
+                fail("bundle_closure", "exact-lock dependency must bind required release and digest", ("ontology_bundle", "dependency_edges", index), edge_id)
+            if required_release != lock.get("release") or required_digest != lock.get("content_digest"):
+                fail("bundle_closure", "exact-lock dependency release/digest differs from canonical lock", ("ontology_bundle", "dependency_edges", index), edge_id)
         else:
             fail("bundle_closure", "unknown dependency satisfaction source", ("ontology_bundle", "dependency_edges", index, "satisfied_by"), edge_id)
 
