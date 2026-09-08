@@ -83,6 +83,22 @@ class FullSuiteWorkflowContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, text)
 
+    def test_p002_keeps_its_cross_version_focused_gate(self):
+        text = (WORKFLOW_DIR / "p002-i004-source-contract.yml").read_text(encoding="utf-8")
+        required_tokens = (
+            "python-version:",
+            "3.10",
+            "3.12",
+            "python -m pip install -e . build",
+            "python -m unittest discover -s tests/p002 -v",
+            "python -m unittest discover -s tests/i001 -v",
+            "python -m unittest discover -s tests/i002 -v",
+            "python -m unittest tests.packaging.test_wheel_schema_resources -v",
+        )
+        for token in required_tokens:
+            with self.subTest(token=token):
+                self.assertIn(token, text)
+
     def test_focused_workflows_keep_their_distinct_contracts(self):
         texts = self.workflow_texts()
         required_by_workflow = {
@@ -118,6 +134,12 @@ class FullSuiteWorkflowContractTests(unittest.TestCase):
             "i001-validation.yml": ("discover -s tests/i001",),
             "i002-validation.yml": ("discover -s tests/i002",),
             "i003-validation.yml": ("discover -s tests/i003",),
+            "p002-i004-source-contract.yml": (
+                "discover -s tests/p002",
+                "discover -s tests/i001",
+                "discover -s tests/i002",
+                "tests.packaging.test_wheel_schema_resources",
+            ),
         }
         for workflow, tokens in required_by_workflow.items():
             if workflow not in texts:
