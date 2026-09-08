@@ -64,6 +64,16 @@ def _validate_approximation(
         return
     if type(approximation) is not dict:
         fail("invalid_approximation", "approximation must be an object", path + ("approximation",), projection.get("projection_id"))
+
+    assessment = projection.get("assessment")
+    if assessment not in {"close", "broader", "narrower"}:
+        fail(
+            "invalid_approximation",
+            f"assessment {assessment!r} cannot carry an approximation envelope",
+            path + ("approximation",),
+            projection.get("projection_id"),
+        )
+
     required = {"status", "eligible", "losses", "rationale", "review_id"}
     allowed = required | {"evidence"}
     if set(approximation) - allowed or required - set(approximation):
@@ -88,15 +98,12 @@ def _validate_approximation(
 
     if not eligible:
         return
-    assessment = projection.get("assessment")
     if assessment == "broader" and seen != {"undercoverage"}:
         fail("invalid_approximation", "eligible broader mapping must disclose undercoverage only", path + ("approximation", "losses"), projection.get("projection_id"))
     if assessment == "narrower" and seen != {"overcoverage"}:
         fail("invalid_approximation", "eligible narrower mapping must disclose overcoverage only", path + ("approximation", "losses"), projection.get("projection_id"))
     if assessment == "close" and not seen:
         fail("invalid_approximation", "eligible close mapping requires a reviewed non-empty loss set", path + ("approximation", "losses"), projection.get("projection_id"))
-    if assessment in {"related", "exact"}:
-        fail("invalid_approximation", f"assessment {assessment!r} cannot use approximation eligibility", path + ("approximation", "eligible"), projection.get("projection_id"))
 
 
 def _validate_external_reference(
