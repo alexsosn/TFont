@@ -28,7 +28,9 @@ class I004CatalogBundleContractTests(unittest.TestCase):
         validate_source(catalog_sources()["profile"], "profile")
 
     def test_missing_profile_catalog_version_fails_closed(self):
-        self.assert_problem("unsupported_contract_version", bundle(base_sources()))
+        sources = base_sources()
+        sources["profile"].pop("profile_catalog_version")
+        self.assert_problem("unsupported_contract_version", bundle(sources))
 
     def test_mapping_profile_must_be_declared_by_profile_artifact(self):
         sources = catalog_sources()
