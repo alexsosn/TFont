@@ -8,6 +8,12 @@ from pathlib import Path
 WORKFLOWS = Path('.github/workflows')
 CHECKOUT = re.compile(r'uses:\s*actions/checkout@(v\d+)')
 SETUP_PYTHON = re.compile(r'uses:\s*actions/setup-python@(v\d+)')
+EXACT_HEAD_REF = 'ref: ${{ github.event.pull_request.head.sha || github.sha }}'
+EXACT_HEAD_WORKFLOWS = (
+    'a001-tf-native-boundary.yml',
+    'f008-p001-design-scope.yml',
+    'f009-deep-digest-nesting.yml',
+)
 
 
 class Node24ActionVersionContractTests(unittest.TestCase):
@@ -43,6 +49,19 @@ class Node24ActionVersionContractTests(unittest.TestCase):
         joined = '\n'.join(self._workflow_texts().values())
         self.assertNotIn('actions/checkout@v4', joined)
         self.assertNotIn('actions/setup-python@v5', joined)
+
+    def test_known_exact_head_checkout_refs_are_preserved(self) -> None:
+        texts = self._workflow_texts()
+        missing = [
+            name
+            for name in EXACT_HEAD_WORKFLOWS
+            if name not in texts or EXACT_HEAD_REF not in texts[name]
+        ]
+        self.assertEqual(
+            missing,
+            [],
+            f'exact-head checkout refs must be preserved in known workflows: {missing}',
+        )
 
 
 if __name__ == '__main__':
