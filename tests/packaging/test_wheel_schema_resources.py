@@ -64,15 +64,24 @@ def exact_mapping() -> dict:
 def minimal_valid_instances() -> dict[str, dict]:
     return {
         "profile": {
-            "schema_version": 1,
+            "schema_version": 2,
             "profile_id": "tfont-test",
-            "profile_version": "0.1.0",
+            "profile_version": "0.2.0",
             "semantic_domains": ["morphology"],
             "parent_component_manifest": "parent/expected-components.json",
             "required_components": ["test-tf"],
             "ontology_locks": ["olia-test"],
             "mapping_sources": ["mappings/test.yaml"],
             "dependency_contract_version": 1,
+            "dependencies": [
+                {
+                    "dependency_id": "dep:test",
+                    "component_id": "test-tf",
+                    "kind": "feature-present",
+                    "assertion": {"node_type": "word", "feature": "gn"},
+                    "evidence": [evidence_binding()],
+                }
+            ],
             "minimum_tfont_runtime": "0.1.0",
             "license": "CC-BY-4.0",
         },
