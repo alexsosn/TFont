@@ -68,6 +68,21 @@ class FullSuiteWorkflowContractTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, text)
 
+    def test_f009_keeps_its_cross_version_focused_gate(self):
+        text = (WORKFLOW_DIR / "f009-deep-digest-nesting.yml").read_text(encoding="utf-8")
+        required_tokens = (
+            "python-version:",
+            "3.10",
+            "3.12",
+            EXACT_HEAD,
+            "python -m pip install build",
+            "python -m unittest discover -s tests/f009 -v",
+            "python -m unittest discover -s tests/i002 -v",
+        )
+        for token in required_tokens:
+            with self.subTest(token=token):
+                self.assertIn(token, text)
+
     def test_focused_workflows_keep_their_distinct_contracts(self):
         texts = self.workflow_texts()
         required_by_workflow = {
@@ -95,6 +110,10 @@ class FullSuiteWorkflowContractTests(unittest.TestCase):
             "f008-p001-design-scope.yml": (
                 "discover -s tests/f008",
                 "tests/plans/test_p001_plan.py",
+            ),
+            "f009-deep-digest-nesting.yml": (
+                "discover -s tests/f009",
+                "discover -s tests/i002",
             ),
             "i001-validation.yml": ("discover -s tests/i001",),
             "i002-validation.yml": ("discover -s tests/i002",),
