@@ -3,13 +3,11 @@
 **Issue:** #44  
 **Type:** design-only architecture amendment  
 **Baseline:** `main` after P-002 (`a238522c3048ee077a09e090a4b067b72cec901c`)  
-**Inputs:** R-001..R-017, A-001, merged I-001/I-002/I-003, merged P-002
+**Inputs:** R-001..R-017, R-017 post-review amendment, A-001, merged I-001/I-002/I-003, merged P-002
 
 ## 1. Decision
 
 TFont's primary runtime contract is a **reviewed semantic compatibility layer over already-materialized Text-Fabric / Context-Fabric corpora**.
-
-The architecture is:
 
 ```text
 source representations
@@ -18,11 +16,12 @@ materialized TF / Context-Fabric corpus
         ↓
 TFont native semantic records
         ↓
-0..N reviewed typed semantic projections
+0..N reviewed typed target-bearing projections
+ + 0..N non-projection external-reference records
         ↓
 content-addressed active ontology bundle + reviewed bridge closure
         ↓
-common-semantic / authority / identity resolution
+semantic / authority / identity / identifier resolution
         ↓
 native Context-Fabric query plan
         ↓
@@ -33,11 +32,13 @@ TFont does not own generic JSON/XML/CSV/TEI/PDF/database/API ingestion, arbitrar
 
 The central modeling change is:
 
-> A mapping is a reviewed **native semantic record** with one native binding and **zero or more complementary typed projections**. A projection is the smallest reviewed unit that can participate in common-semantic reverse resolution.
+> A mapping is a reviewed **native semantic record** with one native binding and **zero or more complementary typed target-bearing projections**. A projection is the smallest reviewed unit that can participate in either the common semantic-pivot reverse index or the authority-value reverse index.
+
+Entity-identity, catalogue-identifier, provenance-source and locator references are kept in a separate external-reference collection with their own index/query rules.
 
 This replaces the current one-record/one-`external_target` model.
 
-`native-only` and `unsupported` remain legitimate first-class reviewed native records with zero semantic projections. Ambiguity is represented explicitly and never converted into simultaneous complementary projections.
+`native-only` and `unsupported` remain legitimate first-class reviewed native records with no target-bearing projection. Ambiguity is represented explicitly and never converted into simultaneous complementary projections.
 
 ## 2. Normative semantic basis
 
@@ -84,8 +85,9 @@ native_record:
   profiles: [controlled profile ids]
   capabilities: [controlled capability ids]
   native_state: positive | native-only | unsupported | ambiguous
-  projections: [0..N semantic projections]
-  references: [0..N R-017 external-reference records]
+  projections: [0..N target-bearing projections]
+  ambiguous_candidates: [0..N non-approved target candidates]
+  external_references: [0..N identity/catalogue/provenance/locator records]
   evidence: [...]
   review: content-bound review
   mapping_semantic_digest: versioned semantic digest
@@ -108,22 +110,22 @@ The binding may refer only to already-materialized TF/Context-Fabric facts repre
 
 No `native-adapter`, sidecar path, external record/file field, database/API locator, source-format selector, or URI dereference instruction is permitted.
 
-### 3.2 Native record state
+### 3.2 Native record state and the eight accepted meanings
 
-The eight accepted R-002 assessment meanings remain semantically observable, but P-003 separates record state from projection strength:
+The eight accepted R-002 assessment meanings remain observable without forcing one record-level target field:
 
-- positive target-bearing relations are expressed on projections as `exact | close | broader | narrower | related`;
-- `ambiguous` means target choice is unresolved and no common-semantic execution is authorized;
-- `native-only` means reviewed native semantics exist but there is no accepted common target;
+- approved target-bearing projections carry `exact | close | broader | narrower | related` individually;
+- `ambiguous` is a native-record state with one or more explicit non-approved candidates and no executable common/authority target;
+- `native-only` is a reviewed positive native state with no accepted target-bearing projection;
 - `unsupported` is reviewed negative knowledge.
 
-A record must not simultaneously claim `native-only`/`unsupported` and carry a common semantic projection.
+A record must not claim `native-only` or `unsupported` while carrying an approved target-bearing projection.
 
-Ambiguous alternatives are kept in a distinct candidate set. They are not ordinary approved projections and never enter reverse execution indexes.
+Ambiguous candidates never enter semantic or authority reverse indexes.
 
-## 4. Semantic projection contract
+## 4. Target-bearing projection contract
 
-Each approved projection is independently typed and reviewed.
+Each approved projection is independently typed, routed and reviewed.
 
 Conceptually:
 
@@ -131,6 +133,8 @@ Conceptually:
 projection:
   projection_id: stable record-local or global id
   target: locked IRI/resource id
+  reference_kind: semantic-pivot | authority-value
+  query_role: semantic-constraint | authority-value-filter
   formal_kind: class | property | skos-concept | named-resource
   semantic_role: controlled R-013 role
   profile_id: controlled R-014 profile
@@ -145,6 +149,8 @@ projection:
   evidence: [...]
   review: projection-content-bound review
 ```
+
+`reference_kind` is the R-017 routing dimension. `semantic-pivot` enters the ordinary common semantic target space; `authority-value` enters the authority-value target space. Neither routing choice bypasses R-003/R-015 prerequisites or R-016 for non-exact execution.
 
 ### 4.1 Closed formal kinds
 
@@ -174,7 +180,7 @@ P-003 freezes the first production vocabulary equivalent to:
 - `claim-proposition`;
 - `inference-activity`.
 
-`authority-reference` is retained for projections whose target is genuinely semantic/authority-valued, but R-017 reference kind and query role determine whether it enters the common semantic index, authority index, or neither.
+`authority-reference` is compatible with an `authority-value` routed projection where a reviewed external controlled value is the target. It does not make that target part of the ordinary semantic-pivot reverse index.
 
 Formal kind does not determine semantic role. Role does not determine publication relation. URI syntax does not determine either.
 
@@ -191,20 +197,20 @@ Exceptional RDF multi-typing is represented by separate reviewed projections whe
 
 ### 4.4 Complementarity versus ambiguity
 
-Multiple projections are **complementary** when all are simultaneously true of the same native semantics and serve different compatible roles or ontology dimensions.
+Multiple approved projections are **complementary** when all are simultaneously true of the same native semantics and serve different compatible roles or ontology dimensions.
 
 Examples:
 
-- physical-object class projection + reviewed material authority-value reference;
-- lexical entry entity-type projection + a separate particular external lexical identity;
-- written-text segment class + a relation projection connecting it to a carrier.
+- physical-object semantic-pivot projection plus reviewed material authority-value projection;
+- lexical-entry entity-type projection plus a separately reviewed particular lexical identity reference;
+- written-text segment class plus a relation projection connecting it to a carrier.
 
-Mutually exclusive candidate targets remain `ambiguous` candidates and are not approved projections.
+Mutually exclusive candidate targets remain `ambiguous_candidates` and are not approved projections.
 
 The validator must reject both failure modes:
 
 - collapsing compatible complementary projections into ambiguity;
-- representing unresolved alternatives as simultaneous approved projections.
+- representing unresolved alternatives as simultaneously approved projections.
 
 ## 5. Controlled profiles and capabilities
 
@@ -238,7 +244,7 @@ No profile inheritance auto-activates another profile.
 
 ### 5.2 Capability catalog
 
-Initial capability IDs are the accepted R-014 controlled identifiers, including:
+Initial capability IDs are the accepted R-014 controlled identifiers:
 
 ```text
 structural.entity-kind
@@ -282,9 +288,9 @@ scholarly-inference.meaning-comprehension
 scholarly-inference.provenance-assessment
 ```
 
-Optional profile capabilities require their own versioned catalog entries and evidence; they are not inferred from free-form labels.
+Optional profile capabilities require versioned catalog additions backed by evidence; they are not inferred from free-form labels.
 
-Profile/capability state is discovery information only. Common-semantic execution is authorized only by an exact requested concept/projection tuple.
+Profile/capability state is discovery information only. Target resolution is authorized only by an exact requested projection tuple in the appropriate index family.
 
 ## 6. Ontology bundle and bridge prerequisite
 
@@ -311,7 +317,7 @@ A bridge is executable only if:
 
 - endpoint lock IDs/releases/payload digests match participating locks;
 - bridge term scope matches the active dependency edge;
-- scoped terms belong to the endpoint lock `terms_used` sets;
+- scoped terms belong to endpoint lock `terms_used`;
 - bridge content digest matches reviewed content;
 - review state is accepted;
 - compatibility is explicit;
@@ -321,76 +327,85 @@ A CRMtex F28 bridge does not imply ontology-wide equivalence. Optional profiles 
 
 ### 6.3 Version-skew consequences
 
-The production architecture must preserve accepted bridge cases, including:
+Preserve accepted bridge cases, including:
 
-- CRMtex 2.0's historical FRBRoo/LRMoo continuity needs;
-- CRMarchaeo 2.1.1's CRM 7.1.2 / CRMsci 2.0 dependencies versus the current CRM 7.1.3 / CRMsci 3.2 stack.
+- CRMtex 2.0 historical FRBRoo/LRMoo continuity;
+- CRMarchaeo 2.1.1 CRM 7.1.2 / CRMsci 2.0 dependencies versus current CRM 7.1.3 / CRMsci 3.2.
 
 An inactive optional archaeology profile is not a bridge failure. Activating archaeology with unresolved required bridges makes that capability unavailable/non-executable.
 
-## 7. External references are not one target space
+## 7. R-017 external-reference routing
 
-R-017 introduces a separate typed reference layer. It must not be flattened into the semantic projection array.
+R-017 classifies six roles, but only two are target-bearing projection families.
 
-### 7.1 Reference kinds
+### 7.1 Target-bearing projection families
 
-Closed first vocabulary equivalent to:
+These live in `projections` because they use the R-002 assessment and R-013 formal-kind/role contract:
 
-- `semantic-pivot`;
-- `authority-value`;
+- `semantic-pivot` + `semantic-constraint` → `semantic_index`;
+- `authority-value` + `authority-value-filter` → `authority_index`.
+
+Both require a real external target. `native-only` and `unsupported` are therefore invalid as target-bearing external records.
+
+Exact target-bearing mappings still require derived upstream execution prerequisites. Non-exact authority-value mappings additionally delegate to R-016 exactly like non-exact semantic-pivot mappings.
+
+### 7.2 Non-projection reference kinds
+
+These live in `external_references`:
+
 - `entity-identity`;
 - `catalogue-identifier`;
 - `provenance-source`;
 - `locator`.
 
-### 7.2 Query roles
+Their query roles are respectively constrained to reviewed combinations equivalent to:
 
-Closed first query-role vocabulary equivalent to:
-
-- `semantic-constraint`;
-- `authority-value-filter`;
 - `identity-filter`;
 - `identifier-filter`;
-- `metadata-filter`;
+- `metadata-filter` or explanation-only where native metadata is queryable;
 - `explanation-only`.
 
-Only `semantic-pivot` + `semantic-constraint` participates in the ordinary common semantic reverse index.
-
-Authority values have their own reverse index; entity identities have another; identifiers are issuer/namespace scoped. Provenance and locator references do not become semantic constraints merely because they are URIs.
+They do not enter `semantic_index` or `authority_index`.
 
 ### 7.3 Entity identity strength
 
 Do not reuse set-theoretic `broader/narrower` for entity identity.
 
-The first identity assertion vocabulary should be equivalent to:
+The first identity vocabulary is equivalent to:
 
 - `same-entity`;
 - `probable-same-entity`;
 - `related-record`;
 - `ambiguous-identity`.
 
-Only an explicitly reviewed executable identity state may authorize `identity-filter`.
+Only a separately reviewed executable identity state may authorize `identity-filter`, and it still consumes the same derived upstream prerequisite.
 
-### 7.4 Publication predicates
+### 7.4 Identifier scope
+
+Catalogue/inventory identifiers are keyed by issuing authority/namespace plus literal/code. Equal strings from different issuers are not equal identifiers.
+
+### 7.5 Provenance and locators
+
+A provenance/source or locator record requires a real external reference value, but URI presence never creates network access or semantic target status.
+
+## 8. Publication predicates
 
 Publication predicates are projection/reference-specific and never mechanically derived from TFont assessment.
-
-In particular:
 
 - SKOS mapping predicates require concept-to-concept publication legality;
 - `owl:equivalentClass` requires class-to-class semantics;
 - `owl:equivalentProperty` requires property-to-property semantics;
-- canonical OWL `owl:sameAs` is the HTTP namespace IRI and is permitted only for genuine resource identity;
+- canonical `owl:sameAs` uses the HTTP OWL namespace IRI and is locally valid only for reviewed `entity-identity` + `same-entity`;
 - RDFS subclass/subproperty relations require actual hierarchy semantics;
 - OntoLex predicates retain their domain/range meaning.
 
-Noncanonical lookalike predicates fail closed or require explicit external-policy delegation; they are never normalized by spelling.
+R-017 may locally prove only the same-entity `owl:sameAs` case. Other positive publication relations delegate fail-closed to the R-013 formal-kind-aware validator. Noncanonical lookalike IRIs are never normalized by spelling.
 
-## 8. Approximate execution
+## 9. Approximate execution
 
 R-016 is authoritative.
 
-### 8.1 Modes
+### 9.1 Modes
 
 Requests expose at least:
 
@@ -401,37 +416,30 @@ accept_losses = subset of {undercoverage, overcoverage}
 
 Unknown modes/loss tokens fail closed.
 
-### 8.2 Projection policy
+### 9.2 Projection policy
 
-- `exact`: executable in exact or approximate mode only after upstream prerequisites pass;
-- `broader`: approximate mode only, reviewed approximation eligibility, caller accepts `undercoverage`;
-- `narrower`: approximate mode only, reviewed approximation eligibility, caller accepts `overcoverage`;
-- `close`: informative-only by default; execution requires separate reviewed loss contract plus caller acceptance;
+- `exact`: executable only after upstream prerequisites pass;
+- `broader`: approximate mode only, reviewed eligibility, caller accepts `undercoverage`;
+- `narrower`: approximate mode only, reviewed eligibility, caller accepts `overcoverage`;
+- `close`: informative-only by default; execution requires separate reviewed loss contract and caller acceptance;
 - `related`: never a substitute constraint;
 - `ambiguous`: never auto-selected;
-- `native-only`: no common-target reverse execution;
+- `native-only`: no target reverse execution;
 - `unsupported`: refuse.
 
-The direction is fixed as native/source → target, therefore reverse execution through `broader` under-covers and through `narrower` over-covers.
+Direction is native/source → target. Reverse execution through `broader` under-covers; through `narrower` over-covers.
 
-### 8.3 Approximation authorization is content-bound
+### 9.3 Approximation authorization is content-bound
 
-A mutable boolean is insufficient. Approximation eligibility, loss shape, rationale/evidence and review identity must participate in projection semantic identity/review binding.
+Approximation eligibility, loss shape, rationale/evidence and review identity participate in projection semantic identity/review binding.
 
-Approximation cannot repair:
+Approximation cannot repair parent incompatibility, unavailable capability, invalid bundle, missing/stale bridge, unresolved lock, or non-executable TF-native dependency.
 
-- parent incompatibility;
-- unavailable profile/capability;
-- invalid active bundle;
-- missing/stale/unreviewed bridge;
-- unresolved ontology lock;
-- non-executable TF-native dependency.
+### 9.4 Conjunctions and comparison
 
-### 8.4 Conjunctions and comparison
+Every required atom must resolve; no atom is silently dropped. Losses compose by union.
 
-Every required atom must resolve; no atom is silently dropped.
-
-Losses compose by union. Multi-corpus comparison state is at least:
+Multi-corpus comparison state is at least:
 
 - `exactly-comparable`;
 - `approximately-comparable`;
@@ -440,11 +448,11 @@ Losses compose by union. Multi-corpus comparison state is at least:
 
 Cross-corpus aggregate statistics remain exact-only by default. Approximate aggregation requires explicit boolean opt-in and uniform non-empty loss shape; heterogeneous loss remains non-aggregatable in v1.
 
-## 9. Common semantic IR
+## 10. Common semantic IR
 
 The normalized IR is concept-centered rather than artifact-centered.
 
-### 9.1 Required identity layers
+### 10.1 Required identity layers
 
 Every compiled IR carries fingerprints for:
 
@@ -458,15 +466,13 @@ Every compiled IR carries fingerprints for:
 - reference policy/catalog version;
 - approximation policy version where relevant.
 
-### 9.2 Required indexes
-
-Authoritative indexes:
+### 10.2 Required indexes
 
 ```text
 native_index[
   corpus,
   native-binding-identity
-] -> reviewed native record + approved projections + references
+] -> reviewed native record + approved projections + external references
 
 semantic_index[
   profile,
@@ -474,13 +480,14 @@ semantic_index[
   target,
   formal-kind,
   semantic-role
-] -> per-corpus approved projection bindings
+] -> per-corpus approved semantic-pivot projection bindings
 
 authority_index[
   authority-system,
   authority-resource,
-  query-role
-] -> per-corpus reviewed authority-value bindings
+  formal-kind,
+  semantic-role
+] -> per-corpus approved authority-value projection bindings
 
 identity_index[
   authority-system,
@@ -500,15 +507,17 @@ capability_index[
 ] -> operational state + summary counts + record ids
 ```
 
-`semantic_index` must never contain `native-only`, `unsupported`, unresolved ambiguous candidates, locator URLs, provenance links, or catalogue IDs merely because they have URI-like values.
+`semantic_index` and `authority_index` must exclude `native-only`, `unsupported`, unresolved ambiguous candidates, provenance/locator links and catalogue IDs.
 
-### 9.3 IR record shape
+### 10.3 Resolved atom shape
 
-A resolved semantic atom must expose at least:
+A target resolution exposes at least:
 
 ```yaml
 resolved_atom:
   requested_target
+  reference_kind
+  query_role
   profile_id
   capability_id
   formal_kind
@@ -525,55 +534,55 @@ resolved_atom:
   approximation/loss record if non-exact
 ```
 
-Native binding details remain inspectable so an agent can explain the actual feature/value/edge/path used.
+Native binding details remain inspectable so an agent can explain the feature/value/edge/path actually used.
 
-## 10. Resolver contract
+## 11. Resolver contract
 
 Protocol-independent flow:
 
 ```text
 semantic_capabilities
     ↓ discovery only
-semantic_resolve(request)
+semantic_resolve / authority_resolve / identity_resolve
     ↓ authoritative per-corpus resolution
 native query plan(s)
     ↓
 semantic_search / Context-Fabric execution
     ↓
-results + exact semantic-resolution provenance
+results + exact resolution provenance
 ```
 
-### 10.1 `semantic_capabilities`
+### 11.1 Discovery
 
-Returns compact profile/capability summaries by default. It never implies whole-ontology support and never authorizes execution by profile/capability match alone.
+`semantic_capabilities` returns compact profile/capability summaries by default. It never implies whole-ontology support and never authorizes execution by profile/capability match alone.
 
-### 10.2 `semantic_resolve`
+### 11.2 Target resolution
 
-Input includes requested corpus set and semantic atoms, each with exact target identity plus profile/capability/kind/role as required by the contract.
+Fail-closed order for semantic-pivot and authority-value targets:
 
-Resolution order is fail-closed:
-
-1. validate request vocabulary/version;
+1. validate request vocabulary/version and reference/query role;
 2. establish parent/profile operational availability;
 3. validate active ontology bundle/bridge closure;
-4. locate exact requested semantic-index tuple;
+4. locate exact requested tuple in the correct index family;
 5. validate projection review/content identity;
 6. validate TF-native dependency closure/native binding executability;
 7. apply R-016 semantic-mode/approximation gates;
 8. compile one native plan per corpus;
 9. compute comparison/loss state and provenance fingerprint.
 
+Identity and identifier resolution consume the same upstream prerequisite before producing a native plan, but use their own index/strength/scope contracts.
+
 No fuzzy labels, namespace inference, ontology hierarchy inference, stale cached fallback, or similar-feature fallback.
 
-### 10.3 `semantic_search`
+### 11.3 Search execution
 
-Search executes only a resolver-produced executable plan bound to its resolution fingerprint. If a requested required atom did not resolve, search fails rather than dropping it.
+Search executes only a resolver-produced executable plan bound to its resolution fingerprint. If a required atom did not resolve, search fails rather than dropping it.
 
 Execution reads materialized TF/Context-Fabric only.
 
-## 11. Seven-corpus POC acceptance
+## 12. Seven-corpus POC acceptance
 
-The POC must contain reviewed mappings/negative controls for all seven pilots:
+The POC must contain reviewed mappings/negative controls for:
 
 - BHSA;
 - CUC;
@@ -583,20 +592,20 @@ The POC must contain reviewed mappings/negative controls for all seven pilots:
 - ORACC-TF;
 - TLHdig-TF.
 
-Minimum cross-corpus scenarios:
+Minimum scenarios:
 
 1. exact OLiA noun across BHSA/Syriac/ExtraBiblical;
 2. exact OLiA plural/person conjunction across at least two linguistic corpora;
 3. OntoLex lexical-entry mixed-strength resolution across BHSA plus at least two close/native variants;
-4. CRMtex TX7 written-text segment across CUC/ORACC/TLH with current reviewed strength preserved;
+4. CRMtex TX7 written-text segment across CUC/ORACC/TLH with reviewed strengths preserved;
 5. CRM E22 positive physical-object controls only where source identity really denotes a carrier;
 6. Pseudepigrapha textual-version/textology positive case with manuscript physical-carrier overprojection rejected;
-7. ORACC material/period/place authority-value examples kept outside the ordinary semantic-pivot index unless a separate semantic projection is reviewed;
+7. ORACC material/period/place as authority-value examples outside `semantic_index` unless separately reviewed as semantic-pivot targets;
 8. TLH witness/fragment/editorial native-only/ambiguous controls;
-9. explicit `native-only`, `unsupported`, `ambiguous`, `related`, unreviewed `close`, unavailable-bundle, stale-bridge and incompatible-parent failures;
+9. explicit native-only, unsupported, ambiguous, related, unreviewed close, unavailable-bundle, stale-bridge and incompatible-parent failures;
 10. ORACC synthetic/empty slots treated as `technicalAnchor`, never semantic sign content or justification for sidecar execution.
 
-The POC must demonstrate at least one thin vertical slice:
+The POC must first prove one thin vertical slice:
 
 ```text
 one exact ontology concept
@@ -608,77 +617,77 @@ one exact ontology concept
 
 before broader infrastructure generalization.
 
-## 12. Migration from current production contracts
+## 13. Migration from current production contracts
 
-### 12.1 I-001 structural validation
+### 13.1 I-001 structural validation
 
-**Keep:**
+Keep:
 
-- JSON Schema draft 2020-12 structural validation;
-- strict closed object shapes;
+- JSON Schema draft 2020-12;
+- strict closed shapes;
 - duplicate-key/non-JSON/YAML fail-closed loading;
 - stable diagnostics/source provenance;
 - packaged canonical schema resources.
 
-**Versioned amendments required:**
+Versioned amendments required:
 
-- `mapping.schema.json` v1 → v2 typed native-record/projection/reference contract;
-- profile schema evolves from free-form `semantic_domains` to controlled catalog/profile-capability declarations while preserving P-002 v2 dependency records;
-- new ontology-bundle/bridge/reference schemas or equivalent closed records.
+- `mapping.schema.json` v1 → v2 native-record/projection/reference contract;
+- profile schema evolves from free-form `semantic_domains` to controlled catalog/profile-capability declarations while preserving P-002 dependency records;
+- ontology-bundle/bridge/reference schemas or equivalent closed records.
 
 No in-place reinterpretation of mapping v1 files.
 
-### 12.2 I-002 canonicalization and digests
+### 13.2 I-002 canonicalization and digests
 
-**Keep:**
+Keep:
 
-- RFC 8785/JCS canonical JSON;
+- RFC 8785/JCS;
 - SHA-256 representation;
 - source/evidence digest boundaries;
 - ontology-lock semantic identity normalization;
-- UTF-16 set ordering and duplicate rejection;
-- recursion/depth fail-closed behavior.
+- UTF-16 set ordering/duplicate rejection;
+- depth/recursion fail-closed behavior.
 
-**Versioned amendment required:**
-
-`MAPPING_SEMANTIC_ALGORITHM` must receive a new algorithm/version because projection arrays, reference records, profile/capability membership, approximation authorization, and projection-level review binding change semantic identity.
+`MAPPING_SEMANTIC_ALGORITHM` requires a new version because projection arrays, routing/reference kinds, profile/capability membership, approximation authorization and projection-level review binding change semantic identity.
 
 The old v1 mapping digest must never validate a migrated v2 semantic record.
 
-Profile semantic identity must include the controlled profile/catalog contract, P-002 dependency content, mapping v2 identities, active ontology-bundle identity and executable review readiness. Audit-only review timestamps/display metadata remain outside semantic identity where already established.
+Profile semantic identity must bind the controlled profile/catalog contract, P-002 dependency content, mapping v2 identities and semantic bundle requirement/identity fields that determine execution. It must **not** claim that a source profile file by itself proves the runtime active bundle is executable; that remains derived cross-artifact/runtime state.
 
-### 12.3 I-003 parent identity
+Audit-only review timestamps/display metadata remain outside semantic identity where already established.
+
+### 13.3 I-003 parent identity
 
 Keep unchanged. Parent identity describes materialized corpus components and does not become ontology semantics.
 
-### 12.4 P-002 source dependency contract
+### 13.4 P-002 dependencies
 
-Keep its exact eight TF-native dependency kinds and profile-owned registry. Structural validity remains insufficient for execution; I-004 validates cross-artifact resolution, evidence/content binding and closure.
+Keep the exact eight TF-native dependency kinds and profile-owned registry. Structural validity remains insufficient for execution; I-004 validates cross-artifact resolution, evidence/content binding and closure.
 
-Do not reintroduce any pre-A-001 sidecar/native-adapter vocabulary.
+Never reintroduce pre-A-001 sidecar/native-adapter vocabulary.
 
-### 12.5 Current mapping v1 field migration
+### 13.5 Mapping v1 migration
 
 | mapping v1 field | P-003 destination |
 |---|---|
 | `mapping_id` | native record identity |
-| `profile_id` | controlled profile membership; may expand to multiple reviewed profiles/capabilities |
+| `profile_id` | controlled profile/capability membership |
 | `native_selector` | TF-native binding |
-| `native_dependencies` | unchanged P-002 dependency refs |
-| `external_target` | one approved projection target, if any |
-| `candidate_projections` | explicit ambiguous candidate set, not approved projection array |
-| `assessment` positive | projection-level assessment |
-| `assessment` ambiguous/native-only/unsupported | native-record state |
+| `native_dependencies` | P-002 dependency refs |
+| `external_target` | one approved target-bearing projection, if any |
+| `candidate_projections` | explicit ambiguous candidate set |
+| positive `assessment` | projection-level assessment |
+| `ambiguous/native-only/unsupported` | native-record state |
 | `publication_relation` | projection/reference-specific publication field |
 | `applicability` | native binding applicability |
 | `ontology_lock` | projection ontology lock/bundle requirement |
-| `evidence` | record/projection/reference evidence as semantically appropriate |
-| `review` | content-bound record/projection review authority |
+| `evidence` | record/projection/reference evidence as appropriate |
+| `review` | content-bound record/projection/reference review authority |
 | `mapping_semantic_digest` | new v2 semantic digest |
 
-Automatic migration is permitted only when the v1 row is semantically unambiguous under the new contract. Anything requiring new kind/role/profile/capability/reference classification must be re-reviewed rather than guessed.
+Automatic migration is permitted only when a v1 row is semantically unambiguous under the new contract. New kind/role/profile/capability/reference classification must be re-reviewed rather than guessed.
 
-## 13. Cross-artifact semantic validation boundary
+## 14. I-004 boundary
 
 I-004 #36 becomes the first production consumer after P-003 acceptance.
 
@@ -689,17 +698,17 @@ It owns deterministic validation of:
 - P-002 dependency resolution/component authority;
 - ontology lock and target membership against locked evidence;
 - kind/role compatibility;
-- projection vs ambiguity/no-target state consistency;
-- ontology bundle/bridge identity and active closure inputs;
+- projection versus ambiguity/no-target consistency;
+- ontology bundle/bridge identity and active-closure inputs;
 - evidence digest equality;
 - review/content digest binding;
 - approximation contract validity;
-- R-017 reference-kind/query-role/identity-strength legality;
+- R-017 routing/query-role/identity-strength legality;
 - parent required-component consistency.
 
 It does not execute corpus queries, fetch ontology/network resources, or infer meaning from labels/namespaces.
 
-## 14. Implementation decomposition
+## 15. Implementation decomposition
 
 Every production ticket follows:
 
@@ -707,131 +716,82 @@ Every production ticket follows:
 
 ### Slice 1 — I-004 semantic validator (#36)
 
-First unblock and amend existing #36 against this P-003 contract.
+Amend existing #36 against this contract.
 
-Deliver:
-
-- mapping/profile/bundle/reference vNext schemas;
-- cross-artifact semantic validator;
-- versioned mapping semantic digest migration;
-- representative exact/native-only/unsupported/ambiguous/reference fixtures.
-
-No resolver yet.
+Deliver mapping/profile/bundle/reference vNext schemas, cross-artifact semantic validation, versioned mapping digest migration and representative exact/native-only/unsupported/ambiguous/reference fixtures.
 
 ### Slice 2 — semantic IR compiler
 
-Create a focused implementation ticket after P-003 acceptance.
+Create a focused ticket after P-003 acceptance.
 
-Deliver:
+Deliver normalized native/projection/reference IR, semantic/authority/identity/identifier indexes and capability summaries. No Context-Fabric execution.
 
-- normalized native/projection/reference IR;
-- authoritative semantic/authority/identity/identifier indexes;
-- capability summaries;
-- no Context-Fabric execution.
-
-RED must prove no-target/reference-only records are excluded from the common semantic reverse index.
+RED must prove target-negative/reference-only records cannot enter the wrong reverse index.
 
 ### Slice 3 — exact resolver thin vertical slice
 
-Deliver:
-
-- `semantic_capabilities` compact discovery;
-- `semantic_resolve` exact-mode planning;
-- one exact concept resolving across at least two corpora;
-- native plan explanation/provenance;
-- no approximate execution yet.
+Deliver `semantic_capabilities`, exact `semantic_resolve`, one exact concept resolving across at least two corpora, native-plan explanation and provenance. No approximate execution yet.
 
 ### Slice 4 — Context-Fabric execution handoff
 
-Deliver:
+Execute only resolver-produced native TF/CF plans, enforce plan fingerprint and return result provenance. No arbitrary source-format backend.
 
-- execution of resolver-produced native TF/CF plans;
-- plan fingerprint enforcement;
-- result provenance;
-- no arbitrary source-format backend.
+### Slice 5 — approximate resolution
 
-### Slice 5 — approximate resolution policy
+Implement R-016 after the exact vertical slice: reviewed eligibility, caller losses, per-atom loss records, conjunction union, comparison states and exact-only aggregate default.
 
-Implement R-016 only after exact vertical slice is green.
+### Slice 6 — authority/identity/identifier resolution
 
-Deliver:
-
-- reviewed approximation authorization;
-- caller `accept_losses`;
-- per-atom loss records;
-- conjunction loss union;
-- multi-corpus comparison states;
-- exact-only aggregate default.
-
-### Slice 6 — authority/identity resolution
-
-Implement R-017 dedicated indexes and query roles.
-
-Deliver:
-
-- authority-value filters;
-- entity identity filters with separate identity-strength vocabulary;
-- scoped identifier filters;
-- provenance/locator explanation-only behavior;
-- strict separation from common semantic reverse resolution.
+Implement R-017 dedicated index families/query roles, same-entity identity rules, scoped identifiers and explanation-only provenance/locators while preserving the same upstream gate.
 
 ### Slice 7 — seven-pilot POC package
 
-Promote reviewed R-011 evidence into versioned POC fixtures/mappings for all seven corpora and the full positive/negative query suite.
+Promote reviewed R-011 evidence into versioned POC fixtures/mappings for all seven corpora and the full positive/negative suite. Unreviewed schema remains unreviewed.
 
-This ticket must not normalize every native concept. Unreviewed schema remains unreviewed.
-
-## 15. Design acceptance tests
-
-P-003 is design-only, but every later implementation must include RED cases covering at least:
+## 16. Required RED cases for later implementation
 
 1. opaque target without formal kind/role;
 2. unknown kind/role/profile/capability/reference vocabulary;
 3. class/property/SKOS kind-role incompatibility;
-4. native-only or unsupported record carrying a common target;
-5. ambiguous candidates entering approved semantic index;
+4. native-only/unsupported record carrying a target-bearing projection;
+5. ambiguous candidate entering approved target index;
 6. complementary projections collapsed into ambiguity;
-7. URI/local-name inference of kind or semantics;
-8. exact assessment auto-generating SKOS/OWL publication predicate;
+7. URI/local-name inference of kind/semantics;
+8. assessment auto-generating SKOS/OWL publication predicate;
 9. noncanonical OWL lookalike predicate accepted as canonical;
-10. ORACC generic document overprojected to CRM E22;
-11. Pseudepigrapha manuscript overprojected to physical carrier;
-12. TLH surface overprojected to CRMtex TX7;
-13. provenance/locator/catalogue URI entering semantic-pivot index;
-14. same identifier literal under different issuers conflated;
-15. `same-entity` replaced by set-theoretic broader/narrower identity;
-16. profile/capability match alone authorizing execution;
-17. active optional profile with unresolved bridge executing;
-18. approximation repairing stale/missing bridge or parent incompatibility;
-19. `broader` reverse execution without accepted undercoverage;
-20. `narrower` reverse execution without accepted overcoverage;
-21. `close` executing without reviewed loss contract;
-22. `related` or `ambiguous` used as substitute constraint;
-23. required conjunction atom silently dropped;
-24. heterogeneous-loss approximate aggregate accepted;
-25. structural `technicalAnchor` treated as source-sign semantics;
-26. outside-TF sidecar/path/backend smuggled through source dependency or native binding.
+10. ORACC generic document → CRM E22 overprojection;
+11. Pseudepigrapha manuscript → physical carrier overprojection;
+12. TLH surface → CRMtex TX7 overprojection;
+13. authority-value projection entering `semantic_index`;
+14. provenance/locator/catalogue reference entering a target index;
+15. same identifier literal across issuers conflated;
+16. `same-entity` replaced by broader/narrower identity semantics;
+17. profile/capability match alone authorizing execution;
+18. active optional profile with unresolved bridge executing;
+19. approximation repairing stale/missing bridge or parent incompatibility;
+20. `broader` reverse execution without accepted undercoverage;
+21. `narrower` reverse execution without accepted overcoverage;
+22. `close` executing without reviewed loss contract;
+23. `related`/`ambiguous` used as substitute constraint;
+24. required conjunction atom silently dropped;
+25. heterogeneous-loss approximate aggregate accepted;
+26. `technicalAnchor` treated as source-sign semantics;
+27. outside-TF sidecar/path/backend smuggled through source dependency/native binding;
+28. exact authority/identity/identifier filter executing without derived upstream prerequisite.
 
-## 16. Independent review gate
+## 17. Independent review gate
 
-The final P-003 design head must receive a fresh logically-independent skeptical review against:
-
-- R-001..R-017 and their post-review amendments;
-- A-001 TF-native boundary;
-- merged P-002 dependency contract;
-- current I-001/I-002/I-003 production behavior;
-- authoritative OLiA, SKOS, OntoLex, CIDOC CRM-family and OWL namespace semantics already evidenced by the research tickets;
-- all seven pilot corpus boundaries.
+The final P-003 design head requires a fresh logically-independent skeptical review against R-001..R-017 plus the R-017 amendment, A-001, merged P-002, current I-001/I-002/I-003 behavior, authoritative ontology semantics already evidenced by the research tickets and all seven pilot boundaries.
 
 Review must explicitly try to falsify:
 
-1. whether any field recreates a generic outside-TF runtime carrier;
-2. whether projection complementarity/ambiguity is mechanically distinguishable;
-3. whether target kind, semantic role, assessment and publication relation remain independent;
-4. whether authority/identity/provenance references can leak into the common semantic index;
-5. whether approximation can bypass bundle/parent/review gates;
-6. whether profile/capability discovery can be mistaken for concept execution authority;
-7. whether migration silently reinterprets mapping v1 semantic identity;
-8. whether every required POC negative control remains fail-closed.
+1. any recreation of a generic outside-TF runtime carrier;
+2. projection complementarity versus ambiguity;
+3. independence of target kind, semantic role, routing/reference kind, assessment and publication relation;
+4. leakage between semantic, authority, identity, identifier and provenance index families;
+5. approximation bypassing bundle/parent/review gates;
+6. discovery state becoming concept execution authority;
+7. mapping-v1 migration silently preserving an invalid semantic digest;
+8. any required POC negative control becoming executable.
 
 Merge P-003 only when the exact design head has no blocker. Production implementation begins only afterward.
