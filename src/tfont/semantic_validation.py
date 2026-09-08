@@ -175,6 +175,30 @@ def _index_records(
     return tuple(sorted(seen.items(), key=lambda item: _utf16_key(item[0])))
 
 
+def _index_artifacts(
+    artifacts: tuple[SemanticArtifact, ...],
+    id_field: str,
+) -> tuple[tuple[str, dict[str, Any]], ...]:
+    seen: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        record = artifact.data
+        if type(record) is not dict:
+            _fail(artifact, "missing_reference", "record must be an object")
+        identifier = record.get(id_field)
+        if type(identifier) is not str or not identifier:
+            _fail(artifact, "missing_reference", f"{id_field} must be a non-empty string", path=(id_field,))
+        if identifier in seen:
+            _fail(
+                artifact,
+                "duplicate_id",
+                f"duplicate {id_field}: {identifier}",
+                path=(id_field,),
+                related_id=identifier,
+            )
+        seen[identifier] = record
+    return tuple(sorted(seen.items(), key=lambda item: _utf16_key(item[0])))
+
+
 def _build_indexes(bundle: SemanticSourceBundle) -> SemanticIndexes:
     parent = bundle.expected_parent_manifest
     profile = bundle.profile
@@ -211,21 +235,8 @@ def _build_indexes(bundle: SemanticSourceBundle) -> SemanticIndexes:
     candidates = _index_records(candidates_raw, "candidate_id", artifact=mappings_artifact, path_prefix=("ambiguous_candidates",)) if candidates_raw else ()
     references = _index_records(references_raw, "reference_id", artifact=mappings_artifact, path_prefix=("external_references",)) if references_raw else ()
 
-    lock_records = [artifact.data for artifact in bundle.ontology_locks]
-    ontology_locks = _index_records(
-        lock_records,
-        "lock_id",
-        artifact=bundle.ontology_locks[0] if bundle.ontology_locks else SemanticArtifact("ontology-lock", "<none>", {}),
-        path_prefix=("ontology_locks",),
-    ) if lock_records else ()
-
-    evidence_records = [artifact.data for artifact in bundle.evidences]
-    evidences = _index_records(
-        evidence_records,
-        "evidence_id",
-        artifact=bundle.evidences[0] if bundle.evidences else SemanticArtifact("evidence", "<none>", {}),
-        path_prefix=("evidences",),
-    ) if evidence_records else ()
+    ontology_locks = _index_artifacts(bundle.ontology_locks, "lock_id") if bundle.ontology_locks else ()
+    evidences = _index_artifacts(bundle.evidences, "evidence_id") if bundle.evidences else ()
 
     return SemanticIndexes(
         components=components,
@@ -485,6 +496,21 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
     def fail(category: str, message: str, path: tuple[str | int, ...], related_id: str | None) -> None:
         _fail(artifact, category, message, path=path, related_id=related_id)
 
+    def check_review_evidence(review: Any, *, path: tuple[str | int, ...]) -> None:
+        if type(review) is not dict or "evidence" not in review:
+            return
+        evidence_ids = review.get("evidence")
+        if type(evidence_ids) is not list:
+            fail("missing_reference", "review evidence must be a list", path + ("evidence",), None)
+        for index, evidence_id in enumerate(evidence_ids):
+            if type(evidence_id) is not str or evidence_id not in evidences:
+                fail(
+                    "missing_reference",
+                    f"missing review evidence: {evidence_id!r}",
+                    path + ("evidence", index),
+                    evidence_id if type(evidence_id) is str else None,
+                )
+
     for dependency_id, dependency in indexes.dependencies:
         bindings = dependency.get("evidence")
         if bindings:
@@ -493,12 +519,22 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
     for mapping_id, mapping in indexes.mappings:
         if mapping.get("evidence"):
             check_evidence_bindings(mapping["evidence"], evidences=evidences, path=("mappings", mapping_id, "evidence"), fail=fail)
+        check_review_evidence(mapping.get("review"), path=("mappings", mapping_id, "review"))
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             if projection.get("evidence"):
                 check_evidence_bindings(projection["evidence"], evidences=evidences, path=("mappings", mapping_id, "projections", projection_index, "evidence"), fail=fail)
+            check_review_evidence(
+                projection.get("review"),
+                path=("mappings", mapping_id, "projections", projection_index, "review"),
+            )
             approximation = projection.get("approximation")
             if type(approximation) is dict and approximation.get("evidence"):
                 check_evidence_bindings(approximation["evidence"], evidences=evidences, path=("mappings", mapping_id, "projections", projection_index, "approximation", "evidence"), fail=fail)
+        for reference_index, reference in enumerate(mapping.get("external_references", [])):
+            check_review_evidence(
+                reference.get("review"),
+                path=("mappings", mapping_id, "external_references", reference_index, "review"),
+            )
 
     validate_child_evidence(indexes.mappings, evidences=evidences, fail=fail)
 
