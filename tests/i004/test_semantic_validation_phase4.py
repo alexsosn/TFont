@@ -131,7 +131,7 @@ class I004Phase4Tests(unittest.TestCase):
                 "target": "http://purl.org/olia/olia.owl#Noun",
             }
         ]
-        self.assert_problem("invalid_external_reference", sources)
+        self.assert_problem("invalid_reference_routing", sources)
 
     def test_entity_identity_same_as_requires_same_entity_strength(self):
         sources = base_sources()
@@ -176,7 +176,7 @@ class I004Phase4Tests(unittest.TestCase):
                 "native_binding": {"component_id": "test-tf", "feature": "catalogue_id"},
             }
         ]
-        self.assert_problem("invalid_external_reference", sources)
+        self.assert_problem("invalid_reference_routing", sources)
 
 
 if __name__ == "__main__":
