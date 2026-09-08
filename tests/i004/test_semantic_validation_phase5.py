@@ -115,7 +115,7 @@ class I004Phase5Tests(unittest.TestCase):
         sources = base_sources()
         mapping = sources["mappings"]["mappings"][0]
         mapping["native_binding"] = {"component_id": "test-tf", "node_type": "word", "feature": "gn", "value": ""}
-        mapping["native_dependencies"] = ["dep:test"]
+        mapping["native_dependencies"] = ["dep:word-sp"]
         self.assert_problem("native_semantics_unproven", sources)
 
     def test_semantic_empty_value_is_allowed_with_explicit_dependency(self):
