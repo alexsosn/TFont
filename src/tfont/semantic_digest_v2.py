@@ -3,10 +3,17 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from .digests import DigestError, DigestProblem, canonical_json_bytes
+from .digests import (
+    DigestError,
+    DigestProblem,
+    MAPPING_SEMANTIC_ALGORITHM_V2,
+    PROJECTION_SEMANTIC_ALGORITHM,
+    canonical_json_bytes,
+)
 
-MAPPING_SEMANTIC_ALGORITHM_V2 = "tfont-mapping-semantic-sha256-v2"
-PROJECTION_SEMANTIC_ALGORITHM_V1 = "tfont-projection-semantic-sha256-v1"
+# Compatibility alias for the internal implementation module. The public
+# contract uses PROJECTION_SEMANTIC_ALGORITHM from tfont.digests.
+PROJECTION_SEMANTIC_ALGORITHM_V1 = PROJECTION_SEMANTIC_ALGORITHM
 
 _AUDIT_ONLY_TOP_LEVEL = {
     "review",
