@@ -5,6 +5,7 @@ from typing import Any
 
 from .parent_identity import parent_manifest_digest
 from .semantic_vocabulary import (
+    CANDIDATE_ASSESSMENTS,
     CAPABILITY_IDS,
     FORMAL_KINDS,
     NATIVE_STATES,
@@ -285,68 +286,110 @@ def _validate_vocabulary(bundle: SemanticSourceBundle, indexes: SemanticIndexes)
             label="native state",
         )
         for index, profile_id in enumerate(mapping.get("profiles", [])):
-            _require_vocab(
-                profile_id,
-                PROFILE_IDS,
-                artifact=artifact,
-                path=("mappings", mapping_id, "profiles", index),
-                label="profile",
-            )
+            _require_vocab(profile_id, PROFILE_IDS, artifact=artifact, path=("mappings", mapping_id, "profiles", index), label="profile")
         for index, capability_id in enumerate(mapping.get("capabilities", [])):
-            _require_vocab(
-                capability_id,
-                CAPABILITY_IDS,
-                artifact=artifact,
-                path=("mappings", mapping_id, "capabilities", index),
-                label="capability",
-            )
+            _require_vocab(capability_id, CAPABILITY_IDS, artifact=artifact, path=("mappings", mapping_id, "capabilities", index), label="capability")
 
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             prefix = ("mappings", mapping_id, "projections", projection_index)
-            _require_vocab(
-                projection.get("formal_kind"),
-                FORMAL_KINDS,
-                artifact=artifact,
-                path=prefix + ("formal_kind",),
-                label="formal kind",
-            )
-            _require_vocab(
-                projection.get("semantic_role"),
-                SEMANTIC_ROLES,
-                artifact=artifact,
-                path=prefix + ("semantic_role",),
-                label="semantic role",
-            )
-            _require_vocab(
-                projection.get("profile_id"),
-                PROFILE_IDS,
-                artifact=artifact,
-                path=prefix + ("profile_id",),
-                label="profile",
-            )
-            _require_vocab(
-                projection.get("capability_id"),
-                CAPABILITY_IDS,
-                artifact=artifact,
-                path=prefix + ("capability_id",),
-                label="capability",
-            )
-            _require_vocab(
-                projection.get("assessment"),
-                PROJECTION_ASSESSMENTS,
-                artifact=artifact,
-                path=prefix + ("assessment",),
-                label="projection assessment",
-            )
+            _require_vocab(projection.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
+            _require_vocab(projection.get("semantic_role"), SEMANTIC_ROLES, artifact=artifact, path=prefix + ("semantic_role",), label="semantic role")
+            _require_vocab(projection.get("profile_id"), PROFILE_IDS, artifact=artifact, path=prefix + ("profile_id",), label="profile")
+            _require_vocab(projection.get("capability_id"), CAPABILITY_IDS, artifact=artifact, path=prefix + ("capability_id",), label="capability")
+            _require_vocab(projection.get("assessment"), PROJECTION_ASSESSMENTS, artifact=artifact, path=prefix + ("assessment",), label="projection assessment")
             routing = (projection.get("reference_kind"), projection.get("query_role"))
             if routing not in TARGET_ROUTING:
-                _fail(
-                    artifact,
-                    "invalid_reference_routing",
-                    f"invalid target routing pair: {routing!r}",
-                    path=prefix,
-                    related_id=projection.get("projection_id"),
-                )
+                _fail(artifact, "invalid_reference_routing", f"invalid target routing pair: {routing!r}", path=prefix, related_id=projection.get("projection_id"))
+
+
+def _validate_record_states(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+    for mapping_id, mapping in indexes.mappings:
+        state = mapping.get("native_state")
+        projections = mapping.get("projections", [])
+        candidates = mapping.get("ambiguous_candidates", [])
+        if state in {"native-only", "unsupported"} and (projections or candidates):
+            _fail(artifact, "invalid_record_state", f"{state} record cannot carry target projections or candidates", path=("mappings", mapping_id, "native_state"), related_id=mapping_id)
+        if state == "ambiguous":
+            if projections or not candidates:
+                _fail(artifact, "invalid_record_state", "ambiguous record requires candidates and zero approved projections", path=("mappings", mapping_id), related_id=mapping_id)
+        if state == "positive" and candidates:
+            _fail(artifact, "invalid_record_state", "positive record cannot carry unresolved ambiguous candidates", path=("mappings", mapping_id, "ambiguous_candidates"), related_id=mapping_id)
+
+
+def _kind_role_allowed(formal_kind: str, semantic_role: str) -> bool:
+    if formal_kind == "class":
+        return semantic_role in {"entity-type", "annotation-category", "annotation-value"}
+    if formal_kind == "property":
+        return semantic_role in {"relation", "attribute", "annotation-category"}
+    if formal_kind == "skos-concept":
+        return semantic_role in {"annotation-value", "lexical-concept-identity", "authority-reference"}
+    if formal_kind == "named-resource":
+        return semantic_role in {
+            "lexical-entry-identity",
+            "lexical-form-identity",
+            "lexical-sense-identity",
+            "lexical-concept-identity",
+            "authority-reference",
+            "claim-proposition",
+            "inference-activity",
+        }
+    return False
+
+
+def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+    candidate_required = {
+        "candidate_id", "target", "reference_kind", "query_role", "formal_kind",
+        "semantic_role", "profile_id", "capability_id", "assessment_candidate",
+        "ontology_lock", "evidence",
+    }
+    candidate_forbidden = {
+        "native_execution_binding", "approximation", "publication_relation", "review",
+        "projection_semantic_digest",
+    }
+    for mapping_id, mapping in indexes.mappings:
+        for projection_index, projection in enumerate(mapping.get("projections", [])):
+            prefix = ("mappings", mapping_id, "projections", projection_index)
+            if not _kind_role_allowed(projection.get("formal_kind"), projection.get("semantic_role")):
+                _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection.get("projection_id"))
+
+        for candidate_index, candidate in enumerate(mapping.get("ambiguous_candidates", [])):
+            prefix = ("mappings", mapping_id, "ambiguous_candidates", candidate_index)
+            missing = candidate_required - candidate.keys()
+            forbidden = candidate_forbidden & candidate.keys()
+            if missing or forbidden:
+                _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(forbidden)}", path=prefix, related_id=candidate.get("candidate_id"))
+            _require_vocab(candidate.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
+            _require_vocab(candidate.get("semantic_role"), SEMANTIC_ROLES, artifact=artifact, path=prefix + ("semantic_role",), label="semantic role")
+            _require_vocab(candidate.get("profile_id"), PROFILE_IDS, artifact=artifact, path=prefix + ("profile_id",), label="profile")
+            _require_vocab(candidate.get("capability_id"), CAPABILITY_IDS, artifact=artifact, path=prefix + ("capability_id",), label="capability")
+            _require_vocab(candidate.get("assessment_candidate"), CANDIDATE_ASSESSMENTS, artifact=artifact, path=prefix + ("assessment_candidate",), label="candidate assessment")
+            routing = (candidate.get("reference_kind"), candidate.get("query_role"))
+            if routing not in TARGET_ROUTING:
+                _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate.get("candidate_id"))
+            if not _kind_role_allowed(candidate.get("formal_kind"), candidate.get("semantic_role")):
+                _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate.get("candidate_id"))
+
+
+def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+    locks = dict(indexes.ontology_locks)
+    for mapping_id, mapping in indexes.mappings:
+        rows = [
+            ("projections", i, row) for i, row in enumerate(mapping.get("projections", []))
+        ] + [
+            ("ambiguous_candidates", i, row) for i, row in enumerate(mapping.get("ambiguous_candidates", []))
+        ]
+        for collection, index, row in rows:
+            prefix = ("mappings", mapping_id, collection, index)
+            lock_id = row.get("ontology_lock")
+            if type(lock_id) is not str or lock_id not in locks:
+                _fail(artifact, "missing_reference", f"missing ontology lock: {lock_id!r}", path=prefix + ("ontology_lock",), related_id=lock_id if type(lock_id) is str else None)
+            target = row.get("target")
+            terms = locks[lock_id].get("terms_used", [])
+            if type(target) is not str or target not in terms:
+                _fail(artifact, "unknown_ontology_target", f"target not present in lock terms_used: {target!r}", path=prefix + ("target",), related_id=target if type(target) is str else None)
 
 
 def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticBundle:
@@ -357,6 +400,9 @@ def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticB
     _validate_component_authority(bundle, indexes)
     _validate_dependency_closure(bundle, indexes)
     _validate_vocabulary(bundle, indexes)
+    _validate_record_states(bundle, indexes)
+    _validate_projection_and_candidate_legality(bundle, indexes)
+    _validate_target_locks(bundle, indexes)
 
     return ValidatedSemanticBundle(
         bundle=bundle,
