@@ -117,6 +117,26 @@ def _utf16_key(value: str) -> bytes:
     return value.encode("utf-16be")
 
 
+def _sorted_strings(value: Any) -> list[str]:
+    if type(value) is not list:
+        return []
+    result = [item for item in value if type(item) is str]
+    result.sort(key=_utf16_key)
+    return result
+
+
+def _sorted_children(value: Any, id_field: str) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        return []
+    rows = [row for row in value if type(row) is dict]
+    rows.sort(
+        key=lambda row: _utf16_key(row.get(id_field))
+        if type(row.get(id_field)) is str
+        else b""
+    )
+    return rows
+
+
 def _validate_contract_versions(bundle: SemanticSourceBundle) -> None:
     checks = (
         (bundle.profile, ("schema_version",), bundle.profile.data.get("schema_version"), _PROFILE_SCHEMA_VERSION, "profile schema_version"),
@@ -263,9 +283,9 @@ def _validate_component_authority(bundle: SemanticSourceBundle, indexes: Semanti
     if type(required) is not list:
         _fail(profile, "component_authority", "required_components must be a list", path=("required_components",))
     required_ids = set(required)
-    for index, component_id in enumerate(required):
-        if type(component_id) is not str or component_id not in component_ids:
-            _fail(profile, "component_authority", f"required component is not present in expected parent: {component_id!r}", path=("required_components", index), related_id=component_id if type(component_id) is str else None)
+    for component_id in _sorted_strings(required):
+        if component_id not in component_ids:
+            _fail(profile, "component_authority", f"required component is not present in expected parent: {component_id!r}", path=("required_components", component_id), related_id=component_id)
     for dependency_id, dependency in indexes.dependencies:
         component_id = dependency.get("component_id")
         if component_id not in required_ids or component_id not in component_ids:
@@ -279,24 +299,27 @@ def _validate_dependency_closure_and_mapping_scope(bundle: SemanticSourceBundle,
         dependency_ids = mapping.get("native_dependencies")
         if type(dependency_ids) is not list:
             _fail(artifact, "missing_reference", "native_dependencies must be a list", path=("mappings", mapping_id, "native_dependencies"))
-        for index, dependency_id in enumerate(dependency_ids):
+        ordered_dependency_ids = _sorted_strings(dependency_ids)
+        for dependency_id in ordered_dependency_ids:
             if dependency_id not in dependencies:
-                _fail(artifact, "missing_reference", f"missing dependency: {dependency_id!r}", path=("mappings", mapping_id, "native_dependencies", index), related_id=dependency_id if type(dependency_id) is str else None)
+                _fail(artifact, "missing_reference", f"missing dependency: {dependency_id!r}", path=("mappings", mapping_id, "native_dependencies", dependency_id), related_id=dependency_id)
 
-        authorized_components = {dependencies[dependency_id].get("component_id") for dependency_id in dependency_ids}
-        binding_rows: list[tuple[tuple[str | int, ...], Any]] = [
-            (("mappings", mapping_id, "native_binding", "component_id"), mapping.get("native_binding", {}).get("component_id") if type(mapping.get("native_binding")) is dict else None)
+        authorized_components = {dependencies[dependency_id].get("component_id") for dependency_id in ordered_dependency_ids if dependency_id in dependencies}
+        binding_rows: list[tuple[tuple[str | int, ...], Any, str | None]] = [
+            (("mappings", mapping_id, "native_binding", "component_id"), mapping.get("native_binding", {}).get("component_id") if type(mapping.get("native_binding")) is dict else None, mapping_id)
         ]
-        for projection_index, projection in enumerate(mapping.get("projections", [])):
+        for projection in _sorted_children(mapping.get("projections", []), "projection_id"):
+            projection_id = projection.get("projection_id")
             execution = projection.get("native_execution_binding")
-            binding_rows.append((("mappings", mapping_id, "projections", projection_index, "native_execution_binding", "component_id"), execution.get("component_id") if type(execution) is dict else None))
-        for reference_index, reference in enumerate(mapping.get("external_references", [])):
+            binding_rows.append((("mappings", mapping_id, "projections", projection_id, "native_execution_binding", "component_id"), execution.get("component_id") if type(execution) is dict else None, projection_id if type(projection_id) is str else None))
+        for reference in _sorted_children(mapping.get("external_references", []), "reference_id"):
+            reference_id = reference.get("reference_id")
             native = reference.get("native_binding")
             if native is not None:
-                binding_rows.append((("mappings", mapping_id, "external_references", reference_index, "native_binding", "component_id"), native.get("component_id") if type(native) is dict else None))
-        for path, component_id in binding_rows:
+                binding_rows.append((("mappings", mapping_id, "external_references", reference_id, "native_binding", "component_id"), native.get("component_id") if type(native) is dict else None, reference_id if type(reference_id) is str else None))
+        for path, component_id, related_id in binding_rows:
             if component_id is not None and component_id not in authorized_components:
-                _fail(artifact, "component_authority", f"native binding component is not authorized by mapping dependencies: {component_id!r}", path=path, related_id=component_id if type(component_id) is str else None)
+                _fail(artifact, "component_authority", f"native binding component is not authorized by mapping dependencies: {component_id!r}", path=path, related_id=related_id or (component_id if type(component_id) is str else None))
 
 
 def _validate_vocabulary(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
@@ -311,36 +334,37 @@ def _validate_vocabulary(bundle: SemanticSourceBundle, indexes: SemanticIndexes)
         _fail(profile_artifact, "unknown_vocabulary", "profile catalog declarations require a non-empty capabilities list", path=("capabilities",))
 
     declared_profiles: set[str] = set()
-    for index, profile_id in enumerate(declared_profiles_value):
-        declared_profiles.add(_require_vocab(profile_id, PROFILE_IDS, artifact=profile_artifact, path=("profiles", index), label="profile"))
+    for profile_id in _sorted_strings(declared_profiles_value):
+        declared_profiles.add(_require_vocab(profile_id, PROFILE_IDS, artifact=profile_artifact, path=("profiles", profile_id), label="profile"))
 
     declared_capabilities: set[str] = set()
-    for index, capability_id in enumerate(declared_capabilities_value):
-        capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=profile_artifact, path=("capabilities", index), label="capability")
+    for capability_id in _sorted_strings(declared_capabilities_value):
+        capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=profile_artifact, path=("capabilities", capability_id), label="capability")
         capability_profile = capability.split(".", 1)[0]
         if capability_profile not in declared_profiles:
-            _fail(profile_artifact, "unknown_vocabulary", f"capability {capability!r} is not scoped by a declared profile", path=("capabilities", index), related_id=capability)
+            _fail(profile_artifact, "unknown_vocabulary", f"capability {capability!r} is not scoped by a declared profile", path=("capabilities", capability), related_id=capability)
         declared_capabilities.add(capability)
 
     for mapping_id, mapping in indexes.mappings:
         mapping_profiles: set[str] = set()
-        for index, profile_id in enumerate(mapping.get("profiles", [])):
-            profile = _require_vocab(profile_id, PROFILE_IDS, artifact=artifact, path=("mappings", mapping_id, "profiles", index), label="profile")
+        for profile_id in _sorted_strings(mapping.get("profiles", [])):
+            profile = _require_vocab(profile_id, PROFILE_IDS, artifact=artifact, path=("mappings", mapping_id, "profiles", profile_id), label="profile")
             if profile not in declared_profiles:
-                _fail(artifact, "unknown_vocabulary", f"mapping profile is not declared by profile artifact: {profile!r}", path=("mappings", mapping_id, "profiles", index), related_id=profile)
+                _fail(artifact, "unknown_vocabulary", f"mapping profile is not declared by profile artifact: {profile!r}", path=("mappings", mapping_id, "profiles", profile), related_id=profile)
             mapping_profiles.add(profile)
 
         mapping_capabilities: set[str] = set()
-        for index, capability_id in enumerate(mapping.get("capabilities", [])):
-            capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=artifact, path=("mappings", mapping_id, "capabilities", index), label="capability")
+        for capability_id in _sorted_strings(mapping.get("capabilities", [])):
+            capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=artifact, path=("mappings", mapping_id, "capabilities", capability_id), label="capability")
             if capability not in declared_capabilities:
-                _fail(artifact, "unknown_vocabulary", f"mapping capability is not declared by profile artifact: {capability!r}", path=("mappings", mapping_id, "capabilities", index), related_id=capability)
+                _fail(artifact, "unknown_vocabulary", f"mapping capability is not declared by profile artifact: {capability!r}", path=("mappings", mapping_id, "capabilities", capability), related_id=capability)
             if capability.split(".", 1)[0] not in mapping_profiles:
-                _fail(artifact, "unknown_vocabulary", f"mapping capability is not scoped by a mapping profile: {capability!r}", path=("mappings", mapping_id, "capabilities", index), related_id=capability)
+                _fail(artifact, "unknown_vocabulary", f"mapping capability is not scoped by a mapping profile: {capability!r}", path=("mappings", mapping_id, "capabilities", capability), related_id=capability)
             mapping_capabilities.add(capability)
 
-        for projection_index, projection in enumerate(mapping.get("projections", [])):
-            prefix = ("mappings", mapping_id, "projections", projection_index)
+        for projection in _sorted_children(mapping.get("projections", []), "projection_id"):
+            projection_id = projection.get("projection_id")
+            prefix = ("mappings", mapping_id, "projections", projection_id)
             _require_vocab(projection.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
             _require_vocab(projection.get("semantic_role"), SEMANTIC_ROLES, artifact=artifact, path=prefix + ("semantic_role",), label="semantic role")
             _require_vocab(projection.get("profile_id"), PROFILE_IDS, artifact=artifact, path=prefix + ("profile_id",), label="profile")
@@ -348,7 +372,7 @@ def _validate_vocabulary(bundle: SemanticSourceBundle, indexes: SemanticIndexes)
             _require_vocab(projection.get("assessment"), PROJECTION_ASSESSMENTS, artifact=artifact, path=prefix + ("assessment",), label="projection assessment")
             routing = (projection.get("reference_kind"), projection.get("query_role"))
             if routing not in TARGET_ROUTING:
-                _fail(artifact, "invalid_reference_routing", f"invalid target routing pair: {routing!r}", path=prefix, related_id=projection.get("projection_id"))
+                _fail(artifact, "invalid_reference_routing", f"invalid target routing pair: {routing!r}", path=prefix, related_id=projection_id if type(projection_id) is str else None)
 
 
 def _validate_record_states(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
@@ -381,6 +405,36 @@ def _kind_role_allowed(formal_kind: str, semantic_role: str) -> bool:
     return False
 
 
+def _validate_declaration_role(
+    row: dict[str, Any],
+    *,
+    artifact: SemanticArtifact,
+    path: tuple[str | int, ...],
+    related_id: str | None,
+) -> None:
+    declaration = row.get("ontology_declaration_evidence")
+    if type(declaration) is not dict:
+        return
+    value_kind = declaration.get("value_kind")
+    semantic_role = row.get("semantic_role")
+    if semantic_role == "relation" and value_kind == "literal":
+        _fail(
+            artifact,
+            "kind_role_conflict",
+            "relation role conflicts with explicit literal-valued ontology declaration",
+            path=path + ("ontology_declaration_evidence", "value_kind"),
+            related_id=related_id,
+        )
+    if semantic_role == "attribute" and value_kind == "resource":
+        _fail(
+            artifact,
+            "kind_role_conflict",
+            "attribute role conflicts with explicit resource-valued ontology declaration",
+            path=path + ("ontology_declaration_evidence", "value_kind"),
+            related_id=related_id,
+        )
+
+
 def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
     candidate_required = {"candidate_id", "target", "reference_kind", "query_role", "formal_kind", "semantic_role", "profile_id", "capability_id", "assessment_candidate", "ontology_lock", "evidence"}
@@ -388,25 +442,26 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
     for mapping_id, mapping in indexes.mappings:
         mapping_profiles = set(mapping.get("profiles", []))
         mapping_capabilities = set(mapping.get("capabilities", []))
-        for projection_index, projection in enumerate(mapping.get("projections", [])):
-            prefix = ("mappings", mapping_id, "projections", projection_index)
+        for projection in _sorted_children(mapping.get("projections", []), "projection_id"):
             projection_id = projection.get("projection_id")
+            prefix = ("mappings", mapping_id, "projections", projection_id)
             if not _kind_role_allowed(projection.get("formal_kind"), projection.get("semantic_role")):
-                _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection_id)
+                _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection_id if type(projection_id) is str else None)
+            _validate_declaration_role(projection, artifact=artifact, path=prefix, related_id=projection_id if type(projection_id) is str else None)
             profile_id = projection.get("profile_id")
             capability_id = projection.get("capability_id")
             if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
-                _fail(artifact, "invalid_projection", "projection profile/capability must be declared by its mapping", path=prefix, related_id=projection_id)
+                _fail(artifact, "invalid_projection", "projection profile/capability must be declared by its mapping", path=prefix, related_id=projection_id if type(projection_id) is str else None)
             if type(capability_id) is not str or capability_id.split(".", 1)[0] != profile_id:
-                _fail(artifact, "invalid_projection", "projection capability must be scoped by projection profile", path=prefix + ("capability_id",), related_id=projection_id)
+                _fail(artifact, "invalid_projection", "projection capability must be scoped by projection profile", path=prefix + ("capability_id",), related_id=projection_id if type(projection_id) is str else None)
 
-        for candidate_index, candidate in enumerate(mapping.get("ambiguous_candidates", [])):
-            prefix = ("mappings", mapping_id, "ambiguous_candidates", candidate_index)
+        for candidate in _sorted_children(mapping.get("ambiguous_candidates", []), "candidate_id"):
+            candidate_id = candidate.get("candidate_id")
+            prefix = ("mappings", mapping_id, "ambiguous_candidates", candidate_id)
             missing = candidate_required - candidate.keys()
             illegal = candidate_forbidden & candidate.keys()
-            candidate_id = candidate.get("candidate_id")
             if missing or illegal:
-                _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(illegal)}", path=prefix, related_id=candidate_id)
+                _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(illegal)}", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             _require_vocab(candidate.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
             _require_vocab(candidate.get("semantic_role"), SEMANTIC_ROLES, artifact=artifact, path=prefix + ("semantic_role",), label="semantic role")
             _require_vocab(candidate.get("profile_id"), PROFILE_IDS, artifact=artifact, path=prefix + ("profile_id",), label="profile")
@@ -414,25 +469,28 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
             _require_vocab(candidate.get("assessment_candidate"), CANDIDATE_ASSESSMENTS, artifact=artifact, path=prefix + ("assessment_candidate",), label="candidate assessment")
             routing = (candidate.get("reference_kind"), candidate.get("query_role"))
             if routing not in TARGET_ROUTING:
-                _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate_id)
+                _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             if not _kind_role_allowed(candidate.get("formal_kind"), candidate.get("semantic_role")):
-                _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate_id)
+                _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
+            _validate_declaration_role(candidate, artifact=artifact, path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             profile_id = candidate.get("profile_id")
             capability_id = candidate.get("capability_id")
             if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
-                _fail(artifact, "invalid_candidate", "candidate profile/capability must be declared by its mapping", path=prefix, related_id=candidate_id)
+                _fail(artifact, "invalid_candidate", "candidate profile/capability must be declared by its mapping", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             if type(capability_id) is not str or capability_id.split(".", 1)[0] != profile_id:
-                _fail(artifact, "invalid_candidate", "candidate capability must be scoped by candidate profile", path=prefix + ("capability_id",), related_id=candidate_id)
+                _fail(artifact, "invalid_candidate", "candidate capability must be scoped by candidate profile", path=prefix + ("capability_id",), related_id=candidate_id if type(candidate_id) is str else None)
 
 
 def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
     locks = dict(indexes.ontology_locks)
     for mapping_id, mapping in indexes.mappings:
-        rows = [("projections", i, row) for i, row in enumerate(mapping.get("projections", []))]
-        rows += [("ambiguous_candidates", i, row) for i, row in enumerate(mapping.get("ambiguous_candidates", []))]
-        for collection, index, row in rows:
-            prefix = ("mappings", mapping_id, collection, index)
+        rows: list[tuple[str, str | None, dict[str, Any]]] = []
+        rows.extend(("projections", row.get("projection_id"), row) for row in _sorted_children(mapping.get("projections", []), "projection_id"))
+        rows.extend(("ambiguous_candidates", row.get("candidate_id"), row) for row in _sorted_children(mapping.get("ambiguous_candidates", []), "candidate_id"))
+        rows.sort(key=lambda item: _utf16_key(item[1]) if type(item[1]) is str else b"")
+        for collection, row_id, row in rows:
+            prefix = ("mappings", mapping_id, collection, row_id)
             lock_id = row.get("ontology_lock")
             if type(lock_id) is not str or lock_id not in locks:
                 _fail(artifact, "missing_reference", f"missing ontology lock: {lock_id!r}", path=prefix + ("ontology_lock",), related_id=lock_id if type(lock_id) is str else None)
@@ -469,24 +527,24 @@ def _validate_projection_bundle_requirements(
             active_profile_contracts = {item for item in value if type(item) is str}
 
     for mapping_id, mapping in indexes.mappings:
-        for projection_index, projection in enumerate(mapping.get("projections", [])):
+        for projection in _sorted_children(mapping.get("projections", []), "projection_id"):
             requirement = projection.get("ontology_bundle_requirement")
             if requirement is None:
                 continue
-            prefix = ("mappings", mapping_id, "projections", projection_index, "ontology_bundle_requirement")
             projection_id = projection.get("projection_id")
+            prefix = ("mappings", mapping_id, "projections", projection_id, "ontology_bundle_requirement")
             if type(requirement) is not dict:
-                _fail(artifact, "bundle_closure", "ontology bundle requirement must be an object", path=prefix, related_id=projection_id)
+                _fail(artifact, "bundle_closure", "ontology bundle requirement must be an object", path=prefix, related_id=projection_id if type(projection_id) is str else None)
             if set(requirement) != {"bundle_digest", "required_profile_contracts"}:
-                _fail(artifact, "bundle_closure", "ontology bundle requirement has incomplete or unknown fields", path=prefix, related_id=projection_id)
+                _fail(artifact, "bundle_closure", "ontology bundle requirement has incomplete or unknown fields", path=prefix, related_id=projection_id if type(projection_id) is str else None)
             if ontology_bundle_digest is None or requirement.get("bundle_digest") != ontology_bundle_digest:
-                _fail(artifact, "bundle_closure", "projection ontology bundle digest does not match validated active bundle", path=prefix + ("bundle_digest",), related_id=projection_id)
+                _fail(artifact, "bundle_closure", "projection ontology bundle digest does not match validated active bundle", path=prefix + ("bundle_digest",), related_id=projection_id if type(projection_id) is str else None)
             required_contracts = requirement.get("required_profile_contracts")
             if type(required_contracts) is not list or not required_contracts or any(type(item) is not str or not item for item in required_contracts):
-                _fail(artifact, "bundle_closure", "required_profile_contracts must be a non-empty string list", path=prefix + ("required_profile_contracts",), related_id=projection_id)
-            missing = [item for item in required_contracts if item not in active_profile_contracts]
+                _fail(artifact, "bundle_closure", "required_profile_contracts must be a non-empty string list", path=prefix + ("required_profile_contracts",), related_id=projection_id if type(projection_id) is str else None)
+            missing = [item for item in _sorted_strings(required_contracts) if item not in active_profile_contracts]
             if missing:
-                _fail(artifact, "bundle_closure", f"projection requires inactive profile contracts: {missing!r}", path=prefix + ("required_profile_contracts",), related_id=projection_id)
+                _fail(artifact, "bundle_closure", f"projection requires inactive profile contracts: {missing!r}", path=prefix + ("required_profile_contracts",), related_id=projection_id if type(projection_id) is str else None)
 
 
 def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
@@ -502,13 +560,13 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
         evidence_ids = review.get("evidence")
         if type(evidence_ids) is not list:
             fail("missing_reference", "review evidence must be a list", path + ("evidence",), None)
-        for index, evidence_id in enumerate(evidence_ids):
-            if type(evidence_id) is not str or evidence_id not in evidences:
+        for evidence_id in _sorted_strings(evidence_ids):
+            if evidence_id not in evidences:
                 fail(
                     "missing_reference",
                     f"missing review evidence: {evidence_id!r}",
-                    path + ("evidence", index),
-                    evidence_id if type(evidence_id) is str else None,
+                    path + ("evidence", evidence_id),
+                    evidence_id,
                 )
 
     for dependency_id, dependency in indexes.dependencies:
@@ -520,21 +578,15 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
         if mapping.get("evidence"):
             check_evidence_bindings(mapping["evidence"], evidences=evidences, path=("mappings", mapping_id, "evidence"), fail=fail)
         check_review_evidence(mapping.get("review"), path=("mappings", mapping_id, "review"))
-        for projection_index, projection in enumerate(mapping.get("projections", [])):
+        for projection in _sorted_children(mapping.get("projections", []), "projection_id"):
+            projection_id = projection.get("projection_id")
+            projection_path = ("mappings", mapping_id, "projections", projection_id)
             if projection.get("evidence"):
-                check_evidence_bindings(projection["evidence"], evidences=evidences, path=("mappings", mapping_id, "projections", projection_index, "evidence"), fail=fail)
-            check_review_evidence(
-                projection.get("review"),
-                path=("mappings", mapping_id, "projections", projection_index, "review"),
-            )
+                check_evidence_bindings(projection["evidence"], evidences=evidences, path=projection_path + ("evidence",), fail=fail)
+            check_review_evidence(projection.get("review"), path=projection_path + ("review",))
             approximation = projection.get("approximation")
             if type(approximation) is dict and approximation.get("evidence"):
-                check_evidence_bindings(approximation["evidence"], evidences=evidences, path=("mappings", mapping_id, "projections", projection_index, "approximation", "evidence"), fail=fail)
-        for reference_index, reference in enumerate(mapping.get("external_references", [])):
-            check_review_evidence(
-                reference.get("review"),
-                path=("mappings", mapping_id, "external_references", reference_index, "review"),
-            )
+                check_evidence_bindings(approximation["evidence"], evidences=evidences, path=projection_path + ("approximation", "evidence"), fail=fail)
 
     validate_child_evidence(indexes.mappings, evidences=evidences, fail=fail)
 
