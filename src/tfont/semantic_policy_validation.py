@@ -144,15 +144,15 @@ def _validate_external_reference(
     }
     leaked = sorted(forbidden_projection_fields & set(reference))
     if leaked:
-        fail("invalid_external_reference", f"external reference leaks target-projection fields: {', '.join(leaked)}", path, ref_id if type(ref_id) is str else None)
+        fail("invalid_reference_routing", f"external reference leaks target-projection fields: {', '.join(leaked)}", path, ref_id if type(ref_id) is str else None)
 
     external = reference.get("external")
     if not _nonempty_string(external):
-        fail("invalid_external_reference", "external reference requires a non-empty external value", path + ("external",), ref_id if type(ref_id) is str else None)
+        fail("invalid_reference_routing", "external reference requires a non-empty external value", path + ("external",), ref_id if type(ref_id) is str else None)
 
     if kind == "entity-identity":
         if not _nonempty_string(reference.get("authority_system")):
-            fail("invalid_external_reference", "entity identity requires authority_system", path + ("authority_system",), ref_id if type(ref_id) is str else None)
+            fail("invalid_reference_routing", "entity identity requires authority_system", path + ("authority_system",), ref_id if type(ref_id) is str else None)
         strength = reference.get("identity_strength")
         if type(strength) is not str or strength not in IDENTITY_STRENGTHS:
             fail("unknown_vocabulary", f"unknown identity strength: {strength!r}", path + ("identity_strength",), ref_id if type(ref_id) is str else None)
@@ -160,19 +160,19 @@ def _validate_external_reference(
         if relation is not None and not (relation == OWL_SAME_AS and strength == "same-entity"):
             fail("invalid_publication_relation", "entity identity publication is limited to owl:sameAs for same-entity", path + ("publication_relation",), ref_id if type(ref_id) is str else None)
         if role == "identity-filter" and type(reference.get("native_binding")) is not dict:
-            fail("invalid_external_reference", "identity-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
+            fail("invalid_reference_routing", "identity-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
 
     elif kind == "catalogue-identifier":
         if not _nonempty_string(reference.get("issuer_or_namespace")):
-            fail("invalid_external_reference", "catalogue identifier requires issuer_or_namespace", path + ("issuer_or_namespace",), ref_id if type(ref_id) is str else None)
+            fail("invalid_reference_routing", "catalogue identifier requires issuer_or_namespace", path + ("issuer_or_namespace",), ref_id if type(ref_id) is str else None)
         if type(reference.get("native_binding")) is not dict:
-            fail("invalid_external_reference", "identifier-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
+            fail("invalid_reference_routing", "identifier-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
         if reference.get("publication_relation") is not None:
             fail("invalid_publication_relation", "catalogue identifier has no v1 publication relation", path + ("publication_relation",), ref_id if type(ref_id) is str else None)
 
     elif kind == "provenance-source":
         if role == "metadata-filter" and type(reference.get("native_binding")) is not dict:
-            fail("invalid_external_reference", "metadata-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
+            fail("invalid_reference_routing", "metadata-filter requires reviewed native_binding", path + ("native_binding",), ref_id if type(ref_id) is str else None)
         if reference.get("publication_relation") is not None:
             fail("invalid_publication_relation", "provenance source has no v1 publication relation", path + ("publication_relation",), ref_id if type(ref_id) is str else None)
 
