@@ -41,6 +41,34 @@ class I004DeterminismRedTests(unittest.TestCase):
         self.assertEqual(authored_a_first.related_id, "projection:a")
         self.assertEqual(authored_z_first.message, authored_a_first.message)
 
+    def required_components_problem(self, ordered: list[str]):
+        sources = base_sources()
+        sources["profile"]["required_components"] = ordered
+        return self.first_problem(sources)
+
+    def test_required_component_first_error_is_canonical_not_authored(self):
+        z_first = self.required_components_problem(["missing:z", "missing:a"])
+        a_first = self.required_components_problem(["missing:a", "missing:z"])
+        self.assertEqual(z_first.category, "component_authority")
+        self.assertEqual(a_first.category, "component_authority")
+        self.assertEqual(z_first.related_id, "missing:a")
+        self.assertEqual(a_first.related_id, "missing:a")
+        self.assertEqual(z_first.message, a_first.message)
+
+    def missing_dependencies_problem(self, ordered: list[str]):
+        sources = base_sources()
+        sources["mappings"]["mappings"][0]["native_dependencies"] = ordered
+        return self.first_problem(sources)
+
+    def test_missing_dependency_first_error_is_canonical_not_authored(self):
+        z_first = self.missing_dependencies_problem(["dep:missing-z", "dep:missing-a"])
+        a_first = self.missing_dependencies_problem(["dep:missing-a", "dep:missing-z"])
+        self.assertEqual(z_first.category, "missing_reference")
+        self.assertEqual(a_first.category, "missing_reference")
+        self.assertEqual(z_first.related_id, "dep:missing-a")
+        self.assertEqual(a_first.related_id, "dep:missing-a")
+        self.assertEqual(z_first.message, a_first.message)
+
 
 if __name__ == "__main__":
     unittest.main()
