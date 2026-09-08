@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .parent_identity import parent_manifest_digest
+from .semantic_child_validation import validate_child_semantics
 from .semantic_digest_v2 import mapping_semantic_digest_v2
 from .semantic_policy_validation import validate_mapping_policies
 from .semantic_vocabulary import (
@@ -131,15 +132,21 @@ def _build_indexes(bundle: SemanticSourceBundle) -> SemanticIndexes:
 
     components = _index_records(
         _sequence(parent.data.get("components"), artifact=parent, path=("components",)),
-        "component_id", artifact=parent, path_prefix=("components",),
+        "component_id",
+        artifact=parent,
+        path_prefix=("components",),
     )
     dependencies = _index_records(
         _sequence(profile.data.get("dependencies"), artifact=profile, path=("dependencies",)),
-        "dependency_id", artifact=profile, path_prefix=("dependencies",),
+        "dependency_id",
+        artifact=profile,
+        path_prefix=("dependencies",),
     )
     mappings = _index_records(
         _sequence(mappings_artifact.data.get("mappings"), artifact=mappings_artifact, path=("mappings",)),
-        "mapping_id", artifact=mappings_artifact, path_prefix=("mappings",),
+        "mapping_id",
+        artifact=mappings_artifact,
+        path_prefix=("mappings",),
     )
 
     projections_raw: list[dict[str, Any]] = []
@@ -154,19 +161,21 @@ def _build_indexes(bundle: SemanticSourceBundle) -> SemanticIndexes:
     candidates = _index_records(candidates_raw, "candidate_id", artifact=mappings_artifact, path_prefix=("ambiguous_candidates",)) if candidates_raw else ()
     references = _index_records(references_raw, "reference_id", artifact=mappings_artifact, path_prefix=("external_references",)) if references_raw else ()
 
-    locks_raw = [artifact.data for artifact in bundle.ontology_locks]
+    lock_records = [artifact.data for artifact in bundle.ontology_locks]
     ontology_locks = _index_records(
-        locks_raw, "lock_id",
+        lock_records,
+        "lock_id",
         artifact=bundle.ontology_locks[0] if bundle.ontology_locks else SemanticArtifact("ontology-lock", "<none>", {}),
         path_prefix=("ontology_locks",),
-    ) if locks_raw else ()
+    ) if lock_records else ()
 
-    evidence_raw = [artifact.data for artifact in bundle.evidences]
+    evidence_records = [artifact.data for artifact in bundle.evidences]
     evidences = _index_records(
-        evidence_raw, "evidence_id",
+        evidence_records,
+        "evidence_id",
         artifact=bundle.evidences[0] if bundle.evidences else SemanticArtifact("evidence", "<none>", {}),
         path_prefix=("evidences",),
-    ) if evidence_raw else ()
+    ) if evidence_records else ()
 
     return SemanticIndexes(
         components=components,
@@ -180,7 +189,14 @@ def _build_indexes(bundle: SemanticSourceBundle) -> SemanticIndexes:
     )
 
 
-def _require_vocab(value: Any, allowed: frozenset[str], *, artifact: SemanticArtifact, path: tuple[str | int, ...], label: str) -> str:
+def _require_vocab(
+    value: Any,
+    allowed: frozenset[str],
+    *,
+    artifact: SemanticArtifact,
+    path: tuple[str | int, ...],
+    label: str,
+) -> str:
     if type(value) is not str or value not in allowed:
         _fail(artifact, "unknown_vocabulary", f"unknown {label}: {value!r}", path=path)
     return value
@@ -257,28 +273,49 @@ def _kind_role_allowed(formal_kind: str, semantic_role: str) -> bool:
         return semantic_role in {"annotation-value", "lexical-concept-identity", "authority-reference"}
     if formal_kind == "named-resource":
         return semantic_role in {
-            "lexical-entry-identity", "lexical-form-identity", "lexical-sense-identity",
-            "lexical-concept-identity", "authority-reference", "claim-proposition", "inference-activity",
+            "lexical-entry-identity",
+            "lexical-form-identity",
+            "lexical-sense-identity",
+            "lexical-concept-identity",
+            "authority-reference",
+            "claim-proposition",
+            "inference-activity",
         }
     return False
 
 
 def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
-    required = {
-        "candidate_id", "target", "reference_kind", "query_role", "formal_kind", "semantic_role",
-        "profile_id", "capability_id", "assessment_candidate", "ontology_lock", "evidence",
+    candidate_required = {
+        "candidate_id",
+        "target",
+        "reference_kind",
+        "query_role",
+        "formal_kind",
+        "semantic_role",
+        "profile_id",
+        "capability_id",
+        "assessment_candidate",
+        "ontology_lock",
+        "evidence",
     }
-    forbidden = {"native_execution_binding", "approximation", "publication_relation", "review", "projection_semantic_digest"}
+    candidate_forbidden = {
+        "native_execution_binding",
+        "approximation",
+        "publication_relation",
+        "review",
+        "projection_semantic_digest",
+    }
     for mapping_id, mapping in indexes.mappings:
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             prefix = ("mappings", mapping_id, "projections", projection_index)
             if not _kind_role_allowed(projection.get("formal_kind"), projection.get("semantic_role")):
                 _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection.get("projection_id"))
+
         for candidate_index, candidate in enumerate(mapping.get("ambiguous_candidates", [])):
             prefix = ("mappings", mapping_id, "ambiguous_candidates", candidate_index)
-            missing = required - candidate.keys()
-            illegal = forbidden & candidate.keys()
+            missing = candidate_required - candidate.keys()
+            illegal = candidate_forbidden & candidate.keys()
             if missing or illegal:
                 _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(illegal)}", path=prefix, related_id=candidate.get("candidate_id"))
             _require_vocab(candidate.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
@@ -309,15 +346,6 @@ def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexe
                 _fail(artifact, "unknown_ontology_target", f"target not present in lock terms_used: {target!r}", path=prefix + ("target",), related_id=target if type(target) is str else None)
 
 
-def _validate_policies(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
-    artifact = bundle.mappings
-
-    def fail(category: str, message: str, path: tuple[str | int, ...], related_id: str | None) -> None:
-        _fail(artifact, category, message, path=path, related_id=related_id)
-
-    validate_mapping_policies(indexes.mappings, fail=fail)
-
-
 def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
     evidences = dict(indexes.evidences)
@@ -332,8 +360,7 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
             evidence_id = binding.get("evidence_id")
             if type(evidence_id) is not str or evidence_id not in evidences:
                 _fail(artifact, "missing_reference", f"missing evidence: {evidence_id!r}", path=item_path + ("evidence_id",), related_id=evidence_id if type(evidence_id) is str else None)
-            content_digest = binding.get("content_digest")
-            if content_digest != evidences[evidence_id].get("content_digest"):
+            if binding.get("content_digest") != evidences[evidence_id].get("content_digest"):
                 _fail(artifact, "evidence_digest_mismatch", f"evidence digest mismatch: {evidence_id}", path=item_path + ("content_digest",), related_id=evidence_id)
 
     for mapping_id, mapping in indexes.mappings:
@@ -342,6 +369,20 @@ def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticI
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             if projection.get("evidence"):
                 check(projection["evidence"], ("mappings", mapping_id, "projections", projection_index, "evidence"))
+
+
+def _compose_child_semantics(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+
+    def fail(category: str, message: str, path: tuple[str | int, ...], related_id: str | None) -> None:
+        _fail(artifact, category, message, path=path, related_id=related_id)
+
+    validate_child_semantics(
+        indexes.mappings,
+        dependencies=dict(indexes.dependencies),
+        evidences=dict(indexes.evidences),
+        fail=fail,
+    )
 
 
 def _validate_mapping_digests_and_reviews(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> tuple[tuple[str, str], ...]:
@@ -361,6 +402,15 @@ def _validate_mapping_digests_and_reviews(bundle: SemanticSourceBundle, indexes:
     return tuple(sorted(result, key=lambda item: _utf16_key(item[0])))
 
 
+def _validate_policies(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+
+    def fail(category: str, message: str, path: tuple[str | int, ...], related_id: str | None) -> None:
+        _fail(artifact, category, message, path=path, related_id=related_id)
+
+    validate_mapping_policies(indexes.mappings, fail=fail)
+
+
 def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticBundle:
     if not isinstance(bundle, SemanticSourceBundle):
         raise TypeError("bundle must be SemanticSourceBundle")
@@ -372,9 +422,10 @@ def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticB
     _validate_record_states(bundle, indexes)
     _validate_projection_and_candidate_legality(bundle, indexes)
     _validate_target_locks(bundle, indexes)
-    _validate_policies(bundle, indexes)
     _validate_evidence_bindings(bundle, indexes)
+    _compose_child_semantics(bundle, indexes)
     mapping_digests = _validate_mapping_digests_and_reviews(bundle, indexes)
+    _validate_policies(bundle, indexes)
 
     return ValidatedSemanticBundle(
         bundle=bundle,
