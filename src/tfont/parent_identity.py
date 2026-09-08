@@ -43,8 +43,9 @@ def _reject_directory_shaped_file_path(path: str) -> None:
     if path and path[-1] in separators:
         _fail("wrong_path_type", "exact file path must not end in directory syntax", path)
     last_separator = max((path.rfind(separator) for separator in separators), default=-1)
-    if path[last_separator + 1 :] == ".":
-        _fail("wrong_path_type", "exact file path must not end in directory syntax", path)
+    final_component = path[last_separator + 1 :]
+    if final_component == "." or final_component.endswith((".", " ")):
+        _fail("wrong_path_type", "exact file path has a non-portable terminal spelling", path)
 
 
 def _strip_terminal_separators(path: str) -> str:
