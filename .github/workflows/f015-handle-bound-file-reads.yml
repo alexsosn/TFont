@@ -1,0 +1,48 @@
+name: F-015 handle-bound file reads
+
+on:
+  push:
+    branches:
+      - research/f-015-file-id-reliability
+  pull_request:
+    paths:
+      - src/tfont/parent_identity.py
+      - tests/f015/**
+      - tests/f012/**
+      - tests/f014/**
+      - tests/i003/**
+      - docs/research/F-015-file-id-reliability.md
+      - docs/plans/F-015-file-id-reliability-plan.md
+      - .github/workflows/f015-handle-bound-file-reads.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  handle-bound-file-reads:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+        python-version: ['3.10', '3.12']
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: python -m pip install -e .
+      - name: F-015 focused RED/GREEN contract
+        run: python -m unittest discover -s tests/f015 -v
+      - name: F-012 regressions
+        run: python -m unittest discover -s tests/f012 -v
+      - name: F-014 regressions
+        run: python -m unittest discover -s tests/f014 -v
+      - name: I-003 regressions
+        run: python -m unittest discover -s tests/i003 -v
