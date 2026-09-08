@@ -38,6 +38,11 @@ class ExactFileSpellingTests(unittest.TestCase):
         self.assert_wrong_path_before_lstat("component.bin..")
         self.assert_wrong_path_before_lstat("component.bin. ")
 
+    def test_win32_ambiguous_ancestor_components_are_rejected_portably(self):
+        self.assert_wrong_path_before_lstat("directory." + os.sep + "component.bin")
+        self.assert_wrong_path_before_lstat("directory " + os.sep + "component.bin")
+        self.assert_wrong_path_before_lstat("outer" + os.sep + "directory." + os.sep + "component.bin")
+
     def test_leading_and_internal_dots_remain_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
