@@ -226,10 +226,11 @@
         {
           "if": {"properties": {"native_state": {"const": "positive"}}, "required": ["native_state"]},
           "then": {
-            "properties": {
-              "projections": {"minItems": 1},
-              "ambiguous_candidates": {"maxItems": 0}
-            }
+            "properties": {"ambiguous_candidates": {"maxItems": 0}},
+            "anyOf": [
+              {"properties": {"projections": {"minItems": 1}}},
+              {"properties": {"external_references": {"minItems": 1}}}
+            ]
           }
         },
         {
