@@ -62,14 +62,14 @@ class I004Phase5Tests(unittest.TestCase):
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         bind_projection_review(projection)
         projection["assessment"] = "close"
-        self.assert_problem("semantic_digest_mismatch", sources)
+        self.assert_problem("stale_semantic_digest", sources)
 
     def test_projection_review_must_bind_projection_digest(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         bind_projection_review(projection)
         projection["review"]["reviewed_mapping_digest"] = "sha256:stale"
-        self.assert_problem("review_digest_mismatch", sources)
+        self.assert_problem("stale_review_binding", sources)
 
     def test_projection_audit_only_review_edit_keeps_digest_valid(self):
         sources = base_sources()
@@ -155,7 +155,7 @@ class I004Phase5Tests(unittest.TestCase):
             "feature": "gn",
             "value": "",
         }
-        self.assert_problem("semantic_digest_mismatch", sources)
+        self.assert_problem("stale_semantic_digest", sources)
 
     def test_semantic_empty_value_requires_matching_native_value_dependency(self):
         sources = base_sources()
