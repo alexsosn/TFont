@@ -111,15 +111,15 @@ Parent/component identity:
 ```python
 from tfont import directory_component_digest, parent_manifest_digest
 
-directory = directory_component_digest("path/to/materialized-corpus")
-manifest = parent_manifest_digest({
-    "schema_version": 1,
+directory_digest = directory_component_digest("path/to/materialized-corpus")
+manifest_digest = parent_manifest_digest({
+    "algorithm": "tfont-parent-components-sha256-v1",
     "components": [
         {
             "component_id": "corpus",
-            "component_type": "directory",
-            "algorithm": directory["algorithm"],
-            "digest": directory["digest"],
+            "kind": "directory",
+            "identity_algorithm": "tfont-directory-files-sha256-v1",
+            "content_digest": directory_digest,
         }
     ],
 })
@@ -141,7 +141,7 @@ These are target corpora for the interoperability work, not a claim that finishe
 
 - [`AGENTS.md`](AGENTS.md) defines the automated research/design/TDD/review development loop.
 - [`docs/plans/P-001-foundation-poc-design.md`](docs/plans/P-001-foundation-poc-design.md) is the accepted foundation POC design.
-- [`docs/plans/P-003-common-ontology-semantic-adapter-plan.md`](docs/plans/P-003-common-ontology-semantic-adapter-plan.md) defines the accepted common ontology semantic-adapter architecture.
+- [`docs/plans/P-003-common-ontology-semantic-adapter.md`](docs/plans/P-003-common-ontology-semantic-adapter.md) defines the accepted common ontology semantic-adapter architecture.
 - [`docs/research/`](docs/research/) contains the research record.
 - [`docs/plans/`](docs/plans/) contains accepted and active implementation plans.
 - [GitHub Issues](https://github.com/alexsosn/TFont/issues) tracks implementation and follow-up work.
