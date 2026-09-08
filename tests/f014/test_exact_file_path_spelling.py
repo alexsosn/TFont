@@ -32,10 +32,16 @@ class ExactFileSpellingTests(unittest.TestCase):
         self.assert_wrong_path_before_lstat("component.bin" + os.sep + "." + os.sep)
         self.assert_wrong_path_before_lstat("component.bin" + os.sep + "." + os.sep * 2)
 
-    def test_ordinary_dotted_file_names_are_not_lexically_rejected(self):
+    def test_win32_ambiguous_trailing_period_and_space_are_rejected_portably(self):
+        self.assert_wrong_path_before_lstat("component.bin.")
+        self.assert_wrong_path_before_lstat("component.bin ")
+        self.assert_wrong_path_before_lstat("component.bin..")
+        self.assert_wrong_path_before_lstat("component.bin. ")
+
+    def test_leading_and_internal_dots_remain_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            for name in ("a.", ".hidden", "a.b"):
+            for name in (".hidden", "a.b"):
                 path = base / name
                 path.write_bytes(b"alpha\n")
                 self.assertEqual(file_component_digest(path), FILE_ALPHA_DIGEST)
