@@ -1,0 +1,43 @@
+name: P-002 I-004 source contract
+
+on:
+  push:
+    branches:
+      - design/p-002-i004-source-contract
+    paths:
+      - src/tfont/schemas/profile.schema.json
+      - tests/p002/**
+      - tests/i001/**
+      - tests/i002/**
+      - tests/packaging/test_wheel_schema_resources.py
+      - docs/research/P-002-i004-source-contract-amendment.md
+      - docs/plans/P-002-i004-source-contract-amendment.md
+      - .github/workflows/p002-i004-source-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package and packaging test tool
+        run: python -m pip install -e . build
+      - name: Focused P-002 tests
+        run: python -m unittest discover -s tests/p002 -v
+      - name: I-001 source/schema regressions
+        run: python -m unittest discover -s tests/i001 -v
+      - name: I-002 digest regressions
+        run: python -m unittest discover -s tests/i002 -v
+      - name: Wheel schema resource regression
+        run: python -m unittest tests.packaging.test_wheel_schema_resources -v
+      - name: Full suite
+        run: python -m unittest discover -s tests -v
