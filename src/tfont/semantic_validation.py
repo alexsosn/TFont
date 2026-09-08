@@ -24,6 +24,11 @@ from .semantic_vocabulary import (
     TARGET_ROUTING,
 )
 
+_PROFILE_SCHEMA_VERSION = 2
+_MAPPING_SCHEMA_VERSION = 2
+_DEPENDENCY_CONTRACT_VERSION = 1
+_PROFILE_CATALOG_VERSION = 1
+
 
 @dataclass(frozen=True)
 class SemanticArtifact:
@@ -104,6 +109,40 @@ def _fail(
 
 def _utf16_key(value: str) -> bytes:
     return value.encode("utf-16be")
+
+
+def _validate_contract_versions(bundle: SemanticSourceBundle) -> None:
+    checks = (
+        (bundle.profile, ("schema_version",), bundle.profile.data.get("schema_version"), _PROFILE_SCHEMA_VERSION, "profile schema_version"),
+        (bundle.profile, ("dependency_contract_version",), bundle.profile.data.get("dependency_contract_version"), _DEPENDENCY_CONTRACT_VERSION, "dependency contract version"),
+        (bundle.profile, ("profile_catalog_version",), bundle.profile.data.get("profile_catalog_version"), _PROFILE_CATALOG_VERSION, "profile catalog version"),
+        (bundle.mappings, ("schema_version",), bundle.mappings.data.get("schema_version"), _MAPPING_SCHEMA_VERSION, "mapping schema_version"),
+    )
+    for artifact, path, value, expected, label in checks:
+        if type(value) is not int or value != expected:
+            _fail(
+                artifact,
+                "unsupported_contract_version",
+                f"{label} must be exact integer {expected}",
+                path=path,
+            )
+
+    # Reserved artifact slots must never be silently ignored. Their standalone
+    # schemas/version semantics are not part of the I-004 v1 production slice.
+    if bundle.profile_catalog is not None:
+        _fail(
+            bundle.profile_catalog,
+            "unsupported_contract_version",
+            "standalone profile_catalog artifacts are not supported by I-004 v1; use profile_catalog_version plus inline controlled declarations",
+            path=("profile_catalog",),
+        )
+    if bundle.reference_catalog is not None:
+        _fail(
+            bundle.reference_catalog,
+            "unsupported_contract_version",
+            "standalone reference_catalog artifacts are not supported by I-004 v1; reference vocabulary is frozen by the v1 contract",
+            path=("reference_catalog",),
+        )
 
 
 def _sequence(value: Any, *, artifact: SemanticArtifact, path: tuple[str | int, ...]) -> list[Any]:
@@ -247,12 +286,44 @@ def _validate_dependency_closure_and_mapping_scope(bundle: SemanticSourceBundle,
 
 def _validate_vocabulary(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
+    profile_artifact = bundle.profile
+
+    declared_profiles_value = profile_artifact.data.get("profiles")
+    if type(declared_profiles_value) is not list or not declared_profiles_value:
+        _fail(profile_artifact, "unknown_vocabulary", "profile catalog declarations require a non-empty profiles list", path=("profiles",))
+    declared_capabilities_value = profile_artifact.data.get("capabilities")
+    if type(declared_capabilities_value) is not list or not declared_capabilities_value:
+        _fail(profile_artifact, "unknown_vocabulary", "profile catalog declarations require a non-empty capabilities list", path=("capabilities",))
+
+    declared_profiles: set[str] = set()
+    for index, profile_id in enumerate(declared_profiles_value):
+        declared_profiles.add(_require_vocab(profile_id, PROFILE_IDS, artifact=profile_artifact, path=("profiles", index), label="profile"))
+
+    declared_capabilities: set[str] = set()
+    for index, capability_id in enumerate(declared_capabilities_value):
+        capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=profile_artifact, path=("capabilities", index), label="capability")
+        capability_profile = capability.split(".", 1)[0]
+        if capability_profile not in declared_profiles:
+            _fail(profile_artifact, "unknown_vocabulary", f"capability {capability!r} is not scoped by a declared profile", path=("capabilities", index), related_id=capability)
+        declared_capabilities.add(capability)
+
     for mapping_id, mapping in indexes.mappings:
-        _require_vocab(mapping.get("native_state"), NATIVE_STATES, artifact=artifact, path=("mappings", mapping_id, "native_state"), label="native state")
+        mapping_profiles: set[str] = set()
         for index, profile_id in enumerate(mapping.get("profiles", [])):
-            _require_vocab(profile_id, PROFILE_IDS, artifact=artifact, path=("mappings", mapping_id, "profiles", index), label="profile")
+            profile = _require_vocab(profile_id, PROFILE_IDS, artifact=artifact, path=("mappings", mapping_id, "profiles", index), label="profile")
+            if profile not in declared_profiles:
+                _fail(artifact, "unknown_vocabulary", f"mapping profile is not declared by profile artifact: {profile!r}", path=("mappings", mapping_id, "profiles", index), related_id=profile)
+            mapping_profiles.add(profile)
+
+        mapping_capabilities: set[str] = set()
         for index, capability_id in enumerate(mapping.get("capabilities", [])):
-            _require_vocab(capability_id, CAPABILITY_IDS, artifact=artifact, path=("mappings", mapping_id, "capabilities", index), label="capability")
+            capability = _require_vocab(capability_id, CAPABILITY_IDS, artifact=artifact, path=("mappings", mapping_id, "capabilities", index), label="capability")
+            if capability not in declared_capabilities:
+                _fail(artifact, "unknown_vocabulary", f"mapping capability is not declared by profile artifact: {capability!r}", path=("mappings", mapping_id, "capabilities", index), related_id=capability)
+            if capability.split(".", 1)[0] not in mapping_profiles:
+                _fail(artifact, "unknown_vocabulary", f"mapping capability is not scoped by a mapping profile: {capability!r}", path=("mappings", mapping_id, "capabilities", index), related_id=capability)
+            mapping_capabilities.add(capability)
+
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             prefix = ("mappings", mapping_id, "projections", projection_index)
             _require_vocab(projection.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
@@ -300,16 +371,27 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
     candidate_required = {"candidate_id", "target", "reference_kind", "query_role", "formal_kind", "semantic_role", "profile_id", "capability_id", "assessment_candidate", "ontology_lock", "evidence"}
     candidate_forbidden = {"native_execution_binding", "approximation", "publication_relation", "review", "projection_semantic_digest"}
     for mapping_id, mapping in indexes.mappings:
+        mapping_profiles = set(mapping.get("profiles", []))
+        mapping_capabilities = set(mapping.get("capabilities", []))
         for projection_index, projection in enumerate(mapping.get("projections", [])):
             prefix = ("mappings", mapping_id, "projections", projection_index)
+            projection_id = projection.get("projection_id")
             if not _kind_role_allowed(projection.get("formal_kind"), projection.get("semantic_role")):
-                _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection.get("projection_id"))
+                _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection_id)
+            profile_id = projection.get("profile_id")
+            capability_id = projection.get("capability_id")
+            if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
+                _fail(artifact, "invalid_projection", "projection profile/capability must be declared by its mapping", path=prefix, related_id=projection_id)
+            if type(capability_id) is not str or capability_id.split(".", 1)[0] != profile_id:
+                _fail(artifact, "invalid_projection", "projection capability must be scoped by projection profile", path=prefix + ("capability_id",), related_id=projection_id)
+
         for candidate_index, candidate in enumerate(mapping.get("ambiguous_candidates", [])):
             prefix = ("mappings", mapping_id, "ambiguous_candidates", candidate_index)
             missing = candidate_required - candidate.keys()
             illegal = candidate_forbidden & candidate.keys()
+            candidate_id = candidate.get("candidate_id")
             if missing or illegal:
-                _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(illegal)}", path=prefix, related_id=candidate.get("candidate_id"))
+                _fail(artifact, "invalid_candidate", f"invalid candidate envelope; missing={sorted(missing)}, forbidden={sorted(illegal)}", path=prefix, related_id=candidate_id)
             _require_vocab(candidate.get("formal_kind"), FORMAL_KINDS, artifact=artifact, path=prefix + ("formal_kind",), label="formal kind")
             _require_vocab(candidate.get("semantic_role"), SEMANTIC_ROLES, artifact=artifact, path=prefix + ("semantic_role",), label="semantic role")
             _require_vocab(candidate.get("profile_id"), PROFILE_IDS, artifact=artifact, path=prefix + ("profile_id",), label="profile")
@@ -317,9 +399,15 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
             _require_vocab(candidate.get("assessment_candidate"), CANDIDATE_ASSESSMENTS, artifact=artifact, path=prefix + ("assessment_candidate",), label="candidate assessment")
             routing = (candidate.get("reference_kind"), candidate.get("query_role"))
             if routing not in TARGET_ROUTING:
-                _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate.get("candidate_id"))
+                _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate_id)
             if not _kind_role_allowed(candidate.get("formal_kind"), candidate.get("semantic_role")):
-                _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate.get("candidate_id"))
+                _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate_id)
+            profile_id = candidate.get("profile_id")
+            capability_id = candidate.get("capability_id")
+            if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
+                _fail(artifact, "invalid_candidate", "candidate profile/capability must be declared by its mapping", path=prefix, related_id=candidate_id)
+            if type(capability_id) is not str or capability_id.split(".", 1)[0] != profile_id:
+                _fail(artifact, "invalid_candidate", "candidate capability must be scoped by candidate profile", path=prefix + ("capability_id",), related_id=candidate_id)
 
 
 def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
@@ -351,6 +439,39 @@ def _validate_bundle_source(bundle: SemanticSourceBundle, indexes: SemanticIndex
         evidences=dict(indexes.evidences),
         fail=fail,
     )
+
+
+def _validate_projection_bundle_requirements(
+    bundle: SemanticSourceBundle,
+    indexes: SemanticIndexes,
+    ontology_bundle_digest: str | None,
+) -> None:
+    artifact = bundle.mappings
+    active_profile_contracts = set()
+    if bundle.ontology_bundle is not None:
+        value = bundle.ontology_bundle.data.get("profile_contracts", [])
+        if type(value) is list:
+            active_profile_contracts = {item for item in value if type(item) is str}
+
+    for mapping_id, mapping in indexes.mappings:
+        for projection_index, projection in enumerate(mapping.get("projections", [])):
+            requirement = projection.get("ontology_bundle_requirement")
+            if requirement is None:
+                continue
+            prefix = ("mappings", mapping_id, "projections", projection_index, "ontology_bundle_requirement")
+            projection_id = projection.get("projection_id")
+            if type(requirement) is not dict:
+                _fail(artifact, "bundle_closure", "ontology bundle requirement must be an object", path=prefix, related_id=projection_id)
+            if set(requirement) != {"bundle_digest", "required_profile_contracts"}:
+                _fail(artifact, "bundle_closure", "ontology bundle requirement has incomplete or unknown fields", path=prefix, related_id=projection_id)
+            if ontology_bundle_digest is None or requirement.get("bundle_digest") != ontology_bundle_digest:
+                _fail(artifact, "bundle_closure", "projection ontology bundle digest does not match validated active bundle", path=prefix + ("bundle_digest",), related_id=projection_id)
+            required_contracts = requirement.get("required_profile_contracts")
+            if type(required_contracts) is not list or not required_contracts or any(type(item) is not str or not item for item in required_contracts):
+                _fail(artifact, "bundle_closure", "required_profile_contracts must be a non-empty string list", path=prefix + ("required_profile_contracts",), related_id=projection_id)
+            missing = [item for item in required_contracts if item not in active_profile_contracts]
+            if missing:
+                _fail(artifact, "bundle_closure", f"projection requires inactive profile contracts: {missing!r}", path=prefix + ("required_profile_contracts",), related_id=projection_id)
 
 
 def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
@@ -422,6 +543,7 @@ def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticB
     if not isinstance(bundle, SemanticSourceBundle):
         raise TypeError("bundle must be SemanticSourceBundle")
 
+    _validate_contract_versions(bundle)
     indexes = _build_indexes(bundle)
     _validate_component_authority(bundle, indexes)
     _validate_dependency_closure_and_mapping_scope(bundle, indexes)
@@ -430,6 +552,7 @@ def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticB
     _validate_projection_and_candidate_legality(bundle, indexes)
     _validate_target_locks(bundle, indexes)
     ontology_bundle_digest = _validate_bundle_source(bundle, indexes)
+    _validate_projection_bundle_requirements(bundle, indexes, ontology_bundle_digest)
     _validate_evidence_bindings(bundle, indexes)
     mapping_digests = _validate_digests_and_reviews(bundle, indexes)
     _validate_native_semantics(bundle, indexes)
