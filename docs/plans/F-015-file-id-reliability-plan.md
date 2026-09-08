@@ -151,6 +151,13 @@ For each standalone, recursive-directory, or direct `.tf` file:
 
 If the pathname is renamed/replaced after step 3, later digest reads still consume the already-open inspected object.
 
+The test contract must distinguish two link cases:
+
+- **pre-existing link compatibility control** — current pre-open inspection may reject before the trusted opener runs;
+- **trusted-opener proof** — begin with an expected regular-file stat, replace the final pathname with a link/reparse point before step 3, and prove the trusted opener itself rejects that replacement with zero digest reads.
+
+The first case does not count as evidence for the new no-follow opener.
+
 ## 7. RED sequence
 
 Production code must not change until deterministic tests have been committed and observed RED.
@@ -161,11 +168,12 @@ On Ubuntu/POSIX, pin:
 
 1. trusted opener uses an actual no-follow descriptor path;
 2. simulated missing `O_NOFOLLOW` fails `filesystem_error` and reads zero bytes;
-3. final symlink remains `symlink_not_allowed` and reads zero bytes;
-4. regular-file expected/opened mismatch remains `filesystem_error` before read;
-5. replacing/renaming the pathname immediately after trusted descriptor acquisition does not redirect bytes; digest equals the originally opened object;
-6. no second pathname open occurs after descriptor acquisition;
-7. no `os.read` before final-object/type/mismatch authorization.
+3. **trusted-opener link race:** obtain expected stat from an ordinary regular file, replace the final pathname with a symlink before trusted acquisition, then assert the opener path returns `symlink_not_allowed` and zero `os.read` calls;
+4. keep a separate pre-existing-symlink compatibility control, but do not count it as proof of the opener;
+5. regular-file expected/opened mismatch remains `filesystem_error` before read;
+6. replacing/renaming the pathname immediately after trusted descriptor acquisition does not redirect bytes; digest equals the originally opened object;
+7. no second pathname open occurs after descriptor acquisition;
+8. no `os.read` before final-object/type/mismatch authorization.
 
 Use deterministic monkeypatch/seams, not sleep/timing races.
 
@@ -178,7 +186,9 @@ On actual Windows runners, pin at minimum:
 3. descriptor is binary before bytes are consumed;
 4. pathname replacement after trusted acquisition cannot redirect descriptor reads;
 5. F-012 ordinary replacement mismatch remains fail-closed;
-6. final reparse/link rejection is tested on a real reparse object where runner permissions support deterministic creation; if runner policy prevents creation, keep a focused mocked reparse-classification test **in addition to**, not instead of, real handle-conversion tests.
+6. **trusted-opener reparse race:** start from an expected ordinary file, replace the final pathname with a real symlink/reparse point before `CreateFileW`, and prove the Win32 opener itself returns `symlink_not_allowed` with zero digest reads when runner permissions allow deterministic reparse creation;
+7. if runner policy prevents real reparse creation, keep a focused mocked post-inspection reparse-classification test **in addition to**, not instead of, real normal-file handle-conversion tests;
+8. retain a separate pre-existing-link compatibility control without treating it as proof of `FILE_FLAG_OPEN_REPARSE_POINT` behavior.
 
 ### RED-C — ownership and failure matrix
 
@@ -233,7 +243,7 @@ After GREEN CI, perform a new exact-head adversarial review that does not rely o
 - accidental pathname reopen after trusted acquisition;
 - use of tuple equality as authorization;
 - read-before-inspection ordering;
-- final-link/reparse classification;
+- final-link/reparse classification including a replacement after expected stat;
 - Windows ctypes handle-width/last-error ABI;
 - raw-handle/descriptor double-close or leak paths;
 - binary-mode placement;
@@ -250,6 +260,7 @@ F-015 is complete only when:
 
 - trusted-open inspection and digest reads are bound to one retained descriptor/handle;
 - ordinary F-012 mismatch detection is retained but equality is never described or used as proof;
+- trusted-opener link/reparse replacement tests demonstrate the no-follow boundary rather than relying only on pre-open rejection;
 - supported Linux/Windows matrix passes on exact head;
 - fixed digests and public categories remain compatible;
 - documentation states the residual pre-open pathname and in-place-mutation boundaries;
