@@ -4,7 +4,7 @@ import copy
 import hashlib
 import unittest
 
-from tfont.digests import canonical_json_bytes
+from tfont.digests import canonical_json_bytes, evidence_record_digest
 from tfont.semantic_validation import (
     SemanticArtifact,
     SemanticSourceBundle,
@@ -36,6 +36,20 @@ def bridge_digest(bridge: dict) -> str:
     return "sha256:" + hashlib.sha256(canonical_json_bytes(projected)).hexdigest()
 
 
+def evidence_record() -> dict:
+    record = {
+        "evidence_id": "evidence:bridge",
+        "kind": "ontology-definition",
+        "source_uri": "https://example.org/bridge-evidence",
+        "source_revision": "reviewed-rev",
+        "content_mode": "normalized-record",
+        "reviewed_content": {"statement": "reviewed bridge continuity evidence"},
+        "content_digest": "placeholder",
+    }
+    record["content_digest"] = evidence_record_digest(record)
+    return record
+
+
 def lock(lock_id: str, release: str, term: str, digest_char: str) -> dict:
     return {
         "lock_id": lock_id,
@@ -55,6 +69,7 @@ def bundle_sources(with_bridge: bool = False) -> dict:
     source_lock = lock("lock:old", "1.0", "old:F28", "a")
     target_lock = lock("lock:new", "2.0", "new:F28", "b")
     sources["locks"] = [*sources["locks"], source_lock, target_lock]
+    sources["evidences"] = []
 
     bundle = {
         "schema_version": 1,
@@ -66,6 +81,8 @@ def bundle_sources(with_bridge: bool = False) -> dict:
     bridges: list[dict] = []
 
     if with_bridge:
+        evidence = evidence_record()
+        sources["evidences"] = [evidence]
         bridge = {
             "bridge_id": "f28-continuity",
             "source_lock_id": source_lock["lock_id"],
@@ -81,8 +98,8 @@ def bundle_sources(with_bridge: bool = False) -> dict:
                 "relation": "reviewed-continuity",
             },
             "compatibility": "compatible",
-            "evidence_id": "evidence:bridge",
-            "evidence_digest": "sha256:" + "c" * 64,
+            "evidence_id": evidence["evidence_id"],
+            "evidence_digest": evidence["content_digest"],
             "runtime_strength": "exact",
             "runtime_limitations": ["term-scoped"],
             "review_status": "reviewed",
@@ -119,6 +136,10 @@ def semantic_bundle(sources: dict) -> SemanticSourceBundle:
             SemanticArtifact("ontology-lock", f"lock-{i}.json", item)
             for i, item in enumerate(sources["locks"])
         ),
+        evidences=tuple(
+            SemanticArtifact("evidence", f"evidence-{i}.json", item)
+            for i, item in enumerate(sources.get("evidences", []))
+        ),
         ontology_bundle=SemanticArtifact("ontology-bundle", "bundle.json", sources["ontology_bundle"]),
         bridges=tuple(
             SemanticArtifact("bridge", f"bridge-{i}.json", item)
@@ -135,7 +156,8 @@ class I004BundleClosureTests(unittest.TestCase):
         return raised.exception.problem
 
     def test_bundle_with_exact_embedded_lock_identities_passes(self):
-        validate_semantic_bundle(semantic_bundle(bundle_sources()))
+        result = validate_semantic_bundle(semantic_bundle(bundle_sources()))
+        self.assertTrue(result.ontology_bundle_digest.startswith("sha256:"))
 
     def test_bundle_embedded_lock_release_mismatch_fails_closed(self):
         sources = bundle_sources()
@@ -169,6 +191,51 @@ class I004BundleClosureTests(unittest.TestCase):
         sources = bundle_sources(with_bridge=True)
         sources["ontology_bundle"]["dependency_edges"][0]["active"] = False
         self.assert_problem("bridge_closure", sources)
+
+    def test_bridge_evidence_must_resolve_to_current_evidence_digest(self):
+        sources = bundle_sources(with_bridge=True)
+        sources["evidences"] = []
+        self.assert_problem("bridge_closure", sources)
+
+    def test_bridge_evidence_digest_mismatch_fails_closed(self):
+        sources = bundle_sources(with_bridge=True)
+        for location in (sources["bridges"][0], sources["ontology_bundle"]["bridge_locks"][0]):
+            location["evidence_digest"] = "sha256:" + "e" * 64
+            location["digest"] = bridge_digest(location)
+            location["reviewed_content_digest"] = location["digest"]
+        self.assert_problem("bridge_closure", sources)
+
+    def test_exact_lock_edge_requires_release_and_digest_binding(self):
+        sources = bundle_sources()
+        source_lock = sources["locks"][-2]
+        target_lock = sources["locks"][-1]
+        sources["ontology_bundle"]["dependency_edges"] = [
+            {
+                "id": "edge:exact",
+                "consumer": target_lock["lock_id"],
+                "requires": source_lock["lock_id"],
+                "satisfied_by": f"lock:{source_lock['lock_id']}",
+                "active": True,
+            }
+        ]
+        self.assert_problem("bundle_closure", sources)
+
+    def test_exact_lock_edge_with_current_release_and_digest_passes(self):
+        sources = bundle_sources()
+        source_lock = sources["locks"][-2]
+        target_lock = sources["locks"][-1]
+        sources["ontology_bundle"]["dependency_edges"] = [
+            {
+                "id": "edge:exact",
+                "consumer": target_lock["lock_id"],
+                "requires": source_lock["lock_id"],
+                "satisfied_by": f"lock:{source_lock['lock_id']}",
+                "active": True,
+                "required_lock_release": source_lock["release"],
+                "required_lock_digest": source_lock["content_digest"],
+            }
+        ]
+        validate_semantic_bundle(semantic_bundle(sources))
 
 
 if __name__ == "__main__":
