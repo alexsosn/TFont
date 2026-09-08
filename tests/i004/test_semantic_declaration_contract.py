@@ -5,6 +5,7 @@ import unittest
 
 from tfont.source_validation import SourceValidationError, validate_source
 from tfont.semantic_validation import SemanticValidationError, validate_semantic_bundle
+from tests.i004.test_mapping_v2_schema import valid_mapping_document
 from tests.i004.test_semantic_validation_phase1 import base_sources, bundle
 
 
@@ -15,31 +16,43 @@ class I004DeclarationContractTests(unittest.TestCase):
         self.assertEqual(raised.exception.problem.category, category)
         return raised.exception.problem
 
+    def declaration(self, *, value_kind: str) -> dict:
+        return {
+            "rdf_types": ["http://www.w3.org/1999/02/22-rdf-syntax-ns#Property"],
+            "domain_iris": ["http://example.org/ontology#Subject"],
+            "range_iris": ["http://www.w3.org/2001/XMLSchema#string"],
+            "value_kind": value_kind,
+        }
+
     def property_projection(self, *, role: str, value_kind: str) -> dict:
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["target"] = "http://example.org/ontology#property"
         projection["formal_kind"] = "property"
         projection["semantic_role"] = role
-        projection["ontology_declaration_evidence"] = {
-            "rdf_types": ["http://www.w3.org/1999/02/22-rdf-syntax-ns#Property"],
-            "domain_iris": ["http://example.org/ontology#Subject"],
-            "range_iris": ["http://www.w3.org/2001/XMLSchema#string"],
-            "value_kind": value_kind,
-        }
+        projection["ontology_declaration_evidence"] = self.declaration(value_kind=value_kind)
         sources["locks"][0]["terms_used"].append(projection["target"])
         return sources
 
+    def structural_property_document(self, *, role: str, value_kind: str) -> dict:
+        document = valid_mapping_document()
+        projection = document["mappings"][0]["projections"][0]
+        projection["target"] = "http://example.org/ontology#property"
+        projection["formal_kind"] = "property"
+        projection["semantic_role"] = role
+        projection["ontology_declaration_evidence"] = self.declaration(value_kind=value_kind)
+        return document
+
     def test_declaration_evidence_schema_is_closed(self):
-        sources = self.property_projection(role="attribute", value_kind="literal")
-        declaration = sources["mappings"]["mappings"][0]["projections"][0]["ontology_declaration_evidence"]
+        document = self.structural_property_document(role="attribute", value_kind="literal")
+        declaration = document["mappings"][0]["projections"][0]["ontology_declaration_evidence"]
         declaration["unreviewed_guess"] = True
         with self.assertRaises(SourceValidationError):
-            validate_source(sources["mappings"], "mapping")
+            validate_source(document, "mapping")
 
     def test_declaration_evidence_accepts_controlled_locked_facts(self):
-        sources = self.property_projection(role="attribute", value_kind="literal")
-        validate_source(sources["mappings"], "mapping")
+        document = self.structural_property_document(role="attribute", value_kind="literal")
+        validate_source(document, "mapping")
 
     def test_relation_rejects_explicit_literal_range(self):
         sources = self.property_projection(role="relation", value_kind="literal")
@@ -73,8 +86,8 @@ class I004DeclarationContractTests(unittest.TestCase):
         self.assert_problem("kind_role_conflict", sources)
 
     def test_external_reference_cannot_expose_unbound_child_review(self):
-        sources = base_sources()
-        mapping = sources["mappings"]["mappings"][0]
+        document = valid_mapping_document()
+        mapping = document["mappings"][0]
         mapping["external_references"] = [{
             "reference_id": "ref:locator",
             "reference_kind": "locator",
@@ -91,7 +104,7 @@ class I004DeclarationContractTests(unittest.TestCase):
             },
         }]
         with self.assertRaises(SourceValidationError):
-            validate_source(sources["mappings"], "mapping")
+            validate_source(document, "mapping")
 
 
 if __name__ == "__main__":
