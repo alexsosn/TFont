@@ -10,11 +10,11 @@ The F-012 object-binding tests themselves pass on Windows. This research is inte
 
 `file_component_digest()` represents one exact regular file. Unlike directory and TF roots, it does not call `_root_inspection_path()` to strip directory-root spellings. Existing I-003 regression coverage already requires file spellings with terminal directory syntax to fail rather than silently canonicalize.
 
-The public failure category is not semantically tied to a particular host errno: ambiguous spellings should fail through `IdentityError` before a host can reinterpret them.
+Ambiguous spellings should fail through `IdentityError` before a host can reinterpret them.
 
 ## Host behavior
 
-Windows path parsing accepts several spellings that can be normalized before the final filesystem object is inspected. A terminal `.` path segment denotes the current directory. Microsoft also documents that ordinary Win32 path handling strips trailing ASCII periods and ASCII spaces before the actual file is opened; a spelling such as `AFile.txt ` can therefore open `AFile.txt` instead. Microsoft explicitly advises not ending file/directory names with a space or period for normal Win32 naming.
+Windows path parsing can normalize spelling before the final filesystem object is inspected. A `.` path segment denotes the current directory. Microsoft also documents that ordinary Win32 path handling strips trailing ASCII periods and ASCII spaces from path-name components before opening; this can make a spelling resolve to a different stored name.
 
 Primary evidence:
 
@@ -22,31 +22,28 @@ Primary evidence:
 - Microsoft Windows support, **Whitespace characters in file and folder names**: trailing ASCII space/period are removed by ordinary Windows naming behavior.
 - Microsoft Windows Server support, **Can't delete files on NTFS file system**: typical Win32 syntax strips trailing spaces/periods before opening, potentially opening a different file; `\\?\` is a special namespace escape hatch.
 
-TFont does not currently define a separate extended-namespace identity mode. Accepting these spellings on POSIX while allowing them to alias another object under ordinary Windows APIs would make the same identity input platform-dependent.
+The risk is not confined to the basename. An ancestor spelling such as `directory.\file.tf` can also be normalized at the directory component before lookup reaches the final file. Therefore checking only the last component leaves the same cross-platform alias problem in an ancestor.
 
-Python's `os.path` helpers are host-specific and are not sufficient by themselves to define a cross-platform lexical contract. TFont already has `_native_separators()` and exact-string path handling, so the narrowest repair is an explicit lexical check before `lstat()`.
+TFont does not define a separate extended-namespace identity mode. Accepting these spellings on POSIX while allowing ordinary Windows APIs to alias another object would make the same identity input platform-dependent.
 
 ## Chosen contract
 
-For `file_component_digest()` only, reject a supplied path string before filesystem inspection when its terminal spelling is not portable exact-file syntax:
+For `file_component_digest()` only, reject before filesystem inspection when:
 
-1. the path ends in a native path separator;
-2. after a native separator, the final segment is exactly `.`; or
-3. the final path component ends in an ASCII period (`.`) or ASCII space (` `).
+1. the supplied path ends in a native path separator; or
+2. **any non-empty native path component** ends in ASCII period (`.`) or ASCII space (` `).
 
-Rule 3 is cross-platform on purpose: a POSIX file whose basename literally ends in ASCII period/space is outside TFont's portable exact-file identity input domain because the same spelling is unsafe under ordinary Win32 path handling.
+Rule 2 includes a component equal to `.` and covers both final and ancestor components. It is cross-platform on purpose: POSIX names with these terminal characters are outside TFont's portable exact-file identity input domain because the same spelling is unsafe under ordinary Win32 path handling.
 
 Do not normalize or rewrite the path. Reject it.
 
-Leading periods (`.hidden`) and non-terminal periods (`a.b`) remain valid. Non-native separator characters retain existing host semantics. Extended Win32 `\\?\` namespace semantics are not introduced by this patch.
+Leading periods (`.hidden`) and internal periods (`a.b`) remain valid. Non-native separator characters retain existing host semantics. Extended Win32 `\\?\` namespace semantics are not introduced by this patch.
 
 Directory and TF roots retain their current `_root_inspection_path()` behavior; changing their naming domain requires separate research because they intentionally accept equivalent root spellings.
 
 ## Error category
 
-Use existing `wrong_path_type` for these non-portable exact-file spellings. This preserves the existing I-003 expectation that a path shaped as something other than an exact regular-file component is rejected at the path/type boundary.
-
-The original supplied path must be retained in `IdentityProblem.path`.
+Use existing `wrong_path_type` for these non-portable exact-file spellings. The original supplied path is retained in `IdentityProblem.path`.
 
 Embedded NUL remains `filesystem_error` through `_lstat()` and is not intercepted by this lexical check.
 
@@ -54,17 +51,16 @@ Embedded NUL remains `filesystem_error` through `_lstat()` and is not intercepte
 
 The existing `<file>/.` I-003 regression is naturally RED on Windows but GREEN on POSIX. Focused F-014 tests make the lexical contract deterministic on every host by asserting rejection before `_lstat()`.
 
-Focused cases:
+Focused cases include terminal separators, terminal dot segment, final trailing ASCII period/space, ancestor components ending in ASCII period/space, `.hidden` and `a.b` controls, unchanged fixed digest, unchanged directory/TF root spelling behavior, and embedded-NUL category preservation.
 
-- terminal native separator;
-- repeated terminal native separators;
-- terminal `.` path segment;
-- terminal ASCII period in the basename;
-- terminal ASCII space in the basename;
-- `.hidden` and `a.b` negative controls;
-- plain exact file unchanged fixed digest;
-- directory and TF root spelling controls;
-- embedded NUL category control.
+## Review history
+
+The first GREEN fixed terminal directory syntax. Independent adversarial review then found two broader Win32 alias classes:
+
+- trailing ASCII period/space on the final filename;
+- the same normalization on ancestor components.
+
+Each finding was converted into deterministic RED coverage before the corresponding production hardening.
 
 ## Non-goals
 
@@ -79,4 +75,4 @@ Focused cases:
 
 ## Conclusion
 
-Exact-file identity needs a lexical portability boundary independent of host filesystem normalization. Reject terminal directory syntax and Win32-ambiguous trailing ASCII period/space before `lstat()`, while preserving digest bytes for accepted files and existing directory-root semantics.
+Exact-file identity needs a lexical portability boundary independent of host filesystem normalization. Reject Win32-ambiguous trailing ASCII period/space in every native path component, plus terminal directory syntax, before `lstat()`.
