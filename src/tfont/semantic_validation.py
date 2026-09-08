@@ -447,7 +447,6 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
             prefix = ("mappings", mapping_id, "projections", projection_id)
             if not _kind_role_allowed(projection.get("formal_kind"), projection.get("semantic_role")):
                 _fail(artifact, "kind_role_conflict", "formal kind and semantic role are incompatible", path=prefix, related_id=projection_id if type(projection_id) is str else None)
-            _validate_declaration_role(projection, artifact=artifact, path=prefix, related_id=projection_id if type(projection_id) is str else None)
             profile_id = projection.get("profile_id")
             capability_id = projection.get("capability_id")
             if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
@@ -472,7 +471,6 @@ def _validate_projection_and_candidate_legality(bundle: SemanticSourceBundle, in
                 _fail(artifact, "invalid_reference_routing", f"invalid candidate routing pair: {routing!r}", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             if not _kind_role_allowed(candidate.get("formal_kind"), candidate.get("semantic_role")):
                 _fail(artifact, "kind_role_conflict", "candidate formal kind and semantic role are incompatible", path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
-            _validate_declaration_role(candidate, artifact=artifact, path=prefix, related_id=candidate_id if type(candidate_id) is str else None)
             profile_id = candidate.get("profile_id")
             capability_id = candidate.get("capability_id")
             if profile_id not in mapping_profiles or capability_id not in mapping_capabilities:
@@ -497,6 +495,33 @@ def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexe
             target = row.get("target")
             if type(target) is not str or target not in locks[lock_id].get("terms_used", []):
                 _fail(artifact, "unknown_ontology_target", f"target not present in lock terms_used: {target!r}", path=prefix + ("target",), related_id=target if type(target) is str else None)
+
+            declaration = row.get("ontology_declaration_evidence")
+            if type(declaration) is dict:
+                declaration_lock_id = declaration.get("ontology_lock_id")
+                if declaration_lock_id != lock_id:
+                    _fail(
+                        artifact,
+                        "bundle_closure",
+                        "ontology declaration evidence lock does not match projection/candidate ontology lock",
+                        path=prefix + ("ontology_declaration_evidence", "ontology_lock_id"),
+                        related_id=row_id if type(row_id) is str else None,
+                    )
+                declaration_digest = declaration.get("ontology_lock_content_digest")
+                if declaration_digest != locks[lock_id].get("content_digest"):
+                    _fail(
+                        artifact,
+                        "bundle_closure",
+                        "ontology declaration evidence digest does not match resolved ontology lock content",
+                        path=prefix + ("ontology_declaration_evidence", "ontology_lock_content_digest"),
+                        related_id=row_id if type(row_id) is str else None,
+                    )
+                _validate_declaration_role(
+                    row,
+                    artifact=artifact,
+                    path=prefix,
+                    related_id=row_id if type(row_id) is str else None,
+                )
 
 
 def _validate_bundle_source(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> str | None:
