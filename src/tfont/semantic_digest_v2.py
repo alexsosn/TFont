@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from .digests import DigestError, canonical_json_bytes
+from .digests import DigestError, DigestProblem, canonical_json_bytes
 
 MAPPING_SEMANTIC_ALGORITHM_V2 = "tfont-mapping-semantic-sha256-v2"
+PROJECTION_SEMANTIC_ALGORITHM_V1 = "tfont-projection-semantic-sha256-v1"
 
 _AUDIT_ONLY_TOP_LEVEL = {
     "review",
@@ -26,7 +27,12 @@ _SET_LIKE_LIST_FIELDS = {
     "projections",
     "ambiguous_candidates",
     "external_references",
+    "losses",
 }
+
+
+def _fail(message: str) -> None:
+    raise DigestError(DigestProblem(category="projection_error", message=message))
 
 
 def _canonical_sort(items: list[Any]) -> list[Any]:
@@ -54,7 +60,7 @@ def _project(value: Any, *, top_level: bool = False, field: str | None = None) -
 
 def mapping_semantic_projection_v2(mapping: dict[str, Any]) -> dict[str, Any]:
     if type(mapping) is not dict:
-        raise DigestError
+        _fail("mapping semantic projection requires an exact object")
     projection = _project(mapping, top_level=True)
     canonical_json_bytes(projection)
     return projection
@@ -62,4 +68,19 @@ def mapping_semantic_projection_v2(mapping: dict[str, Any]) -> dict[str, Any]:
 
 def mapping_semantic_digest_v2(mapping: dict[str, Any]) -> str:
     payload = canonical_json_bytes(mapping_semantic_projection_v2(mapping))
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def projection_semantic_projection_v1(projection: dict[str, Any]) -> dict[str, Any]:
+    if type(projection) is not dict:
+        _fail("projection semantic projection requires an exact object")
+    result = _project(projection, top_level=False)
+    if type(result) is not dict:
+        _fail("projection semantic projection requires an exact object")
+    canonical_json_bytes(result)
+    return result
+
+
+def projection_semantic_digest_v1(projection: dict[str, Any]) -> str:
+    payload = canonical_json_bytes(projection_semantic_projection_v1(projection))
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
