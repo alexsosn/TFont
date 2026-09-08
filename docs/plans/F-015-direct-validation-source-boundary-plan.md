@@ -5,13 +5,15 @@
 
 ## Scope
 
-Make `validate_source(data, ...)` enforce the same TFont JSON-value and `MAX_SOURCE_NESTING=128` boundary as `loads_source()` before JSON Schema validation.
+Make `validate_source(data, ...)` enforce the same TFont JSON-value and `MAX_SOURCE_NESTING=128` boundary as `loads_source()` before **instance** JSON Schema validation.
 
 Production scope is limited to `src/tfont/source_validation.py`. No schema files, semantic validator, digests, compatibility, ontology, filesystem code, or public signatures change.
 
 ## Implementation
 
-At the start of `validate_source()` after resolving `schema_name` and before schema validation:
+Preserve existing schema-authority precedence: resolve `schema_name`, read/parse the selected schema, and run `Draft202012Validator.check_schema(schema)` exactly as today. An invalid schema must still report `invalid_schema` regardless of the supplied instance; schema-side recursion remains F-016.
+
+After successful schema self-validation and immediately before constructing/iterating the instance validator:
 
 1. compute `effective_source_name = schema_name if source_name is None else source_name`;
 2. normalize/preflight `data` with `_plain_json(data, source_name=effective_source_name)`;
@@ -38,6 +40,7 @@ Controls:
 - shallow valid normalized evidence remains valid;
 - shallow schema-invalid evidence still reports `schema_validation` with the same instance/schema paths;
 - omitted `source_name` still defaults diagnostics to schema name;
+- an invalid selected schema still reports `invalid_schema` before direct-instance preflight;
 - existing F-006 loader boundary remains unchanged.
 
 ## CI
@@ -55,9 +58,10 @@ Do not add another generic full-repository discovery command; F-007 `full-suite.
 
 ## GREEN acceptance
 
-- direct depth 129 is rejected before jsonschema traversal;
+- direct depth 129 is rejected before instance jsonschema traversal;
 - depth 128 remains valid;
 - all direct non-JSON/alias cases use established TFont diagnostics;
+- invalid schema authority retains existing precedence;
 - shallow schema diagnostics/provenance remain unchanged;
 - F-006/I-001 and authoritative full suite are green on the exact final head;
 - fresh logically-independent adversarial review passes the exact final head.
