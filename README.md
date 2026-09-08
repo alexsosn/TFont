@@ -151,9 +151,9 @@ from tfont import SemanticArtifact, SemanticSourceBundle, validate_semantic_bund
 bundle = SemanticSourceBundle(
     profile=SemanticArtifact("profile", "profile.yaml", profile_data),
     expected_parent_manifest=SemanticArtifact(
-        "expected-parent-manifest", "expected-parent.json", parent_data
+        "parent-component-manifest", "expected-parent.json", parent_data
     ),
-    mappings=SemanticArtifact("mappings", "mappings.yaml", mappings_data),
+    mappings=SemanticArtifact("mapping", "mappings.yaml", mappings_data),
     ontology_locks=ontology_lock_artifacts,
     evidences=evidence_artifacts,
 )
