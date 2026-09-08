@@ -107,6 +107,29 @@
       },
       "additionalProperties": false
     },
+    "ontologyDeclarationEvidence": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "rdf_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "domain_iris": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "range_iris": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "value_kind": {"enum": ["resource", "literal", "mixed", "unknown"]}
+      },
+      "additionalProperties": false
+    },
     "targetRouting": {
       "oneOf": [
         {
@@ -155,7 +178,7 @@
         "assessment": {"enum": ["exact", "close", "broader", "narrower", "related"]},
         "ontology_lock": {"type": "string", "minLength": 1},
         "ontology_bundle_requirement": {"$ref": "#/$defs/ontologyBundleRequirement"},
-        "ontology_declaration_evidence": {"type": "object"},
+        "ontology_declaration_evidence": {"$ref": "#/$defs/ontologyDeclarationEvidence"},
         "publication_relation": {"type": ["string", "null"]},
         "native_execution_binding": {"$ref": "#/$defs/nativeBinding"},
         "approximation": {"$ref": "#/$defs/approximation"},
@@ -196,7 +219,7 @@
         "capability_id": {"type": "string", "minLength": 1},
         "assessment_candidate": {"enum": ["exact", "close", "broader", "narrower", "related"]},
         "ontology_lock": {"type": "string", "minLength": 1},
-        "ontology_declaration_evidence": {"type": "object"},
+        "ontology_declaration_evidence": {"$ref": "#/$defs/ontologyDeclarationEvidence"},
         "evidence": {"$ref": "#/$defs/evidenceBindings"}
       },
       "allOf": [
@@ -217,8 +240,7 @@
         "issuer_or_namespace": {"type": "string", "minLength": 1},
         "native_binding": {"$ref": "#/$defs/nativeBinding"},
         "publication_relation": {"type": ["string", "null"]},
-        "evidence": {"$ref": "#/$defs/evidenceBindings"},
-        "review": {"$ref": "#/$defs/review"}
+        "evidence": {"$ref": "#/$defs/evidenceBindings"}
       },
       "allOf": [
         {
