@@ -146,6 +146,18 @@ def test_full_iri_owl_sameas_cannot_bypass_identity_rule():
     assert any("sameAs" in error or "publication relation" in error for error in errors)
 
 
+def test_noncanonical_https_owl_sameas_is_not_locally_authorized():
+    ref = ExternalReference(
+        "https-alias-sameas",
+        "entity-identity",
+        external="https://example.org/entity/1",
+        identity_strength="same-entity",
+        publication_relation="https://www.w3.org/2002/07/owl#sameAs",
+    )
+    errors = validate(ref)
+    assert any("R-013" in error or "publication relation" in error for error in errors)
+
+
 def test_full_iri_skos_mapping_cannot_bypass_formal_kind_delegation():
     ref = ExternalReference(
         "bad-full-iri-skos",
