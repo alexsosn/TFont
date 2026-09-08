@@ -2,12 +2,58 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tfont.dev/schema/v2/mapping.schema.json",
   "$defs": {
+    "jsonScalar": {
+      "type": ["string", "number", "boolean", "null"]
+    },
     "evidenceBinding": {
       "type": "object",
       "required": ["evidence_id", "content_digest"],
       "properties": {
         "evidence_id": {"type": "string", "minLength": 1},
         "content_digest": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "evidenceBindings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidenceBinding"}
+    },
+    "edgeStep": {
+      "type": "object",
+      "required": ["edge", "direction"],
+      "properties": {
+        "edge": {"type": "string", "minLength": 1},
+        "direction": {"enum": ["outgoing", "incoming"]}
+      },
+      "additionalProperties": false
+    },
+    "nativeBinding": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "component_id": {"type": "string", "minLength": 1},
+        "node_type": {"type": "string", "minLength": 1},
+        "feature": {"type": "string", "minLength": 1},
+        "value": {"$ref": "#/$defs/jsonScalar"},
+        "closed_values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/jsonScalar"}
+        },
+        "edge": {"type": "string", "minLength": 1},
+        "direction": {"enum": ["outgoing", "incoming"]},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/edgeStep"}
+        },
+        "interpretation": {
+          "enum": ["textualExtent", "occurrenceSet", "technicalAnchor", "noSlot"]
+        },
+        "execution_shape": {
+          "enum": ["membership", "value-predicate", "edge-path", "identity-key", "inspection-only"]
+        }
       },
       "additionalProperties": false
     },
@@ -26,10 +72,6 @@
         "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}
       },
       "additionalProperties": false
-    },
-    "evidenceBindings": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/evidenceBinding"}
     },
     "approximation": {
       "type": "object",
@@ -115,7 +157,7 @@
         "ontology_bundle_requirement": {"$ref": "#/$defs/ontologyBundleRequirement"},
         "ontology_declaration_evidence": {"type": "object"},
         "publication_relation": {"type": ["string", "null"]},
-        "native_execution_binding": {"type": "object", "minProperties": 1},
+        "native_execution_binding": {"$ref": "#/$defs/nativeBinding"},
         "approximation": {"$ref": "#/$defs/approximation"},
         "evidence": {"$ref": "#/$defs/evidenceBindings"},
         "review": {"$ref": "#/$defs/review"},
@@ -173,7 +215,7 @@
         "authority_system": {"type": "string", "minLength": 1},
         "identity_strength": {"enum": ["same-entity", "probable-same-entity", "related-record", "ambiguous-identity"]},
         "issuer_or_namespace": {"type": "string", "minLength": 1},
-        "native_binding": {"type": "object", "minProperties": 1},
+        "native_binding": {"$ref": "#/$defs/nativeBinding"},
         "publication_relation": {"type": ["string", "null"]},
         "evidence": {"$ref": "#/$defs/evidenceBindings"},
         "review": {"$ref": "#/$defs/review"}
@@ -199,7 +241,7 @@
         },
         {
           "if": {"properties": {"reference_kind": {"const": "locator"}}, "required": ["reference_kind"]},
-          "then": {"properties": {"query_role": {"const": "explanation-only"}}}
+          "then": {"properties": {"query_role": {"const": "explanation-only"}}
         }
       ],
       "additionalProperties": false
@@ -214,7 +256,7 @@
       "properties": {
         "mapping_id": {"type": "string", "minLength": 1},
         "corpus_id": {"type": "string", "minLength": 1},
-        "native_binding": {"type": "object", "minProperties": 1},
+        "native_binding": {"$ref": "#/$defs/nativeBinding"},
         "native_dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "profiles": {
           "type": "array",
