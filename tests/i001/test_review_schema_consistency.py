@@ -29,32 +29,45 @@ def reviewed_record() -> dict:
 
 
 def mapping_with_review(review: dict) -> dict:
+    projection_review = dict(review)
+    projection_review["review_id"] = "review:projection"
+    projection_review["reviewed_mapping_digest"] = "sha256:projection"
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "mappings": [
             {
                 "mapping_id": "mapping:test",
-                "profile_id": "tfont-test",
-                "native_selector": {
-                    "kind": "feature-value",
+                "corpus_id": "corpus:test",
+                "native_binding": {
                     "component_id": "test-tf",
                     "feature": "gn",
                     "value": "m",
-                    "extent": "semantic",
                 },
                 "native_dependencies": ["dep:test"],
-                "external_target": "https://example.org/term",
-                "candidate_projections": [],
-                "assessment": "exact",
-                "publication_relation": None,
-                "applicability": {"node_type": "word"},
-                "ontology_lock": "lock:test",
-                "evidence": [
+                "profiles": ["linguistic"],
+                "capabilities": ["linguistic.morphology"],
+                "native_state": "positive",
+                "projections": [
                     {
-                        "evidence_id": "evidence:test",
-                        "content_digest": "sha256:evidence",
+                        "projection_id": "projection:test",
+                        "target": "https://example.org/term",
+                        "reference_kind": "semantic-pivot",
+                        "query_role": "semantic-constraint",
+                        "formal_kind": "class",
+                        "semantic_role": "annotation-value",
+                        "profile_id": "linguistic",
+                        "capability_id": "linguistic.morphology",
+                        "assessment": "exact",
+                        "ontology_lock": "lock:test",
+                        "native_execution_binding": {"component_id": "test-tf", "feature": "gn", "value": "m"},
+                        "evidence": [{"evidence_id": "evidence:test", "content_digest": "sha256:evidence"}],
+                        "review": projection_review,
+                        "projection_semantic_digest": "sha256:projection",
                     }
                 ],
+                "ambiguous_candidates": [],
+                "external_references": [],
+                "evidence": [{"evidence_id": "evidence:test", "content_digest": "sha256:evidence"}],
                 "review": review,
                 "mapping_semantic_digest": "sha256:mapping",
                 "rationale": "fixture",

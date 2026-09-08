@@ -1,11 +1,15 @@
 from .digests import (
     DigestError,
+    MAPPING_SEMANTIC_ALGORITHM_V2,
+    PROJECTION_SEMANTIC_ALGORITHM,
     canonical_json_bytes,
     evidence_payload_digest,
     evidence_record_digest,
     mapping_semantic_digest,
+    mapping_semantic_digest_v2,
     normalize_source_bytes,
     profile_semantic_digest,
+    projection_semantic_digest_v1,
     source_bundle_digest,
     source_file_digest,
 )
@@ -16,6 +20,15 @@ from .parent_identity import (
     parent_manifest_digest,
     parent_manifest_projection,
     tf_payload_digest,
+)
+from .semantic_validation import (
+    SemanticArtifact,
+    SemanticIndexes,
+    SemanticSourceBundle,
+    SemanticValidationError,
+    SemanticValidationProblem,
+    ValidatedSemanticBundle,
+    validate_semantic_bundle,
 )
 from .source_validation import (
     SourceValidationError,
@@ -28,7 +41,15 @@ from .source_validation import (
 __all__ = [
     "DigestError",
     "IdentityError",
+    "MAPPING_SEMANTIC_ALGORITHM_V2",
+    "PROJECTION_SEMANTIC_ALGORITHM",
+    "SemanticArtifact",
+    "SemanticIndexes",
+    "SemanticSourceBundle",
+    "SemanticValidationError",
+    "SemanticValidationProblem",
     "SourceValidationError",
+    "ValidatedSemanticBundle",
     "canonical_json_bytes",
     "directory_component_digest",
     "evidence_payload_digest",
@@ -38,12 +59,15 @@ __all__ = [
     "load_source",
     "loads_source",
     "mapping_semantic_digest",
+    "mapping_semantic_digest_v2",
     "normalize_source_bytes",
     "parent_manifest_digest",
     "parent_manifest_projection",
     "profile_semantic_digest",
+    "projection_semantic_digest_v1",
     "source_bundle_digest",
     "source_file_digest",
     "tf_payload_digest",
+    "validate_semantic_bundle",
     "validate_source",
 ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import math
 import sys
@@ -29,11 +30,11 @@ def evidence_binding(evidence_id: str = "evidence:test") -> dict:
     return {"evidence_id": evidence_id, "content_digest": "sha256:evidence"}
 
 
-def review_record() -> dict:
+def review_record(review_id: str = "review:test", digest: str = "sha256:mapping") -> dict:
     return {
-        "review_id": "review:test",
+        "review_id": review_id,
         "status": "reviewed",
-        "reviewed_mapping_digest": "sha256:mapping",
+        "reviewed_mapping_digest": digest,
         "reviewer_id": "reviewer:test",
         "reviewed_at": "2026-09-05T21:00:00Z",
         "review_source": "offline:test",
@@ -41,24 +42,45 @@ def review_record() -> dict:
     }
 
 
-def exact_mapping() -> dict:
+def exact_projection() -> dict:
     return {
-        "mapping_id": "mapping:test",
-        "profile_id": "tfont-test",
-        "native_selector": {
-            "kind": "feature-value",
+        "projection_id": "projection:test",
+        "target": "https://example.org/term",
+        "reference_kind": "semantic-pivot",
+        "query_role": "semantic-constraint",
+        "formal_kind": "class",
+        "semantic_role": "annotation-value",
+        "profile_id": "linguistic",
+        "capability_id": "linguistic.morphology",
+        "assessment": "exact",
+        "ontology_lock": "missing-lock-is-semantic-check",
+        "native_execution_binding": {
             "component_id": "missing-component-is-semantic-check",
             "feature": "gn",
             "value": "m",
-            "extent": "semantic",
+        },
+        "evidence": [evidence_binding("missing-evidence-is-semantic-check")],
+        "review": review_record("review:projection", "sha256:projection"),
+        "projection_semantic_digest": "sha256:projection",
+    }
+
+
+def exact_mapping() -> dict:
+    return {
+        "mapping_id": "mapping:test",
+        "corpus_id": "corpus:test",
+        "native_binding": {
+            "component_id": "missing-component-is-semantic-check",
+            "feature": "gn",
+            "value": "m",
         },
         "native_dependencies": ["missing-dependency-is-semantic-check"],
-        "external_target": "https://example.org/term",
-        "candidate_projections": [],
-        "assessment": "exact",
-        "publication_relation": None,
-        "applicability": {"node_type": "word"},
-        "ontology_lock": "missing-lock-is-semantic-check",
+        "profiles": ["linguistic"],
+        "capabilities": ["linguistic.morphology"],
+        "native_state": "positive",
+        "projections": [exact_projection()],
+        "ambiguous_candidates": [],
+        "external_references": [],
         "evidence": [evidence_binding("missing-evidence-is-semantic-check")],
         "review": review_record(),
         "mapping_semantic_digest": "sha256:mapping",
@@ -120,7 +142,7 @@ def minimal_valid_instances() -> dict[str, dict]:
             "content_digest": "sha256:evidence",
         },
         "review": review_record(),
-        "mapping": {"schema_version": 1, "mappings": [exact_mapping()]},
+        "mapping": {"schema_version": 2, "mappings": [exact_mapping()]},
         "compatibility-report": {
             "compatibility_report_id": "tfont-compatibility-sha256-v1:test",
             "report_digest": "sha256:report",
@@ -210,73 +232,100 @@ class SchemaContractTests(unittest.TestCase):
             with self.subTest(missing=missing), self.assertRaises(SourceValidationError):
                 validate_source(instance, "review", schema_root=SCHEMA_ROOT)
 
-    def test_approved_assessments_require_target_lock_and_no_candidates(self):
-        for field in ("external_target", "ontology_lock"):
+    def test_positive_projection_requires_target_lock_and_no_candidates(self):
+        for field in ("target", "ontology_lock"):
             mapping = exact_mapping()
-            mapping[field] = None
+            del mapping["projections"][0][field]
             with self.subTest(field=field), self.assertRaises(SourceValidationError):
-                validate_source({"schema_version": 1, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
+                validate_source({"schema_version": 2, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
 
         mapping = exact_mapping()
-        mapping["candidate_projections"] = [
+        mapping["ambiguous_candidates"] = [
             {
-                "external_target": "https://example.org/candidate",
+                "candidate_id": "candidate:test",
+                "target": "https://example.org/candidate",
+                "reference_kind": "semantic-pivot",
+                "query_role": "semantic-constraint",
+                "formal_kind": "class",
+                "semantic_role": "annotation-value",
+                "profile_id": "linguistic",
+                "capability_id": "linguistic.morphology",
+                "assessment_candidate": "close",
                 "ontology_lock": "lock:test",
+                "evidence": [evidence_binding()],
+            }
+        ]
+        with self.assertRaises(SourceValidationError):
+            validate_source({"schema_version": 2, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
+
+    def test_ambiguous_requires_candidate_specific_ontology_lock(self):
+        mapping = exact_mapping()
+        projection = mapping["projections"].pop()
+        mapping["native_state"] = "ambiguous"
+        mapping["ambiguous_candidates"] = [
+            {
+                "candidate_id": "candidate:test",
+                "target": projection["target"],
+                "reference_kind": projection["reference_kind"],
+                "query_role": projection["query_role"],
+                "formal_kind": projection["formal_kind"],
+                "semantic_role": projection["semantic_role"],
+                "profile_id": projection["profile_id"],
+                "capability_id": projection["capability_id"],
                 "assessment_candidate": "close",
                 "evidence": [evidence_binding()],
             }
         ]
         with self.assertRaises(SourceValidationError):
-            validate_source({"schema_version": 1, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
+            validate_source({"schema_version": 2, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
 
-    def test_ambiguous_requires_candidate_specific_ontology_lock(self):
-        mapping = exact_mapping()
-        mapping.update(
-            assessment="ambiguous",
-            external_target=None,
-            ontology_lock=None,
-            publication_relation=None,
-            candidate_projections=[
-                {
-                    "external_target": "https://example.org/candidate",
-                    "assessment_candidate": "close",
-                    "evidence": [evidence_binding()],
-                }
-            ],
-        )
-        with self.assertRaises(SourceValidationError):
-            validate_source({"schema_version": 1, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
+        mapping["ambiguous_candidates"][0]["ontology_lock"] = "candidate-lock"
+        validate_source({"schema_version": 2, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
 
-        mapping["candidate_projections"][0]["ontology_lock"] = "candidate-lock"
-        validate_source({"schema_version": 1, "mappings": [mapping]}, "mapping", schema_root=SCHEMA_ROOT)
-
-    def test_native_only_and_unsupported_require_null_projection_fields(self):
-        for assessment in ("native-only", "unsupported"):
+    def test_native_only_and_unsupported_require_zero_target_arrays(self):
+        for state in ("native-only", "unsupported"):
             valid = exact_mapping()
-            valid.update(
-                assessment=assessment,
-                external_target=None,
-                ontology_lock=None,
-                publication_relation=None,
-                candidate_projections=[],
-            )
-            validate_source({"schema_version": 1, "mappings": [valid]}, "mapping", schema_root=SCHEMA_ROOT)
-            for field, non_null in (
-                ("external_target", "https://example.org/term"),
-                ("ontology_lock", "lock:test"),
-                ("publication_relation", "skos:relatedMatch"),
-            ):
-                invalid = dict(valid)
-                invalid[field] = non_null
-                with self.subTest(assessment=assessment, field=field), self.assertRaises(SourceValidationError):
-                    validate_source({"schema_version": 1, "mappings": [invalid]}, "mapping", schema_root=SCHEMA_ROOT)
+            valid["native_state"] = state
+            valid["projections"] = []
+            valid["ambiguous_candidates"] = []
+            validate_source({"schema_version": 2, "mappings": [valid]}, "mapping", schema_root=SCHEMA_ROOT)
+
+            invalid = copy.deepcopy(valid)
+            invalid["projections"] = [exact_projection()]
+            with self.subTest(state=state), self.assertRaises(SourceValidationError):
+                validate_source({"schema_version": 2, "mappings": [invalid]}, "mapping", schema_root=SCHEMA_ROOT)
 
     def test_structurally_valid_unresolved_ids_do_not_fail_i001(self):
         validate_source(
-            {"schema_version": 1, "mappings": [exact_mapping()]},
+            {"schema_version": 2, "mappings": [exact_mapping()]},
             "mapping",
             schema_root=SCHEMA_ROOT,
         )
+
+    def test_legacy_v1_mapping_is_rejected(self):
+        legacy = {
+            "schema_version": 1,
+            "mappings": [
+                {
+                    "mapping_id": "legacy",
+                    "profile_id": "old",
+                    "native_selector": {"kind": "feature-value"},
+                    "native_dependencies": [],
+                    "external_target": "https://example.org/term",
+                    "candidate_projections": [],
+                    "assessment": "exact",
+                    "publication_relation": None,
+                    "applicability": {},
+                    "ontology_lock": "lock",
+                    "evidence": [],
+                    "review": review_record(),
+                    "mapping_semantic_digest": "sha256:old",
+                    "rationale": "legacy",
+                }
+            ],
+        }
+        with self.assertRaises(SourceValidationError):
+            validate_source(legacy, "mapping", schema_root=SCHEMA_ROOT)
 
     def test_unknown_schema_is_stable_category(self):
         with self.assertRaises(SourceValidationError) as raised:

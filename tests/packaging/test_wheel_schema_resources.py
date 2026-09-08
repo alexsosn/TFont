@@ -24,11 +24,11 @@ def evidence_binding(evidence_id: str = "evidence:test") -> dict:
     return {"evidence_id": evidence_id, "content_digest": "sha256:evidence"}
 
 
-def review_record() -> dict:
+def review_record(review_id: str = "review:test", digest: str = "sha256:mapping") -> dict:
     return {
-        "review_id": "review:test",
+        "review_id": review_id,
         "status": "reviewed",
-        "reviewed_mapping_digest": "sha256:mapping",
+        "reviewed_mapping_digest": digest,
         "reviewer_id": "reviewer:test",
         "reviewed_at": "2026-09-05T21:00:00Z",
         "review_source": "offline:test",
@@ -39,21 +39,42 @@ def review_record() -> dict:
 def exact_mapping() -> dict:
     return {
         "mapping_id": "mapping:test",
-        "profile_id": "tfont-test",
-        "native_selector": {
-            "kind": "feature-value",
+        "corpus_id": "corpus:test",
+        "native_binding": {
             "component_id": "test-tf",
+            "node_type": "word",
             "feature": "gn",
             "value": "m",
-            "extent": "semantic",
         },
         "native_dependencies": ["dep:test"],
-        "external_target": "https://example.org/term",
-        "candidate_projections": [],
-        "assessment": "exact",
-        "publication_relation": None,
-        "applicability": {"node_type": "word"},
-        "ontology_lock": "olia-test",
+        "profiles": ["linguistic"],
+        "capabilities": ["linguistic.morphology"],
+        "native_state": "positive",
+        "projections": [
+            {
+                "projection_id": "projection:test",
+                "target": "https://example.org/olia#Noun",
+                "reference_kind": "semantic-pivot",
+                "query_role": "semantic-constraint",
+                "formal_kind": "class",
+                "semantic_role": "annotation-value",
+                "profile_id": "linguistic",
+                "capability_id": "linguistic.morphology",
+                "assessment": "exact",
+                "ontology_lock": "olia-test",
+                "native_execution_binding": {
+                    "component_id": "test-tf",
+                    "node_type": "word",
+                    "feature": "gn",
+                    "value": "m",
+                },
+                "evidence": [evidence_binding()],
+                "review": review_record("review:projection", "sha256:projection"),
+                "projection_semantic_digest": "sha256:projection",
+            }
+        ],
+        "ambiguous_candidates": [],
+        "external_references": [],
         "evidence": [evidence_binding()],
         "review": review_record(),
         "mapping_semantic_digest": "sha256:mapping",
@@ -116,7 +137,7 @@ def minimal_valid_instances() -> dict[str, dict]:
             "content_digest": "sha256:evidence",
         },
         "review": review_record(),
-        "mapping": {"schema_version": 1, "mappings": [exact_mapping()]},
+        "mapping": {"schema_version": 2, "mappings": [exact_mapping()]},
         "compatibility-report": {
             "compatibility_report_id": "tfont-compatibility-sha256-v1:test",
             "report_digest": "sha256:report",
@@ -155,15 +176,7 @@ class WheelSchemaResourceTests(unittest.TestCase):
             outside.mkdir()
 
             subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "build",
-                    "--wheel",
-                    "--outdir",
-                    str(dist),
-                    str(ROOT),
-                ],
+                [sys.executable, "-m", "build", "--wheel", "--outdir", str(dist), str(ROOT)],
                 check=True,
                 cwd=outside,
             )
@@ -171,9 +184,7 @@ class WheelSchemaResourceTests(unittest.TestCase):
             self.assertEqual(len(wheels), 1, wheels)
             wheel = wheels[0]
 
-            expected_resources = {
-                f"tfont/schemas/{filename}" for filename in SCHEMA_FILES.values()
-            }
+            expected_resources = {f"tfont/schemas/{filename}" for filename in SCHEMA_FILES.values()}
             with zipfile.ZipFile(wheel) as archive:
                 wheel_names = set(archive.namelist())
             self.assertTrue(
@@ -182,25 +193,13 @@ class WheelSchemaResourceTests(unittest.TestCase):
             )
 
             subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-deps",
-                    "--target",
-                    str(target),
-                    str(wheel),
-                ],
+                [sys.executable, "-m", "pip", "install", "--no-deps", "--target", str(target), str(wheel)],
                 check=True,
                 cwd=outside,
             )
 
             fixtures = tmp_path / "fixtures.json"
-            fixtures.write_text(
-                json.dumps(minimal_valid_instances()),
-                encoding="utf-8",
-            )
+            fixtures.write_text(json.dumps(minimal_valid_instances()), encoding="utf-8")
 
             child = """
 import json

@@ -208,6 +208,37 @@
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
     },
+    "profile_catalog_version": {"const": 1},
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "structural", "linguistic", "lexical", "written-text", "textology", "heritage",
+          "scholarly-inference", "archaeology", "scientific-analysis", "lexicography"
+        ]
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "structural.entity-kind", "structural.slot-coverage", "structural.edge-traversal", "structural.section-navigation",
+          "linguistic.part-of-speech", "linguistic.morphology", "linguistic.syntax", "linguistic.discourse",
+          "lexical.entry", "lexical.form", "lexical.sense", "lexical.concept", "lexical.relation",
+          "written-text.segment", "written-text.sign", "written-text.writing-system", "written-text.transcription-recognition",
+          "textology.textual-version", "textology.witness", "textology.fragment-transmission", "textology.apparatus-reading",
+          "textology.witness-attestation", "textology.explicit-omission",
+          "heritage.physical-object", "heritage.physical-part", "heritage.identifier", "heritage.material",
+          "heritage.place-provenance", "heritage.custody-location",
+          "scholarly-inference.claim", "scholarly-inference.inference", "scholarly-inference.meaning-comprehension",
+          "scholarly-inference.provenance-assessment"
+        ]
+      }
+    },
     "parent_component_manifest": {"type": "string", "minLength": 1},
     "required_components": {
       "type": "array",

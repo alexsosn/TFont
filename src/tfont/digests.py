@@ -14,6 +14,8 @@ SOURCE_BUNDLE_ALGORITHM = "tfont-source-bundle-sha256-v1"
 EVIDENCE_PAYLOAD_ALGORITHM = "tfont-evidence-payload-sha256-v1"
 EVIDENCE_RECORD_ALGORITHM = "tfont-evidence-record-sha256-v1"
 MAPPING_SEMANTIC_ALGORITHM = "tfont-mapping-semantic-sha256-v1"
+MAPPING_SEMANTIC_ALGORITHM_V2 = "tfont-mapping-semantic-sha256-v2"
+PROJECTION_SEMANTIC_ALGORITHM = "tfont-projection-semantic-sha256-v1"
 PROFILE_SEMANTIC_ALGORITHM = "tfont-profile-semantic-sha256-v1"
 MAX_JSON_NESTING = 128
 
@@ -378,6 +380,7 @@ def mapping_semantic_projection(mapping: dict[str, Any]) -> dict[str, Any]:
 def mapping_semantic_digest(mapping: dict[str, Any]) -> str:
     return _sha256_digest(canonical_json_bytes(mapping_semantic_projection(mapping)))
 
+
 def _normalize_record_set(
     value: Any,
     *,
@@ -536,3 +539,17 @@ def profile_semantic_digest(projection: dict[str, Any]) -> str:
     }
     _validate_json(normalized)
     return _sha256_digest(canonical_json_bytes(normalized))
+
+
+# Public mapping-v2 digest API. The implementation lives in a dedicated module
+# to keep the v1 projection code stable; imports are lazy to avoid a module cycle.
+def mapping_semantic_digest_v2(mapping: dict[str, Any]) -> str:
+    from .semantic_digest_v2 import mapping_semantic_digest_v2 as implementation
+
+    return implementation(mapping)
+
+
+def projection_semantic_digest_v1(projection: dict[str, Any]) -> str:
+    from .semantic_digest_v2 import projection_semantic_digest_v1 as implementation
+
+    return implementation(projection)
