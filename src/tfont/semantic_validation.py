@@ -29,6 +29,11 @@ _MAPPING_SCHEMA_VERSION = 2
 _DEPENDENCY_CONTRACT_VERSION = 1
 _PROFILE_CATALOG_VERSION = 1
 
+_PUBLIC_CATEGORY_ALIASES = {
+    "semantic_digest_mismatch": "stale_semantic_digest",
+    "review_digest_mismatch": "stale_review_binding",
+}
+
 
 @dataclass(frozen=True)
 class SemanticArtifact:
@@ -95,9 +100,10 @@ def _fail(
     path: tuple[str | int, ...] = (),
     related_id: str | None = None,
 ) -> None:
+    public_category = _PUBLIC_CATEGORY_ALIASES.get(category, category)
     raise SemanticValidationError(
         SemanticValidationProblem(
-            category=category,
+            category=public_category,
             message=message,
             artifact_kind=artifact.kind,
             source_name=artifact.source_name,
@@ -127,8 +133,6 @@ def _validate_contract_versions(bundle: SemanticSourceBundle) -> None:
                 path=path,
             )
 
-    # Reserved artifact slots must never be silently ignored. Their standalone
-    # schemas/version semantics are not part of the I-004 v1 production slice.
     if bundle.profile_catalog is not None:
         _fail(
             bundle.profile_catalog,
