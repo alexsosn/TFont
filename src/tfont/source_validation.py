@@ -228,9 +228,6 @@ def validate_source(
     if filename is None:
         _raise("unknown_schema", f"unknown schema: {schema_name}", schema_name)
 
-    effective_source_name = schema_name if source_name is None else source_name
-    normalized_data = _plain_json(data, source_name=effective_source_name)
-
     schema_bytes, schema_source_name = _read_schema_bytes(
         filename,
         schema_root=schema_root,
@@ -264,6 +261,9 @@ def validate_source(
                 schema_path=_problem_path(exc.schema_path),
             )
         ) from exc
+
+    effective_source_name = schema_name if source_name is None else source_name
+    normalized_data = _plain_json(data, source_name=effective_source_name)
 
     validator = Draft202012Validator(schema)
     errors = sorted(
