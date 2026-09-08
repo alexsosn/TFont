@@ -3,12 +3,34 @@ from __future__ import annotations
 import copy
 import unittest
 
-from tfont.semantic_validation import SemanticValidationError, validate_semantic_bundle
+from tfont.digests import evidence_record_digest
+from tfont.semantic_validation import (
+    SemanticArtifact,
+    SemanticSourceBundle,
+    SemanticValidationError,
+    validate_semantic_bundle,
+)
 
 try:
     from test_semantic_validation_phase1 import base_sources, bundle
 except ModuleNotFoundError:
     from i004.test_semantic_validation_phase1 import base_sources, bundle
+
+
+def _bundle_with_evidence(sources: dict) -> SemanticSourceBundle:
+    return SemanticSourceBundle(
+        profile=SemanticArtifact("profile", "profile.json", sources["profile"]),
+        expected_parent_manifest=SemanticArtifact("parent-component-manifest", "parent.json", sources["parent"]),
+        mappings=SemanticArtifact("mapping", "mappings.json", sources["mappings"]),
+        ontology_locks=tuple(
+            SemanticArtifact("ontology-lock", f"lock-{i}.json", lock)
+            for i, lock in enumerate(sources["locks"])
+        ),
+        evidences=tuple(
+            SemanticArtifact("evidence", f"evidence-{i}.json", evidence)
+            for i, evidence in enumerate(sources.get("evidences", []))
+        ),
+    )
 
 
 class I004Phase2Tests(unittest.TestCase):
@@ -35,6 +57,17 @@ class I004Phase2Tests(unittest.TestCase):
         mapping = sources["mappings"]["mappings"][0]
         projection = mapping["projections"].pop()
         mapping["native_state"] = "ambiguous"
+        evidence = {
+            "evidence_id": "evidence:candidate",
+            "kind": "ontology-definition",
+            "source_uri": "https://example.org/evidence/candidate",
+            "source_revision": "test-rev",
+            "content_mode": "normalized-record",
+            "reviewed_content": {"statement": "candidate evidence"},
+            "content_digest": "placeholder",
+        }
+        evidence["content_digest"] = evidence_record_digest(evidence)
+        sources["evidences"] = [evidence]
         mapping["ambiguous_candidates"] = [
             {
                 "candidate_id": "candidate:noun",
@@ -47,10 +80,10 @@ class I004Phase2Tests(unittest.TestCase):
                 "capability_id": projection["capability_id"],
                 "assessment_candidate": "close",
                 "ontology_lock": projection["ontology_lock"],
-                "evidence": [{"evidence_id": "evidence:candidate", "content_digest": "sha256:candidate"}],
+                "evidence": [{"evidence_id": evidence["evidence_id"], "content_digest": evidence["content_digest"]}],
             }
         ]
-        result = validate_semantic_bundle(bundle(sources))
+        result = validate_semantic_bundle(_bundle_with_evidence(sources))
         self.assertEqual(dict(result.indexes.candidates).keys(), {"candidate:noun"})
 
     def test_ambiguous_without_candidate_fails(self):
