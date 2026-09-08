@@ -262,9 +262,12 @@ def validate_source(
             )
         ) from exc
 
+    effective_source_name = schema_name if source_name is None else source_name
+    normalized_data = _plain_json(data, source_name=effective_source_name)
+
     validator = Draft202012Validator(schema)
     errors = sorted(
-        validator.iter_errors(data),
+        validator.iter_errors(normalized_data),
         key=lambda error: (
             tuple(str(part) for part in error.absolute_path),
             tuple(str(part) for part in error.absolute_schema_path),
@@ -277,7 +280,7 @@ def validate_source(
             ValidationProblem(
                 category="schema_validation",
                 message=error.message,
-                source_name=schema_name if source_name is None else source_name,
+                source_name=effective_source_name,
                 instance_path=_problem_path(error.absolute_path),
                 schema_path=_problem_path(error.absolute_schema_path),
             )
