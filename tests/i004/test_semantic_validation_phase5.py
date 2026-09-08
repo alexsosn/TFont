@@ -12,6 +12,7 @@ from tfont.semantic_validation import (
     validate_semantic_bundle,
 )
 from tests.i004.test_semantic_validation_phase1 import base_sources
+from tests.i004.test_semantic_validation_phase3 import reviewed_sources
 
 
 def evidence_record(evidence_id: str = "evidence:child") -> dict:
@@ -110,6 +111,51 @@ class I004Phase5Tests(unittest.TestCase):
             "evidence": [{"evidence_id": "evidence:missing", "content_digest": "sha256:missing"}],
         }]
         self.assert_problem("missing_reference", sources)
+
+    def test_dependency_evidence_must_resolve_and_match_digest(self):
+        sources = base_sources()
+        sources["profile"]["dependencies"][0]["evidence"] = [
+            {"evidence_id": "evidence:missing", "content_digest": "sha256:missing"}
+        ]
+        self.assert_problem("missing_reference", sources)
+
+    def test_approximation_evidence_must_resolve_and_match_digest(self):
+        sources = base_sources()
+        projection = sources["mappings"]["mappings"][0]["projections"][0]
+        projection["assessment"] = "broader"
+        projection["approximation"] = {
+            "status": "reviewed",
+            "eligible": True,
+            "losses": ["undercoverage"],
+            "rationale": "reviewed bounded subset",
+            "review_id": "review:approx",
+            "evidence": [
+                {"evidence_id": "evidence:missing", "content_digest": "sha256:missing"}
+            ],
+        }
+        self.assert_problem("missing_reference", sources)
+
+    def test_mapping_native_binding_component_must_be_authorized_by_dependencies(self):
+        sources = base_sources()
+        sources["mappings"]["mappings"][0]["native_binding"]["component_id"] = "other-tf"
+        self.assert_problem("component_authority", sources)
+
+    def test_projection_execution_component_must_be_authorized_by_dependencies(self):
+        sources = base_sources()
+        projection = sources["mappings"]["mappings"][0]["projections"][0]
+        projection["native_execution_binding"]["component_id"] = "other-tf"
+        self.assert_problem("component_authority", sources)
+
+    def test_semantic_digest_precedes_native_semantics_failure(self):
+        sources = reviewed_sources()
+        mapping = sources["mappings"]["mappings"][0]
+        mapping["native_binding"] = {
+            "component_id": "test-tf",
+            "node_type": "word",
+            "feature": "gn",
+            "value": "",
+        }
+        self.assert_problem("semantic_digest_mismatch", sources)
 
     def test_semantic_empty_value_requires_matching_native_value_dependency(self):
         sources = base_sources()
