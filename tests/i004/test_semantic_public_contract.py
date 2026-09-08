@@ -4,8 +4,35 @@ import unittest
 
 import tfont
 import tfont.digests as digests
+import tfont.semantic_vocabulary as semantic_vocabulary
 from tfont.semantic_validation import SemanticValidationError, validate_semantic_bundle
+from tests.i004.test_semantic_validation_phase1 import base_sources, bundle as phase1_bundle
 from tests.i004.test_semantic_validation_phase3 import bundle, reviewed_sources
+
+
+FROZEN_I004_CATEGORIES = frozenset(
+    {
+        "unsupported_contract_version",
+        "duplicate_id",
+        "missing_reference",
+        "component_authority",
+        "unknown_vocabulary",
+        "invalid_record_state",
+        "invalid_projection",
+        "invalid_candidate",
+        "invalid_reference_routing",
+        "kind_role_conflict",
+        "unknown_ontology_target",
+        "bundle_closure",
+        "bridge_closure",
+        "evidence_digest_mismatch",
+        "stale_semantic_digest",
+        "stale_review_binding",
+        "native_semantics_unproven",
+        "invalid_approximation",
+        "invalid_publication_relation",
+    }
+)
 
 
 class I004PublicContractTests(unittest.TestCase):
@@ -34,6 +61,26 @@ class I004PublicContractTests(unittest.TestCase):
             "validate_semantic_bundle",
         ):
             self.assertTrue(hasattr(tfont, name), name)
+
+    def test_production_exposes_exact_frozen_diagnostic_categories(self):
+        self.assertEqual(
+            getattr(semantic_vocabulary, "SEMANTIC_VALIDATION_CATEGORIES", None),
+            FROZEN_I004_CATEGORIES,
+        )
+
+    def test_structurally_valid_external_reference_envelope_uses_frozen_category(self):
+        sources = base_sources()
+        sources["mappings"]["mappings"][0]["external_references"] = [
+            {
+                "reference_id": "ref:provenance",
+                "reference_kind": "provenance-source",
+                "query_role": "metadata-filter",
+                "external": "https://example.org/source",
+            }
+        ]
+        with self.assertRaises(SemanticValidationError) as raised:
+            validate_semantic_bundle(phase1_bundle(sources))
+        self.assertEqual(raised.exception.problem.category, "invalid_reference_routing")
 
     def test_stale_mapping_digest_uses_frozen_category(self):
         sources = reviewed_sources()
