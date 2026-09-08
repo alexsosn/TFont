@@ -48,6 +48,23 @@
       },
       "additionalProperties": false
     },
+    "ontologyBundleRequirement": {
+      "type": "object",
+      "required": ["bundle_digest", "required_profile_contracts"],
+      "properties": {
+        "bundle_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "required_profile_contracts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "additionalProperties": false
+    },
     "targetRouting": {
       "oneOf": [
         {
@@ -95,7 +112,7 @@
         "capability_id": {"type": "string", "minLength": 1},
         "assessment": {"enum": ["exact", "close", "broader", "narrower", "related"]},
         "ontology_lock": {"type": "string", "minLength": 1},
-        "ontology_bundle_requirement": {"type": "object"},
+        "ontology_bundle_requirement": {"$ref": "#/$defs/ontologyBundleRequirement"},
         "ontology_declaration_evidence": {"type": "object"},
         "publication_relation": {"type": ["string", "null"]},
         "native_execution_binding": {"type": "object", "minProperties": 1},
