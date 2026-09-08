@@ -22,7 +22,6 @@ on:
       - docs/research/A-001-r005-oracc-zero-span-supersession.md
       - docs/research/A-001-r007-external-carrier-supersession.md
       - docs/plans/A-001-tf-native-runtime-boundary-plan.md
-      - docs/plans/A-001-p001-runtime-reconciliation-plan.md
       - docs/plans/P-001-tf-native-runtime-boundary-amendment.md
       - src/tfont/schemas/parent-component-manifest.schema.json
       - tests/architecture/test_tf_native_boundary.py
@@ -36,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out exact source head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install test dependencies
