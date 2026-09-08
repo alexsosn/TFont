@@ -3,7 +3,8 @@ from __future__ import annotations
 import copy
 import unittest
 
-from tfont.digests import evidence_record_digest, mapping_semantic_digest_v2
+from tfont.digests import MAPPING_SEMANTIC_ALGORITHM, evidence_record_digest
+from tfont.semantic_digest_v2 import MAPPING_SEMANTIC_ALGORITHM_V2, mapping_semantic_digest_v2
 from tfont.semantic_validation import (
     SemanticArtifact,
     SemanticSourceBundle,
@@ -119,8 +120,6 @@ class I004Phase3Tests(unittest.TestCase):
         self.assertNotEqual(mapping_semantic_digest_v2(mapping), before)
 
     def test_v2_algorithm_is_distinct_from_v1(self):
-        from tfont.digests import MAPPING_SEMANTIC_ALGORITHM, MAPPING_SEMANTIC_ALGORITHM_V2
-
         self.assertEqual(MAPPING_SEMANTIC_ALGORITHM, "tfont-mapping-semantic-sha256-v1")
         self.assertEqual(MAPPING_SEMANTIC_ALGORITHM_V2, "tfont-mapping-semantic-sha256-v2")
 
