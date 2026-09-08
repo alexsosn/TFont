@@ -41,8 +41,11 @@ jobs:
       - name: F-015 focused RED/GREEN contract
         run: python -m unittest discover -s tests/f015 -v
       - name: F-012 regressions
+        if: always()
         run: python -m unittest discover -s tests/f012 -v
       - name: F-014 regressions
+        if: always()
         run: python -m unittest discover -s tests/f014 -v
       - name: I-003 regressions
+        if: always()
         run: python -m unittest discover -s tests/i003 -v
