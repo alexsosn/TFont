@@ -7,6 +7,22 @@ from .semantic_digest_v2 import projection_semantic_digest_v1
 Fail = Callable[[str, str, tuple[str | int, ...], str | None], None]
 
 
+def _utf16_key(value: str) -> bytes:
+    return value.encode("utf-16be")
+
+
+def _sorted_records(value: Any, id_field: str) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        return []
+    rows = [row for row in value if type(row) is dict]
+    return sorted(
+        rows,
+        key=lambda row: _utf16_key(row.get(id_field))
+        if type(row.get(id_field)) is str
+        else b"",
+    )
+
+
 def check_evidence_bindings(
     bindings: Any,
     *,
@@ -16,7 +32,13 @@ def check_evidence_bindings(
 ) -> None:
     if type(bindings) is not list:
         fail("missing_reference", "evidence bindings must be a list", path, None)
-    for index, binding in enumerate(bindings):
+    indexed = list(enumerate(bindings))
+    indexed.sort(
+        key=lambda pair: _utf16_key(pair[1].get("evidence_id"))
+        if type(pair[1]) is dict and type(pair[1].get("evidence_id")) is str
+        else b""
+    )
+    for index, binding in indexed:
         item_path = path + (index,)
         if type(binding) is not dict:
             fail("missing_reference", "evidence binding must be an object", item_path, None)
@@ -44,22 +66,24 @@ def validate_child_evidence(
     fail: Fail,
 ) -> None:
     for mapping_id, mapping in mappings:
-        for index, candidate in enumerate(mapping.get("ambiguous_candidates", [])):
+        for candidate in _sorted_records(mapping.get("ambiguous_candidates", []), "candidate_id"):
+            candidate_id = candidate.get("candidate_id")
             bindings = candidate.get("evidence", [])
             if bindings:
                 check_evidence_bindings(
                     bindings,
                     evidences=evidences,
-                    path=("mappings", mapping_id, "ambiguous_candidates", index, "evidence"),
+                    path=("mappings", mapping_id, "ambiguous_candidates", candidate_id, "evidence"),
                     fail=fail,
                 )
-        for index, reference in enumerate(mapping.get("external_references", [])):
+        for reference in _sorted_records(mapping.get("external_references", []), "reference_id"):
+            reference_id = reference.get("reference_id")
             bindings = reference.get("evidence", [])
             if bindings:
                 check_evidence_bindings(
                     bindings,
                     evidences=evidences,
-                    path=("mappings", mapping_id, "external_references", index, "evidence"),
+                    path=("mappings", mapping_id, "external_references", reference_id, "evidence"),
                     fail=fail,
                 )
 
@@ -70,26 +94,27 @@ def validate_projection_reviews(
     fail: Fail,
 ) -> None:
     for mapping_id, mapping in mappings:
-        for index, projection in enumerate(mapping.get("projections", [])):
+        for projection in _sorted_records(mapping.get("projections", []), "projection_id"):
             review = projection.get("review")
             if not review:
                 continue
-            path = ("mappings", mapping_id, "projections", index)
+            projection_id = projection.get("projection_id")
+            path = ("mappings", mapping_id, "projections", projection_id)
             computed = projection_semantic_digest_v1(projection)
             stored = projection.get("projection_semantic_digest")
             if stored != computed:
                 fail(
                     "semantic_digest_mismatch",
-                    f"projection semantic digest is stale: {projection.get('projection_id')}",
+                    f"projection semantic digest is stale: {projection_id}",
                     path + ("projection_semantic_digest",),
-                    projection.get("projection_id"),
+                    projection_id,
                 )
             if type(review) is not dict or review.get("reviewed_mapping_digest") != computed:
                 fail(
                     "review_digest_mismatch",
-                    f"projection review does not bind current semantics: {projection.get('projection_id')}",
+                    f"projection review does not bind current semantics: {projection_id}",
                     path + ("review", "reviewed_mapping_digest"),
-                    projection.get("projection_id"),
+                    projection_id,
                 )
 
 
@@ -103,11 +128,11 @@ def validate_native_semantics(
         binding = mapping.get("native_binding")
         if type(binding) is not dict:
             continue
-        resolved = [
-            dependencies[dependency_id]
-            for dependency_id in mapping.get("native_dependencies", [])
-            if dependency_id in dependencies
+        dependency_ids = [
+            item for item in mapping.get("native_dependencies", []) if type(item) is str
         ]
+        dependency_ids.sort(key=_utf16_key)
+        resolved = [dependencies[dependency_id] for dependency_id in dependency_ids if dependency_id in dependencies]
 
         if "value" in binding and binding.get("value") in {"", None}:
             required = (binding.get("node_type"), binding.get("feature"), binding.get("value"))
