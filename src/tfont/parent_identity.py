@@ -46,8 +46,13 @@ def _reject_nonportable_file_path(path: str) -> None:
     components = [path]
     for separator in separators:
         components = [part for component in components for part in component.split(separator)]
-    for component in components:
-        if component and component.endswith((".", " ")):
+    nonempty = [component for component in components if component]
+    for index, component in enumerate(nonempty):
+        if component in {".", ".."}:
+            if index == len(nonempty) - 1 and component == ".":
+                _fail("wrong_path_type", "exact file path must not end in directory syntax", path)
+            continue
+        if component.endswith((".", " ")):
             _fail("wrong_path_type", "exact file path has a non-portable component spelling", path)
 
 
