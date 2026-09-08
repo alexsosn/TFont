@@ -43,6 +43,18 @@ class ExactFileSpellingTests(unittest.TestCase):
         self.assert_wrong_path_before_lstat("directory " + os.sep + "component.bin")
         self.assert_wrong_path_before_lstat("outer" + os.sep + "directory." + os.sep + "component.bin")
 
+    def test_nonterminal_dot_and_dotdot_segments_keep_existing_relative_path_semantics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            directory = base / "directory"
+            directory.mkdir()
+            path = directory / "component.bin"
+            path.write_bytes(b"alpha\n")
+            via_dot = str(directory) + os.sep + "." + os.sep + "component.bin"
+            via_dotdot = str(directory) + os.sep + ".." + os.sep + "directory" + os.sep + "component.bin"
+            self.assertEqual(file_component_digest(via_dot), FILE_ALPHA_DIGEST)
+            self.assertEqual(file_component_digest(via_dotdot), FILE_ALPHA_DIGEST)
+
     def test_leading_and_internal_dots_remain_valid(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
