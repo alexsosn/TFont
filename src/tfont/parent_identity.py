@@ -95,6 +95,13 @@ def _lstat(path: str) -> os.stat_result:
         _fail("filesystem_error", str(exc), path)
 
 
+def _stat_no_follow(path: str) -> os.stat_result:
+    try:
+        return os.stat(path, follow_symlinks=False)
+    except (OSError, ValueError, NotImplementedError) as exc:
+        _fail("filesystem_error", str(exc), path)
+
+
 def _is_link_like(st: os.stat_result) -> bool:
     if stat.S_ISLNK(st.st_mode):
         return True
@@ -115,18 +122,43 @@ def _sha256_bytes(payload: bytes) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
-def _sha256_file(path: str) -> str:
-    digest = hashlib.sha256()
+def _file_identity(st: os.stat_result, path: str) -> tuple[int, int]:
+    device = getattr(st, "st_dev", None)
+    inode = getattr(st, "st_ino", None)
+    if type(device) is not int or type(inode) is not int or inode == 0:
+        _fail("filesystem_error", "stable file identity is unavailable", path)
+    return device, inode
+
+
+def _sha256_file(path: str, expected: os.stat_result) -> str:
+    expected_identity = _file_identity(expected, path)
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor: int | None = None
     try:
-        with open(path, "rb") as stream:
-            while True:
-                chunk = stream.read(1024 * 1024)
-                if not chunk:
-                    break
-                digest.update(chunk)
-    except OSError as exc:
+        descriptor = os.open(path, flags)
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode):
+            _fail("filesystem_error", "opened file object is not a regular file", path)
+        if _file_identity(opened, path) != expected_identity:
+            _fail("filesystem_error", "file identity changed between inspection and hashing", path)
+
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        return f"sha256:{digest.hexdigest()}"
+    except IdentityError:
+        raise
+    except (OSError, ValueError) as exc:
         _fail("filesystem_error", str(exc), path)
-    return f"sha256:{digest.hexdigest()}"
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def _validate_segment(segment: str, *, filesystem_path: str) -> str:
@@ -148,10 +180,14 @@ def _utf16_key(value: str) -> bytes:
         _fail("unicode_domain", str(exc))
 
 
-def _file_record(relative_logical_path: str, filesystem_path: str) -> dict[str, str]:
+def _file_record(
+    relative_logical_path: str,
+    filesystem_path: str,
+    expected: os.stat_result,
+) -> dict[str, str]:
     return {
         "relative_logical_path": relative_logical_path,
-        "sha256": _sha256_file(filesystem_path),
+        "sha256": _sha256_file(filesystem_path, expected),
     }
 
 
@@ -181,7 +217,7 @@ def file_component_digest(path: str | os.PathLike[str]) -> str:
         _fail("symlink_not_allowed", "link-like file component is not allowed", filesystem_path)
     if not stat.S_ISREG(st.st_mode):
         _fail("wrong_path_type", "file component must be a regular file", filesystem_path)
-    return _sha256_file(filesystem_path)
+    return _sha256_file(filesystem_path, st)
 
 
 def directory_component_digest(path: str | os.PathLike[str]) -> str:
@@ -200,10 +236,7 @@ def directory_component_digest(path: str | os.PathLike[str]) -> str:
         stack[-1] = (current, index + 1, relative_segments)
         entry_path = entry.path
         segment = _validate_segment(entry.name, filesystem_path=entry_path)
-        try:
-            st = entry.stat(follow_symlinks=False)
-        except OSError as exc:
-            _fail("filesystem_error", str(exc), entry_path)
+        st = _stat_no_follow(entry_path)
         if _is_link_like(st):
             _fail("symlink_not_allowed", "link-like entry is not allowed", entry_path)
 
@@ -212,7 +245,7 @@ def directory_component_digest(path: str | os.PathLike[str]) -> str:
             stack.append((_scan_directory(entry_path), 0, segments))
         elif stat.S_ISREG(st.st_mode):
             logical_path = "/".join(segments)
-            records.append(_file_record(logical_path, entry_path))
+            records.append(_file_record(logical_path, entry_path, st))
         else:
             _fail("unsupported_entry", "addressed directory contains a non-file/non-directory entry", entry_path)
 
@@ -235,14 +268,11 @@ def tf_payload_digest(path: str | os.PathLike[str]) -> str:
             continue
         entry_path = entry.path
         logical_path = _validate_segment(entry.name, filesystem_path=entry_path)
-        try:
-            st = entry.stat(follow_symlinks=False)
-        except OSError as exc:
-            _fail("filesystem_error", str(exc), entry_path)
+        st = _stat_no_follow(entry_path)
         if _is_link_like(st):
             _fail("symlink_not_allowed", "selected TF entry is link-like", entry_path)
         if stat.S_ISREG(st.st_mode):
-            records.append(_file_record(logical_path, entry_path))
+            records.append(_file_record(logical_path, entry_path, st))
 
     if not records:
         _fail("empty_component", "TF payload contains no direct regular .tf files", root)

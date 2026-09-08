@@ -15,18 +15,9 @@ VIRTUAL_ROOT = "virtual-root"
 
 
 class FakeEntry:
-    def __init__(self, *, name: str, path: str, mode: int, stat_error: OSError | None = None):
+    def __init__(self, *, name: str, path: str):
         self.name = name
         self.path = path
-        self._mode = mode
-        self._stat_error = stat_error
-
-    def stat(self, *, follow_symlinks: bool = True):
-        if follow_symlinks:
-            raise AssertionError("F-010 must preserve follow_symlinks=False")
-        if self._stat_error is not None:
-            raise self._stat_error
-        return SimpleNamespace(st_mode=self._mode, st_file_attributes=0)
 
 
 class FakeScandir:
@@ -60,10 +51,32 @@ class VirtualDirectoryTree:
     def _level(self, path: str) -> int:
         if path == VIRTUAL_ROOT:
             return 0
-        prefix = "virtual-directory-"
-        if not path.startswith(prefix):
-            raise AssertionError(f"unexpected virtual path: {path}")
-        return int(path[len(prefix) :])
+        directory_prefix = "virtual-directory-"
+        terminal_prefix = "virtual-terminal-"
+        if path.startswith(directory_prefix):
+            return int(path[len(directory_prefix) :])
+        if path.startswith(terminal_prefix):
+            return int(path[len(terminal_prefix) :])
+        raise AssertionError(f"unexpected virtual path: {path}")
+
+    def stat_no_follow(self, path: str, *, follow_symlinks: bool = True):
+        if follow_symlinks:
+            raise AssertionError("F-012 must preserve follow_symlinks=False")
+        level = self._level(path)
+        if self.stat_error_level == level:
+            raise OSError(f"stat failed at level {level}")
+        if path.startswith("virtual-terminal-"):
+            if self.terminal_mode is None:
+                raise AssertionError("terminal stat requested without terminal entry")
+            mode = self.terminal_mode
+        else:
+            mode = stat.S_IFDIR
+        return SimpleNamespace(
+            st_mode=mode,
+            st_file_attributes=0,
+            st_dev=1,
+            st_ino=level + 1,
+        )
 
     def scandir(self, path: str):
         level = self._level(path)
@@ -77,7 +90,6 @@ class VirtualDirectoryTree:
                     FakeEntry(
                         name="terminal",
                         path=f"virtual-terminal-{level}",
-                        mode=self.terminal_mode,
                     )
                 ]
             )
@@ -88,12 +100,6 @@ class VirtualDirectoryTree:
                 FakeEntry(
                     name="d",
                     path=f"virtual-directory-{child_level}",
-                    mode=stat.S_IFDIR,
-                    stat_error=(
-                        OSError(f"stat failed at level {child_level}")
-                        if self.stat_error_level == child_level
-                        else None
-                    ),
                 )
             ]
         )
@@ -103,6 +109,7 @@ class DeepDirectoryIdentityTests(unittest.TestCase):
     def digest_virtual(self, tree: VirtualDirectoryTree):
         with (
             patch.object(parent_identity, "_require_real_directory", return_value=None),
+            patch.object(parent_identity.os, "stat", side_effect=tree.stat_no_follow),
             patch.object(parent_identity.os, "scandir", side_effect=tree.scandir),
         ):
             return directory_component_digest(VIRTUAL_ROOT)
