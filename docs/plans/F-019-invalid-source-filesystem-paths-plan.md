@@ -73,7 +73,7 @@ Commit tests before changing `source_validation.py` and observe the intended fai
 
 ### RED-A — embedded-NUL containment
 
-On Python 3.10 and 3.12, and on Ubuntu/Windows where Actions capacity permits, pin:
+On the complete supported matrix (Ubuntu 24.04 and Windows latest; Python 3.10 and 3.12), pin:
 
 1. `load_source("bad\0.json")` raises `SourceValidationError` with category `decode_error`;
 2. `.yaml` behaves identically;
@@ -81,7 +81,7 @@ On Python 3.10 and 3.12, and on Ubuntu/Windows where Actions capacity permits, p
 4. exact `problem.source_name` retains the authored path including the NUL;
 5. raw `ValueError` never escapes.
 
-These should be the only intended RED failures before production.
+These should be the only intended RED failures before production. If some matrix cells are temporarily queued/unavailable, RED evidence may arrive incrementally, but missing cells remain an unresolved gate rather than becoming optional.
 
 ### RED-B — established precedence controls
 
@@ -101,12 +101,16 @@ Already-green controls must remain green on the tests-only RED head:
 
 ## 6. CI
 
-Focused workflow should run:
+Focused workflow must run all four cells before completion:
 
-- Ubuntu 24.04 × Python 3.10, 3.12;
-- Windows latest × Python 3.10, 3.12 when capacity is available;
+- Ubuntu 24.04 × Python 3.10;
+- Ubuntu 24.04 × Python 3.12;
+- Windows latest × Python 3.10;
+- Windows latest × Python 3.12;
 - F-019 focused tests;
 - I-001 source-loading regressions.
+
+Temporary GitHub runner unavailability blocks the affected RED/GREEN/final gate; it never weakens or removes a matrix cell.
 
 Repository-wide discovery remains owned only by `full-suite.yml`; do not duplicate it in the focused workflow.
 
@@ -129,4 +133,4 @@ Any finding returns to RED -> minimal GREEN -> exact-head CI -> fresh review.
 
 ## 8. Exit condition
 
-F-019 is complete only when invalid source filesystem spellings no longer leak raw `ValueError`, existing source-loading precedence/provenance remains compatible, supported CI is green, full suite is green, and the final exact head passes fresh adversarial review.
+F-019 is complete only when invalid source filesystem spellings no longer leak raw `ValueError`, existing source-loading precedence/provenance remains compatible, the complete Ubuntu/Windows × Python 3.10/3.12 focused matrix is green on the exact head, the authoritative full suite is green, and the final exact head passes fresh adversarial review.
