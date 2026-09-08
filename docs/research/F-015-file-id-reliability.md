@@ -1,13 +1,13 @@
 # F-015 research — file identity reliability and handle-bound inspection
 
 **Issue:** #90  
-**Baseline:** current main after F-012/F-014, branch created from `8f48e3b14b4135ec68aada61ad928c2718cd2171`
+**Baseline:** current main after F-012/F-014; research branch integrated with `main=200dcaba593d02d4d903aa424d6c7fec574f2ff2` before this correction.
 
 ## 1. Trigger
 
 F-012 correctly removed the old `stat(path) -> reopen path with ordinary open -> hash whatever is there` behavior. It now compares an expected no-follow `(st_dev, st_ino)` pair with `fstat()` on the opened descriptor before reading bytes.
 
-That closes ordinary regular-file and symlink substitution races, but its documentation overstates what the pair proves across every supported platform/version.
+That closes ordinary regular-file and symlink substitution races, but its documentation overstates what equality of the pair proves across every supported platform/version.
 
 The problem is not that `(st_dev, st_ino)` is useless. Python documents a non-zero `st_ino` as identifying a file for a given `st_dev`. The problem is treating two temporally separated observations of that representation as an unconditional proof that the filesystem object itself is the same forever.
 
@@ -35,7 +35,7 @@ References:
 
 ### 2.2 Windows file IDs are not temporal object capabilities
 
-Microsoft's `BY_HANDLE_FILE_INFORMATION` documentation states that file IDs are not guaranteed unique over time because a filesystem may reuse them. It also notes that the 64-bit identifier is not guaranteed unique on ReFS and points to `FILE_ID_INFO` for the 128-bit identifier.
+Microsoft's `BY_HANDLE_FILE_INFORMATION` documentation states that file IDs are not guaranteed unique over time because a filesystem may reuse them. It also notes that the legacy 64-bit identifier is not guaranteed unique on ReFS and points to `FILE_ID_INFO` for the 128-bit identifier.
 
 `FILE_ID_INFO` contains a volume serial number plus a 128-bit file identifier and is the documented comparison representation for determining whether **two open handles** represent the same file.
 
@@ -47,40 +47,51 @@ References:
 
 ### 2.3 Consequence for F-012
 
-The F-012 tuple comparison remains a useful substitution detector, especially on ordinary NTFS/Linux filesystems. It is not a portable temporal capability:
+The F-012 tuple comparison remains valuable, especially on ordinary NTFS/Linux filesystems. Its two outcomes have different evidentiary strength:
 
-- on pre-3.12 Windows a larger underlying file ID can be represented only through the older 64-bit surface;
-- ReFS does not guarantee uniqueness of that legacy 64-bit identifier;
-- Windows file IDs can be reused over time after deletion;
-- Unix inode numbers are filesystem-local identifiers, not permanent non-reusable capabilities.
+- **mismatch is dispositive**: the opened object is not represented by the same platform identity tuple as the pre-open object, so TFont must fail closed;
+- **equality is not universally dispositive**: on pre-3.12 Windows a larger underlying file ID can be represented only through the older 64-bit surface; ReFS does not guarantee uniqueness of that legacy identifier; Windows file IDs can be reused over time after deletion; Unix inode numbers are filesystem-local identifiers rather than permanent non-reusable capabilities.
 
-Therefore `expected tuple == opened tuple` should not be the final authority for the stronger phrase “the exact inspected object” when an alternative can keep the inspected object itself open.
+Therefore F-015 must **retain tuple mismatch detection as defense in depth** while removing tuple equality from the set of facts that authorize the stronger phrase “the exact inspected object.”
 
-## 3. Stronger invariant: one open object, one inspection, one read
+## 3. Stronger invariant: one retained open object for inspection and reading
 
-The robust invariant is simpler:
+The primary invariant is:
 
-> The descriptor/handle that passes the no-follow/link/type inspection is the same descriptor/handle from which all digest bytes are read.
+> The descriptor/handle that passes the trusted no-follow/link/type inspection is the same descriptor/handle from which all digest bytes are read.
 
-No temporal file-ID comparison is needed to prove inspection-to-read continuity. File IDs may remain useful diagnostics or external comparison data, but they are not the authority connecting inspection to bytes.
+The pre-open expected stat remains useful for detecting ordinary substitutions. The intended sequence is therefore layered:
 
-Pathname replacement after that trusted open is harmless to this invariant: the already-open descriptor remains bound to the inspected object. This is intentionally **not** filesystem snapshot semantics. A replacement that happens before the trusted open simply changes which object reaches the inspection point.
+1. retain the existing pre-open no-follow stat where the caller already has it;
+2. perform a **trusted no-follow open**;
+3. inspect the opened descriptor/handle itself for link/reparse/type;
+4. compare expected/opened platform identity as a **one-way detector**: mismatch fails; equality does not prove continuity by itself;
+5. read every digest byte from that already-inspected open descriptor/handle;
+6. never reopen the pathname for hashing.
+
+This preserves F-012's deterministic ordinary regular→regular replacement rejection and adds a stronger inspection→read authority.
+
+Pathname replacement after the trusted open is harmless to the primary invariant: the already-open descriptor remains bound to the inspected object. This is intentionally **not** filesystem snapshot semantics.
+
+There is an irreducible boundary before the trusted open: a pathname object can change after the pre-open stat. The tuple detector catches ordinary changes, but a colliding/truncated/reused identifier can defeat that detector. F-015 must document this rather than claim that a pathname-only pre-open observation is an unforgeable object capability.
 
 ## 4. POSIX / Unix feasibility
 
 Python `os.open()` exposes `O_NOFOLLOW` where the platform C library defines it. Linux and macOS provide no-follow open primitives; macOS additionally exposes `O_NOFOLLOW_ANY` on supported Python versions.
 
-A descriptor-first regular-file path can therefore be:
+A regular-file path can therefore use:
 
-1. `os.open(path, O_RDONLY | O_NOFOLLOW | optional binary/cloexec flags)`;
-2. `os.fstat(fd)`;
-3. require regular file;
-4. only then stream via `os.read(fd, 1 MiB)`;
-5. close the same descriptor in `finally`.
+1. the existing expected no-follow stat for defense-in-depth change detection;
+2. `os.open(path, O_RDONLY | O_NOFOLLOW | optional platform flags)`;
+3. `os.fstat(fd)`;
+4. require regular file;
+5. fail on expected/opened identity mismatch where the expected tuple is available;
+6. only then stream via `os.read(fd, 1 MiB)`;
+7. close the same descriptor in `finally`.
 
-For a final symbolic link, `O_NOFOLLOW` prevents following the target. The implementation must preserve the public `symlink_not_allowed` category rather than leaking a platform `ELOOP` as a generic filesystem error.
+For a final symbolic link, `O_NOFOLLOW` prevents following the target. The implementation must preserve the public `symlink_not_allowed` category rather than leak a platform `ELOOP` as a generic filesystem error.
 
-`O_NOFOLLOW` is not universal. The exact-object implementation must not silently fall back to the temporal `(dev, ino)` proof on a platform where no trustworthy no-follow open exists. Research conclusion: such a platform must fail closed for this exact guarantee or be explicitly classified as a weaker unsupported portability tier. Current CI's Ubuntu path has the required primitive.
+`O_NOFOLLOW` is not universal. For F-015's exact handle-continuity mode, a platform without a trustworthy final-component no-follow opener must **fail closed as `filesystem_error`** rather than silently fall back to tuple equality as proof. This ticket does not introduce a second public “weaker mode.” Current Ubuntu CI has the required primitive.
 
 Reference:
 
@@ -95,7 +106,7 @@ Python's ordinary `os.open()` does not expose the Win32 `FILE_FLAG_OPEN_REPARSE_
 `CreateFileW` with:
 
 - `GENERIC_READ`;
-- compatible share flags (`FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE`) to avoid introducing an unnecessary lock policy;
+- compatible share flags (`FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE`) so F-015 does not invent a stronger lock policy;
 - `OPEN_EXISTING`;
 - `FILE_FLAG_OPEN_REPARSE_POINT`;
 
@@ -117,62 +128,70 @@ Reference:
 
 - https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
 
-The implementation should also validate regular-file type on the opened object before reading. This may use the descriptor's `os.fstat()` after conversion, with the Win32 attribute check still occurring first so a reparse handle is never treated as ordinary content.
+The implementation must also validate regular-file type on the opened object before reading. This may use `os.fstat(fd)` after conversion, with the Win32 reparse-attribute query occurring before the descriptor is authorized for hashing.
 
 ### 5.3 Read the same Win32 handle through Python
 
-`msvcrt.open_osfhandle()` converts an existing Win32 `HANDLE` into a CRT file descriptor. Python documents this standard-library bridge; Microsoft documents that `_open_osfhandle` transfers ownership of the Win32 handle to the CRT descriptor. Closing the descriptor closes the underlying handle and the original handle must not then be closed separately.
+`msvcrt.open_osfhandle()` converts an existing Win32 `HANDLE` into a CRT file descriptor. Python documents this standard-library bridge; Microsoft documents that `_open_osfhandle` **transfers ownership** of the Win32 handle to the CRT descriptor. Closing the descriptor closes the underlying handle, so the raw handle must not also be closed after successful conversion.
 
 References:
 
 - https://docs.python.org/3.10/library/msvcrt.html#msvcrt.open_osfhandle
 - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle
 
-For an ordinary regular file the sequence can therefore be:
+The plan must use a documented ownership/binary sequence:
 
 1. `CreateFileW(... FILE_FLAG_OPEN_REPARSE_POINT ...)`;
 2. query handle-bound reparse attributes;
 3. reject reparse objects;
-4. convert that same handle with `msvcrt.open_osfhandle` in binary/read-only mode;
-5. `os.fstat(fd)` and require regular file;
-6. stream via `os.read(fd, 1 MiB)`;
-7. `os.close(fd)` exactly once.
+4. call `msvcrt.open_osfhandle(handle, os.O_RDONLY)`; on success ownership transfers to the CRT descriptor;
+5. put that descriptor in binary mode with the documented `msvcrt.setmode(fd, os.O_BINARY)` path before byte reads;
+6. `os.fstat(fd)` and require regular file;
+7. apply the retained expected/opened tuple **mismatch** detector where available;
+8. stream via `os.read(fd, 1 MiB)`;
+9. `os.close(fd)` exactly once.
 
-This works independently of whether Python 3.10 exposes a 64-bit or Python 3.12 exposes a 128-bit `st_ino`, because no file-ID equality is needed for inspection-to-read continuity.
+If conversion fails before ownership transfer, F-015 must call `CloseHandle` exactly once. If conversion succeeds, all later cleanup goes through `os.close(fd)` and never `CloseHandle` on the original raw value.
 
-`FILE_ID_INFO` may still be useful for diagnostics/tests, but should not become a new temporal equality authority when the same handle can simply be retained.
+This works independently of whether Python 3.10 exposes a 64-bit or Python 3.12 exposes a 128-bit `st_ino` for the **primary** inspection→read guarantee, because the same retained handle supplies the bytes. A tuple mismatch still catches ordinary substitution; tuple equality never authorizes continuity.
 
-## 6. Applying the invariant to TFont's three byte-bearing paths
+`FILE_ID_INFO` may remain useful for diagnostics/research but should not become a new temporal equality authority when the actual inspected handle can simply be retained.
+
+## 6. Applying the layered invariant to TFont's three byte-bearing paths
 
 ### Standalone `file_component_digest`
 
-The trusted open itself becomes the final-file inspection. F-014 lexical portability validation remains first. The opened object is checked for link/reparse/type and the same descriptor is hashed.
+F-014 lexical portability validation remains first. Preserve the current pre-open stat for existing error classification and mismatch detection. The trusted no-follow open then produces the handle/descriptor that is itself checked and hashed without a pathname reopen.
 
 ### Recursive `directory_component_digest`
 
-For a discovered path that is going to contribute file bytes, TFont should obtain a trusted no-follow open and keep that descriptor through hashing instead of `stat -> later open`.
+For a discovered path that is going to contribute file bytes, retain the current fresh no-follow stat as the ordinary-substitution detector, then obtain a trusted no-follow open and keep that descriptor through hashing.
 
-This does **not** solve replacement of an ancestor directory or subtree enumeration by pathname; that is the distinct F-013 boundary. F-015 only prevents a final regular-file byte read from being redirected after its trusted open.
+This does **not** solve replacement of an ancestor directory or subtree enumeration by pathname; that is the distinct F-013 boundary. F-015 only strengthens the final regular-file byte-reading boundary.
 
 ### Direct `tf_payload_digest`
 
-Apply the same trusted no-follow open-and-read helper to each selected direct `.tf` path.
+Apply the same expected-stat + trusted-open + same-descriptor-read helper to each selected direct `.tf` path.
 
-## 7. What happens to F-012 race semantics
+## 7. F-012 race semantics are preserved, not discarded
 
-F-012's current deterministic tests inject a replacement between an expected pathname stat and the later open, then require an identity mismatch.
+F-012's deterministic tests inject a replacement between expected pathname stat and later open and require an identity mismatch.
 
-Under handle-bound inspection, that temporal gap disappears. The stronger tests should instead pin the real invariant:
+Those tests remain valid and should stay. F-015 adds a second class of tests around the retained handle:
 
-- after the trusted handle/descriptor is opened and inspected, replacing the pathname cannot redirect subsequent reads;
+- ordinary expected/opened tuple mismatch still fails `filesystem_error` before bytes are read;
+- after trusted descriptor acquisition and handle inspection, replacing/renaming the pathname cannot redirect subsequent reads;
 - bytes come from the already-open inspected object;
 - no second pathname open occurs for hashing;
 - a pre-existing final symlink/reparse point is rejected by the trusted open path;
-- no bytes are read before the opened object passes link/type validation.
+- no bytes are read before the opened object passes link/reparse/type validation.
 
-This is not weakening the guarantee. It removes the race window that the F-012 tuple comparison was attempting to detect.
+The two layers serve different purposes:
 
-A pathname replacement **before** the trusted open is outside snapshot semantics: the replacement is the object that is inspected. A pathname replacement **after** trusted open may succeed at the filesystem level, but cannot redirect the descriptor's bytes.
+- tuple mismatch = useful evidence that a pre-open substitution occurred;
+- retained handle = authoritative continuity from trusted-open inspection through hashing.
+
+A tuple equality on a lossy/reused representation is **not** proof that no pre-open substitution occurred. That residual limitation must remain explicit.
 
 ## 8. Error and compatibility policy
 
@@ -180,27 +199,30 @@ Preserve existing public categories:
 
 - trusted-open final link/reparse: `symlink_not_allowed`;
 - non-regular standalone file: `wrong_path_type` where that is already the caller contract;
-- trusted-open/handle-query/descriptor-conversion/read failures: `filesystem_error`;
+- trusted-open/handle-query/descriptor-conversion/binary-mode/read failures: `filesystem_error`;
+- missing trusted no-follow primitive: `filesystem_error` fail-closed;
 - recursive unsupported entry types retain `unsupported_entry` where applicable.
 
-No file-system metadata enters digest projection bytes. Existing algorithm identifiers and fixed digest vectors must remain unchanged.
+No filesystem metadata enters digest projection bytes. Existing algorithm identifiers and fixed digest vectors must remain unchanged.
 
-No silent fallback to a known-weaker file-ID comparison is allowed when the trusted no-follow open primitive is unavailable.
+No silent fallback to tuple equality as exact proof is allowed.
 
 ## 9. RED requirements before any production change
 
 A plan must first freeze the helper/ownership/error API. Then deterministic RED must establish at least:
 
-1. **single-object continuity:** replace/rename the pathname after trusted descriptor acquisition and prove hashing still reads the inspected descriptor, not the replacement path;
-2. **no reopen:** hashing after inspection makes no second pathname `open`;
-3. **read precedence:** no `os.read` occurs before link/reparse/type checks complete;
-4. **pre-existing link:** final symlink/reparse remains `symlink_not_allowed` on supported platforms;
-5. **Windows handle ownership:** conversion success transfers ownership exactly once; conversion failure closes the raw Win32 handle exactly once;
-6. **unsupported primitive:** a simulated platform without a trustworthy no-follow opener fails closed rather than using `(dev, ino)` equality as exact proof;
-7. **digest compatibility:** fixed file/directory/TF vectors stay byte-identical;
-8. **F-014/F-012 controls:** lexical path portability and existing ordinary replacement coverage are reconciled explicitly rather than accidentally discarded.
+1. **F-012 mismatch preservation:** ordinary regular→different-regular replacement between expected stat and trusted open still fails before read;
+2. **single-object continuity:** replace/rename the pathname after trusted descriptor acquisition and prove hashing still reads the inspected descriptor, not the replacement path;
+3. **no reopen:** hashing after trusted inspection makes no second pathname open;
+4. **read precedence:** no `os.read` occurs before link/reparse/type and mismatch checks complete;
+5. **pre-existing link:** final symlink/reparse remains `symlink_not_allowed` on supported platforms;
+6. **Windows handle ownership:** conversion success transfers ownership exactly once; conversion failure closes the raw Win32 handle exactly once;
+7. **Windows binary mode:** descriptor is placed in documented binary mode before reads;
+8. **unsupported primitive:** a simulated platform without a trustworthy no-follow opener fails closed rather than using tuple equality as exact proof;
+9. **digest compatibility:** fixed file/directory/TF vectors stay byte-identical;
+10. **F-014 controls:** lexical path portability remains unchanged.
 
-Windows-specific tests should run on actual Windows 3.10 and 3.12 runners. POSIX tests should run on Ubuntu 3.10 and 3.12. Mock-only tests are insufficient for the Win32 handle conversion path.
+Windows-specific tests must run on actual Windows 3.10 and 3.12 runners. POSIX tests must run on Ubuntu 3.10 and 3.12. Mock-only tests are insufficient for the Win32 handle conversion path.
 
 ## 10. Non-goals and residual risks
 
@@ -210,17 +232,21 @@ F-015 does not claim:
 - protection against ancestor symlink/reparse traversal beyond existing contracts;
 - filesystem snapshot/locking semantics;
 - detection of in-place writes to the same already-open file object during hashing;
+- proof of which object occupied the pathname before trusted open when a colliding/reused identifier defeats the mismatch detector;
 - stable identity across process restarts;
 - external object identity publication based on file IDs.
 
 ## 11. Research conclusion
 
-**Implementation is feasible and justified.**
+**Implementation is feasible and justified, with a layered contract.**
 
-The correct fix is not to make `(st_dev, st_ino)` progressively more elaborate. It is to stop using a temporally compared identifier as the authority connecting inspection to bytes.
+The correct fix is not to make `(st_dev, st_ino)` progressively more elaborate and not to throw away F-012's useful mismatch detector.
 
-For supported Unix, use a no-follow descriptor open and hash that same descriptor. For Windows, use standard-library `ctypes` to obtain a `CreateFileW(... FILE_FLAG_OPEN_REPARSE_POINT ...)` handle, inspect the same handle for reparse/type, transfer it once to a CRT descriptor with `msvcrt.open_osfhandle`, and hash that descriptor.
+- Retain the current expected/opened tuple comparison as **defense-in-depth**: mismatch fails; equality does not prove sameness.
+- Make the retained no-follow descriptor/handle the **authority** for continuity from trusted-open inspection through every digest read.
+- On Windows, use standard-library `ctypes` for `CreateFileW(... FILE_FLAG_OPEN_REPARSE_POINT ...)` and handle-bound reparse inspection, then transfer ownership exactly once with `msvcrt.open_osfhandle`, set binary mode, and hash that descriptor.
+- On Unix, use a real no-follow descriptor open; if that primitive is unavailable, fail closed rather than downgrade silently.
 
-This design removes the ReFS/pre-3.12 truncation and file-ID reuse problem from the inspection-to-read proof because the proof is the retained open object itself. File IDs become optional metadata, not trust authority.
+This design preserves F-012's ordinary substitution rejection while removing ReFS/pre-3.12 truncation and file-ID reuse from the *inspection-to-read* proof. It also states the remaining pre-open non-snapshot boundary instead of overclaiming it.
 
-Proceed to a reviewed implementation plan; no production code should change before plan review and deterministic RED.
+Proceed to a reviewed implementation plan only after a fresh skeptical review of this corrected research head; no production code should change before that gate.
