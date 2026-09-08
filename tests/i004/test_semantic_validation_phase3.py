@@ -95,13 +95,13 @@ class I004Phase3Tests(unittest.TestCase):
     def test_stale_mapping_semantic_digest_fails(self):
         sources = reviewed_sources()
         sources["mappings"]["mappings"][0]["native_binding"]["node_type"] = "phrase"
-        self.assert_problem("semantic_digest_mismatch", sources)
+        self.assert_problem("stale_semantic_digest", sources)
 
     def test_stale_reviewed_mapping_digest_fails(self):
         sources = reviewed_sources()
         mapping = sources["mappings"]["mappings"][0]
         mapping["review"]["reviewed_mapping_digest"] = "sha256:old-review-target"
-        self.assert_problem("review_digest_mismatch", sources)
+        self.assert_problem("stale_review_binding", sources)
 
     def test_audit_only_review_edit_does_not_change_mapping_v2_digest(self):
         sources = reviewed_sources()
