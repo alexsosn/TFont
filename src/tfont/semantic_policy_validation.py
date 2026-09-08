@@ -30,6 +30,22 @@ def _nonempty_string(value: Any) -> bool:
     return type(value) is str and bool(value)
 
 
+def _utf16_key(value: str) -> bytes:
+    return value.encode("utf-16be")
+
+
+def _sorted_records(value: Any, id_field: str) -> list[dict[str, Any]]:
+    if type(value) is not list:
+        return []
+    rows = [row for row in value if type(row) is dict]
+    return sorted(
+        rows,
+        key=lambda row: _utf16_key(row.get(id_field))
+        if type(row.get(id_field)) is str
+        else b"",
+    )
+
+
 def _validate_projection_publication(
     projection: dict[str, Any],
     *,
@@ -87,7 +103,11 @@ def _validate_approximation(
     if type(losses) is not list:
         fail("invalid_approximation", "approximation losses must be a list", path + ("approximation", "losses"), projection.get("projection_id"))
     seen: set[str] = set()
-    for index, loss in enumerate(losses):
+    ordered_losses = sorted(
+        enumerate(losses),
+        key=lambda pair: _utf16_key(pair[1]) if type(pair[1]) is str else b"",
+    )
+    for index, loss in ordered_losses:
         if type(loss) is not str or loss not in LOSS_TOKENS:
             fail("unknown_vocabulary", f"unknown approximation loss token: {loss!r}", path + ("approximation", "losses", index), projection.get("projection_id"))
         if loss in seen:
@@ -167,12 +187,12 @@ def validate_mapping_policies(
     fail: Fail,
 ) -> None:
     for mapping_id, mapping in mappings:
-        for index, projection in enumerate(mapping.get("projections", [])):
-            path = ("mappings", mapping_id, "projections", index)
+        for projection in _sorted_records(mapping.get("projections", []), "projection_id"):
+            projection_id = projection.get("projection_id")
+            path = ("mappings", mapping_id, "projections", projection_id)
             _validate_approximation(projection, path=path, fail=fail)
             _validate_projection_publication(projection, path=path, fail=fail)
-        for index, reference in enumerate(mapping.get("external_references", [])):
-            path = ("mappings", mapping_id, "external_references", index)
-            if type(reference) is not dict:
-                fail("invalid_external_reference", "external reference must be an object", path, None)
+        for reference in _sorted_records(mapping.get("external_references", []), "reference_id"):
+            reference_id = reference.get("reference_id")
+            path = ("mappings", mapping_id, "external_references", reference_id)
             _validate_external_reference(reference, path=path, fail=fail)
