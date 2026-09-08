@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import tempfile
 import unittest
 
 from tfont.source_validation import MAX_SOURCE_NESTING, SourceValidationError, validate_source
@@ -91,6 +93,26 @@ class DirectValidationSourceBoundaryTests(unittest.TestCase):
             validate_source(data, "evidence")
         self.assertEqual(raised.exception.problem.category, "schema_validation")
         self.assertEqual(raised.exception.problem.source_name, "evidence")
+
+    def test_invalid_schema_precedes_direct_source_preflight(self):
+        recursive = {}
+        recursive["self"] = recursive
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            schema_path = root / "evidence.schema.json"
+            schema_path.write_text(
+                '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":42}',
+                encoding="utf-8",
+            )
+            with self.assertRaises(SourceValidationError) as raised:
+                validate_source(
+                    normalized_evidence(recursive),
+                    "evidence",
+                    schema_root=root,
+                    source_name="bad-instance.json",
+                )
+        self.assertEqual(raised.exception.problem.category, "invalid_schema")
+        self.assertEqual(raised.exception.problem.source_name, str(schema_path))
 
 
 if __name__ == "__main__":
