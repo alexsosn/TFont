@@ -1,19 +1,19 @@
-name: F-015 handle-bound file reads
+name: F-018 handle-bound file reads
 
 on:
   push:
     branches:
-      - research/f-015-file-id-reliability
+      - research/f-018-handle-bound-file-reads
   pull_request:
     paths:
       - src/tfont/parent_identity.py
-      - tests/f015/**
+      - tests/f018/**
       - tests/f012/**
       - tests/f014/**
       - tests/i003/**
-      - docs/research/F-015-file-id-reliability.md
-      - docs/plans/F-015-file-id-reliability-plan.md
-      - .github/workflows/f015-handle-bound-file-reads.yml
+      - docs/research/F-018-handle-bound-file-reads.md
+      - docs/plans/F-018-handle-bound-file-reads-plan.md
+      - .github/workflows/f018-handle-bound-file-reads.yml
   workflow_dispatch:
 
 permissions:
@@ -38,8 +38,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package
         run: python -m pip install -e .
-      - name: F-015 focused RED/GREEN contract
-        run: python -m unittest discover -s tests/f015 -v
+      - name: F-018 focused RED/GREEN contract
+        run: python -m unittest discover -s tests/f018 -v
       - name: F-012 regressions
         if: always()
         run: python -m unittest discover -s tests/f012 -v
