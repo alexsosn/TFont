@@ -49,10 +49,20 @@ class MappingV2SchemaTests(unittest.TestCase):
         mapping["candidate_projections"] = []
         self.assert_invalid(document)
 
-    def test_positive_requires_at_least_one_projection(self):
+    def test_positive_requires_projection_or_external_reference(self):
         document = valid_mapping_document()
-        document["mappings"][0]["projections"] = []
+        mapping = document["mappings"][0]
+        mapping["projections"] = []
         self.assert_invalid(document)
+        mapping["external_references"] = [
+            {
+                "reference_id": "ref:locator",
+                "reference_kind": "locator",
+                "query_role": "explanation-only",
+                "external": "https://example.org/record/1",
+            }
+        ]
+        validate_source(document, "mapping")
 
     def test_native_only_requires_zero_targets_and_candidates(self):
         document = valid_mapping_document()
