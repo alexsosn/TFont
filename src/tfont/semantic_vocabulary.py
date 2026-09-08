@@ -1,5 +1,29 @@
 from __future__ import annotations
 
+SEMANTIC_VALIDATION_CATEGORIES = frozenset(
+    {
+        "unsupported_contract_version",
+        "duplicate_id",
+        "missing_reference",
+        "component_authority",
+        "unknown_vocabulary",
+        "invalid_record_state",
+        "invalid_projection",
+        "invalid_candidate",
+        "invalid_reference_routing",
+        "kind_role_conflict",
+        "unknown_ontology_target",
+        "bundle_closure",
+        "bridge_closure",
+        "evidence_digest_mismatch",
+        "stale_semantic_digest",
+        "stale_review_binding",
+        "native_semantics_unproven",
+        "invalid_approximation",
+        "invalid_publication_relation",
+    }
+)
+
 FORMAL_KINDS = frozenset({"class", "property", "skos-concept", "named-resource"})
 
 SEMANTIC_ROLES = frozenset(
