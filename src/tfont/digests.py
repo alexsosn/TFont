@@ -15,6 +15,7 @@ EVIDENCE_PAYLOAD_ALGORITHM = "tfont-evidence-payload-sha256-v1"
 EVIDENCE_RECORD_ALGORITHM = "tfont-evidence-record-sha256-v1"
 MAPPING_SEMANTIC_ALGORITHM = "tfont-mapping-semantic-sha256-v1"
 PROFILE_SEMANTIC_ALGORITHM = "tfont-profile-semantic-sha256-v1"
+MAX_JSON_NESTING = 128
 
 _SAFE_INT_MIN = -(2**53) + 1
 _SAFE_INT_MAX = 2**53 - 1
@@ -43,6 +44,7 @@ def _validate_json(
     *,
     path: tuple[str | int, ...] = (),
     active: set[int] | None = None,
+    depth: int = 0,
 ) -> None:
     if active is None:
         active = set()
@@ -69,10 +71,18 @@ def _validate_json(
         identity = id(value)
         if identity in active:
             _fail("non_json_value", "recursive list is outside the TFont JSON model", path)
+        container_depth = depth + 1
+        if container_depth > MAX_JSON_NESTING:
+            _fail("non_json_value", f"JSON nesting exceeds maximum depth {MAX_JSON_NESTING}", path)
         active.add(identity)
         try:
             for index, item in enumerate(value):
-                _validate_json(item, path=path + (index,), active=active)
+                _validate_json(
+                    item,
+                    path=path + (index,),
+                    active=active,
+                    depth=container_depth,
+                )
         finally:
             active.remove(identity)
         return
@@ -81,6 +91,9 @@ def _validate_json(
         identity = id(value)
         if identity in active:
             _fail("non_json_value", "recursive object is outside the TFont JSON model", path)
+        container_depth = depth + 1
+        if container_depth > MAX_JSON_NESTING:
+            _fail("non_json_value", f"JSON nesting exceeds maximum depth {MAX_JSON_NESTING}", path)
         active.add(identity)
         try:
             for key, item in value.items():
@@ -90,7 +103,12 @@ def _validate_json(
                     key.encode("utf-8")
                 except UnicodeEncodeError as exc:
                     _fail("unicode_domain", str(exc), path + (key,))
-                _validate_json(item, path=path + (key,), active=active)
+                _validate_json(
+                    item,
+                    path=path + (key,),
+                    active=active,
+                    depth=container_depth,
+                )
         finally:
             active.remove(identity)
         return
@@ -102,6 +120,8 @@ def canonical_json_bytes(value: Any) -> bytes:
     _validate_json(value)
     try:
         return rfc8785.dumps(value)
+    except RecursionError:
+        _fail("non_json_value", "RFC 8785 canonicalizer recursion failure")
     except rfc8785.IntegerDomainError as exc:
         _fail("integer_domain", str(exc))
     except rfc8785.FloatDomainError as exc:
@@ -357,7 +377,6 @@ def mapping_semantic_projection(mapping: dict[str, Any]) -> dict[str, Any]:
 
 def mapping_semantic_digest(mapping: dict[str, Any]) -> str:
     return _sha256_digest(canonical_json_bytes(mapping_semantic_projection(mapping)))
-
 
 def _normalize_record_set(
     value: Any,
