@@ -1,0 +1,31 @@
+name: F-011 Node 24 action majors
+
+on:
+  push:
+    branches:
+      - stability/node24-actions
+    paths:
+      - .github/workflows/**
+      - tests/ci/test_node24_action_versions.py
+      - docs/research/F-011-node24-actions.md
+      - docs/plans/F-011-node24-actions-plan.md
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - tests/ci/test_node24_action_versions.py
+      - docs/research/F-011-node24-actions.md
+      - docs/plans/F-011-node24-actions-plan.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m unittest tests.ci.test_node24_action_versions -v

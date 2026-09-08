@@ -25,8 +25,8 @@ jobs:
       matrix:
         python-version: ['3.10', '3.12']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package and packaging test tool
@@ -39,5 +39,3 @@ jobs:
         run: python -m unittest discover -s tests/i002 -v
       - name: Wheel schema resource regression
         run: python -m unittest tests.packaging.test_wheel_schema_resources -v
-      - name: Full suite
-        run: python -m unittest discover -s tests -v

@@ -15,6 +15,8 @@ from ruamel.yaml.error import YAMLError
 
 JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
 
+MAX_SOURCE_NESTING = 128
+
 SCHEMA_FILES = {
     "profile": "profile.schema.json",
     "parent-component-manifest": "parent-component-manifest.schema.json",
@@ -47,7 +49,21 @@ def _raise(category: str, message: str, source_name: str) -> None:
     )
 
 
-def _plain_json(value: Any, *, source_name: str, active: set[int] | None = None) -> JSONValue:
+def _raise_source_depth(source_name: str) -> None:
+    _raise(
+        "decode_error",
+        f"source nesting exceeds maximum depth {MAX_SOURCE_NESTING}",
+        source_name,
+    )
+
+
+def _plain_json(
+    value: Any,
+    *,
+    source_name: str,
+    active: set[int] | None = None,
+    depth: int = 0,
+) -> JSONValue:
     if active is None:
         active = set()
 
@@ -63,22 +79,41 @@ def _plain_json(value: Any, *, source_name: str, active: set[int] | None = None)
         identity = id(value)
         if identity in active:
             _raise("non_json_value", "recursive container alias", source_name)
+        container_depth = depth + 1
+        if container_depth > MAX_SOURCE_NESTING:
+            _raise_source_depth(source_name)
         active.add(identity)
         try:
-            return [_plain_json(item, source_name=source_name, active=active) for item in value]
+            return [
+                _plain_json(
+                    item,
+                    source_name=source_name,
+                    active=active,
+                    depth=container_depth,
+                )
+                for item in value
+            ]
         finally:
             active.remove(identity)
     if isinstance(value, dict):
         identity = id(value)
         if identity in active:
             _raise("non_json_value", "recursive container alias", source_name)
+        container_depth = depth + 1
+        if container_depth > MAX_SOURCE_NESTING:
+            _raise_source_depth(source_name)
         active.add(identity)
         try:
             result: dict[str, JSONValue] = {}
             for key, item in value.items():
                 if not isinstance(key, str):
                     _raise("non_json_value", "mapping keys must be strings", source_name)
-                result[key] = _plain_json(item, source_name=source_name, active=active)
+                result[key] = _plain_json(
+                    item,
+                    source_name=source_name,
+                    active=active,
+                    depth=container_depth,
+                )
             return result
         finally:
             active.remove(identity)
@@ -118,6 +153,8 @@ def loads_source(
             )
         except _JSONDuplicateKey as exc:
             _raise("duplicate_key", f"duplicate mapping key: {exc}", source_name)
+        except RecursionError:
+            _raise_source_depth(source_name)
         except (json.JSONDecodeError, ValueError) as exc:
             _raise("decode_error", str(exc), source_name)
         return _plain_json(parsed, source_name=source_name)
@@ -129,6 +166,8 @@ def loads_source(
             parsed = parser.load(text)
         except DuplicateKeyError as exc:
             _raise("duplicate_key", str(exc), source_name)
+        except RecursionError:
+            _raise_source_depth(source_name)
         except YAMLError as exc:
             _raise("decode_error", str(exc), source_name)
         return _plain_json(parsed, source_name=source_name)

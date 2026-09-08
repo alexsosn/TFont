@@ -147,6 +147,14 @@ def _hash_file_records(records: list[dict[str, str]]) -> str:
     return _sha256_bytes(encoded)
 
 
+def _scan_directory(directory: str) -> list[Any]:
+    try:
+        with os.scandir(directory) as entries:
+            return list(entries)
+    except OSError as exc:
+        _fail("filesystem_error", str(exc), directory)
+
+
 def file_component_digest(path: str | os.PathLike[str]) -> str:
     filesystem_path = _path_string(path)
     st = _lstat(filesystem_path)
@@ -162,33 +170,33 @@ def directory_component_digest(path: str | os.PathLike[str]) -> str:
     _require_real_directory(root)
     records: list[dict[str, str]] = []
 
-    def walk(directory: str, relative_segments: tuple[str, ...]) -> None:
+    stack: list[tuple[list[Any], int, tuple[str, ...]]] = [(_scan_directory(root), 0, ())]
+    while stack:
+        current, index, relative_segments = stack[-1]
+        if index >= len(current):
+            stack.pop()
+            continue
+
+        entry = current[index]
+        stack[-1] = (current, index + 1, relative_segments)
+        entry_path = entry.path
+        segment = _validate_segment(entry.name, filesystem_path=entry_path)
         try:
-            with os.scandir(directory) as entries:
-                current = list(entries)
+            st = entry.stat(follow_symlinks=False)
         except OSError as exc:
-            _fail("filesystem_error", str(exc), directory)
+            _fail("filesystem_error", str(exc), entry_path)
+        if _is_link_like(st):
+            _fail("symlink_not_allowed", "link-like entry is not allowed", entry_path)
 
-        for entry in current:
-            entry_path = entry.path
-            segment = _validate_segment(entry.name, filesystem_path=entry_path)
-            try:
-                st = entry.stat(follow_symlinks=False)
-            except OSError as exc:
-                _fail("filesystem_error", str(exc), entry_path)
-            if _is_link_like(st):
-                _fail("symlink_not_allowed", "link-like entry is not allowed", entry_path)
+        segments = relative_segments + (segment,)
+        if stat.S_ISDIR(st.st_mode):
+            stack.append((_scan_directory(entry_path), 0, segments))
+        elif stat.S_ISREG(st.st_mode):
+            logical_path = "/".join(segments)
+            records.append(_file_record(logical_path, entry_path))
+        else:
+            _fail("unsupported_entry", "addressed directory contains a non-file/non-directory entry", entry_path)
 
-            segments = relative_segments + (segment,)
-            if stat.S_ISDIR(st.st_mode):
-                walk(entry_path, segments)
-            elif stat.S_ISREG(st.st_mode):
-                logical_path = "/".join(segments)
-                records.append(_file_record(logical_path, entry_path))
-            else:
-                _fail("unsupported_entry", "addressed directory contains a non-file/non-directory entry", entry_path)
-
-    walk(root, ())
     return _hash_file_records(records)
 
 
