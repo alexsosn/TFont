@@ -2,31 +2,30 @@
 
 ## Gate order
 
-Research was committed before the initial implementation plan. Initial production edits followed tests-only RED. Adversarial review then identified additional Win32 alias classes; each was researched from Microsoft primary documentation, converted into deterministic RED coverage, and only then hardened in production.
+Research preceded implementation. Initial production edits followed tests-only RED. Adversarial review identified additional alias and compatibility cases; each was converted into deterministic RED coverage before production was changed again.
 
 ## Production change
 
-`src/tfont/parent_identity.py` has one private lexical helper for exact-file spellings. It operates on the exact string returned by `_path_string()` and rejects before `_lstat()` when:
+`src/tfont/parent_identity.py` has one private lexical helper for exact-file spellings. It rejects before `_lstat()` when:
 
-- the path ends in a native separator; or
-- any non-empty native path component ends in ASCII period or ASCII space.
+- the path ends in a native separator;
+- the final non-empty component is `.`; or
+- any stored-name component other than navigation tokens `.` / `..` ends in ASCII period or ASCII space.
 
-The latter includes a `.` component and applies to ancestors as well as the final filename, because ordinary Win32 normalization can alias either.
-
-`file_component_digest()` calls the helper after `_path_string()` and before `_lstat()`.
+This covers Win32 aliases in ancestors and the basename without removing existing nonterminal `.` / `..` relative traversal.
 
 No directory/TF root code changes. No digest projection or algorithm identifiers change.
 
 ## RED evidence
 
-Initial tests-only RED pinned terminal separators and terminal dot-segment rejection before filesystem inspection. Ubuntu cells failed the focused contract before production changed, proving RED independently of Windows normalization. Existing I-003 coverage reproduced the concrete `<file>/.` defect on Windows.
+The gate history contains four explicit RED stages:
 
-Review-driven RED stages then pinned:
+1. tests-only terminal separator/dot-segment contract before any production change;
+2. final ASCII period/space aliases against the first GREEN;
+3. ancestor ASCII period/space aliases against the second GREEN;
+4. preservation of nonterminal `.` / `..` relative traversal against the over-broad third implementation.
 
-1. final filename ending in ASCII period/space against the first GREEN;
-2. ancestor components ending in ASCII period/space against the second GREEN.
-
-Production hardening followed each RED stage.
+Existing I-003 coverage separately reproduces the original `<file>/.` Windows defect.
 
 Focused controls cover leading/internal periods, unchanged exact-file digest, directory/TF equivalent-root spellings, and embedded-NUL category preservation.
 
@@ -46,9 +45,10 @@ Repository-wide discovery remains owned only by `full-suite.yml`.
 - all focused tests green on all four matrix cells;
 - full suite green on exact head;
 - exact-file fixed digest unchanged;
+- nonterminal relative-navigation behavior preserved;
 - directory/TF root spellings unchanged;
 - no F-012 production code included in this PR.
 
 ## Independent review
 
-Fresh review over exact final SHA must attack over-rejection, Windows drive/UNC and `\\?\` implications, leading/internal dots, POSIX filenames intentionally excluded for portability, ancestor aliases, non-native separators, error category/path preservation, embedded-NUL behavior, and accidental changes to directory/TF root semantics.
+Fresh review over exact final SHA must attack over-rejection, Windows drive/UNC and `\\?\` implications, leading/internal dots, POSIX filenames intentionally excluded for portability, ancestor aliases, `.` / `..` compatibility, non-native separators, error category/path preservation, embedded-NUL behavior, and accidental changes to directory/TF root semantics.
