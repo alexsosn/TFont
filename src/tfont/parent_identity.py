@@ -38,6 +38,15 @@ def _native_separators() -> set[str]:
     return separators
 
 
+def _reject_directory_shaped_file_path(path: str) -> None:
+    separators = _native_separators()
+    if path and path[-1] in separators:
+        _fail("wrong_path_type", "exact file path must not end in directory syntax", path)
+    last_separator = max((path.rfind(separator) for separator in separators), default=-1)
+    if path[last_separator + 1 :] == ".":
+        _fail("wrong_path_type", "exact file path must not end in directory syntax", path)
+
+
 def _strip_terminal_separators(path: str) -> str:
     separators = _native_separators()
     if path and all(character in separators for character in path):
@@ -157,6 +166,7 @@ def _scan_directory(directory: str) -> list[Any]:
 
 def file_component_digest(path: str | os.PathLike[str]) -> str:
     filesystem_path = _path_string(path)
+    _reject_directory_shaped_file_path(filesystem_path)
     st = _lstat(filesystem_path)
     if _is_link_like(st):
         _fail("symlink_not_allowed", "link-like file component is not allowed", filesystem_path)
