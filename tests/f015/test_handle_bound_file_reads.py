@@ -33,9 +33,10 @@ class HandleBoundFileReadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "component.bin"
             path.write_bytes(b"payload")
+            real_read = os.read
             with (
                 patch.object(parent_identity.os, "O_NOFOLLOW", 0, create=True),
-                patch.object(parent_identity.os, "read") as read_mock,
+                patch.object(parent_identity.os, "read", side_effect=real_read) as read_mock,
             ):
                 exc = self.assert_category("filesystem_error", file_component_digest, path)
             read_mock.assert_not_called()
