@@ -34,16 +34,10 @@ SKOS_MAPPING_RELATIONS = {
     "http://www.w3.org/2004/02/skos/core#broadMatch",
     "http://www.w3.org/2004/02/skos/core#narrowMatch",
     "http://www.w3.org/2004/02/skos/core#relatedMatch",
-    "https://www.w3.org/2004/02/skos/core#exactMatch",
-    "https://www.w3.org/2004/02/skos/core#closeMatch",
-    "https://www.w3.org/2004/02/skos/core#broadMatch",
-    "https://www.w3.org/2004/02/skos/core#narrowMatch",
-    "https://www.w3.org/2004/02/skos/core#relatedMatch",
 }
 OWL_SAME_AS_RELATIONS = {
     "owl:sameAs",
     "http://www.w3.org/2002/07/owl#sameAs",
-    "https://www.w3.org/2002/07/owl#sameAs",
 }
 REFERENCE_KINDS = {
     "semantic-pivot",
