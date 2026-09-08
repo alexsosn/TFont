@@ -2,35 +2,33 @@
 
 ## Gate order
 
-Research is committed first in `docs/research/F-014-windows-exact-file-paths.md`. Initial production edits followed a tests-only RED commit. Adversarial review of the first GREEN identified Win32 trailing-period/space aliasing; research was extended from Microsoft primary documentation, new focused tests were committed RED against that first GREEN, and production was hardened again.
+Research was committed before the initial implementation plan. Initial production edits followed tests-only RED. Adversarial review then identified additional Win32 alias classes; each was researched from Microsoft primary documentation, converted into deterministic RED coverage, and only then hardened in production.
 
 ## Production change
 
-In `src/tfont/parent_identity.py` keep one private lexical helper for exact-file spellings. It operates on the exact string returned by `_path_string()` and rejects before `_lstat()` when:
+`src/tfont/parent_identity.py` has one private lexical helper for exact-file spellings. It operates on the exact string returned by `_path_string()` and rejects before `_lstat()` when:
 
-- the path ends in a native separator;
-- the final component is `.`;
-- the final component ends in ASCII period or ASCII space, which ordinary Win32 path handling can strip before opening.
+- the path ends in a native separator; or
+- any non-empty native path component ends in ASCII period or ASCII space.
 
-`file_component_digest()` calls it after `_path_string()` and before `_lstat()`.
+The latter includes a `.` component and applies to ancestors as well as the final filename, because ordinary Win32 normalization can alias either.
+
+`file_component_digest()` calls the helper after `_path_string()` and before `_lstat()`.
 
 No directory/TF root code changes. No digest projection or algorithm identifiers change.
 
 ## RED evidence
 
-Initial tests-only RED pinned terminal separators and terminal dot-segment rejection before filesystem inspection. Ubuntu cells failed the focused contract before production changed, proving the RED independently of Windows filesystem normalization. Existing I-003 coverage reproduced the concrete `<file>/.` defect on Windows.
+Initial tests-only RED pinned terminal separators and terminal dot-segment rejection before filesystem inspection. Ubuntu cells failed the focused contract before production changed, proving RED independently of Windows normalization. Existing I-003 coverage reproduced the concrete `<file>/.` defect on Windows.
 
-The review extension then added deterministic pre-`lstat()` RED cases for trailing ASCII period/space against the first GREEN implementation before the second production hardening commit.
+Review-driven RED stages then pinned:
 
-Focused controls cover:
+1. final filename ending in ASCII period/space against the first GREEN;
+2. ancestor components ending in ASCII period/space against the second GREEN.
 
-- terminal native separator and repeated separators;
-- terminal `.` segment;
-- trailing ASCII period and ASCII space;
-- `.hidden` and `a.b` accepted controls;
-- unchanged exact-file digest;
-- directory/TF equivalent-root spelling controls;
-- embedded-NUL category control.
+Production hardening followed each RED stage.
+
+Focused controls cover leading/internal periods, unchanged exact-file digest, directory/TF equivalent-root spellings, and embedded-NUL category preservation.
 
 ## CI
 
@@ -53,4 +51,4 @@ Repository-wide discovery remains owned only by `full-suite.yml`.
 
 ## Independent review
 
-Fresh review over exact final SHA must attack over-rejection, Windows drive/UNC and `\\?\` implications, leading/internal dots, POSIX filenames that are intentionally excluded for portability, non-native separators, error category/path preservation, embedded-NUL behavior, and accidental changes to directory/TF root semantics.
+Fresh review over exact final SHA must attack over-rejection, Windows drive/UNC and `\\?\` implications, leading/internal dots, POSIX filenames intentionally excluded for portability, ancestor aliases, non-native separators, error category/path preservation, embedded-NUL behavior, and accidental changes to directory/TF root semantics.
