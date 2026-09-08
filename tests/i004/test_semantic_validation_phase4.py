@@ -7,6 +7,16 @@ from tfont.semantic_validation import SemanticValidationError, validate_semantic
 from tests.i004.test_semantic_validation_phase1 import base_sources, bundle
 
 
+def approximation(*, eligible: bool, losses: list[str]) -> dict:
+    return {
+        "status": "reviewed",
+        "eligible": eligible,
+        "losses": losses,
+        "rationale": "reviewed approximation contract",
+        "review_id": "review:approx",
+    }
+
+
 class I004Phase4Tests(unittest.TestCase):
     def assert_problem(self, category: str, sources: dict):
         with self.assertRaises(SemanticValidationError) as raised:
@@ -18,52 +28,28 @@ class I004Phase4Tests(unittest.TestCase):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "broader"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": ["overcoverage"],
-            "rationale": "wrong direction",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=True, losses=["overcoverage"])
         self.assert_problem("invalid_approximation", sources)
 
     def test_narrower_reviewed_approximation_requires_overcoverage(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "narrower"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": ["undercoverage"],
-            "rationale": "wrong direction",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=True, losses=["undercoverage"])
         self.assert_problem("invalid_approximation", sources)
 
     def test_close_eligible_requires_nonempty_reviewed_losses(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "close"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": [],
-            "rationale": "unknown extent",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=True, losses=[])
         self.assert_problem("invalid_approximation", sources)
 
     def test_unknown_loss_token_fails_closed(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "broader"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": ["future-loss"],
-            "rationale": "unknown token",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=True, losses=["future-loss"])
         self.assert_problem("unknown_vocabulary", sources)
 
     def test_truthy_non_boolean_eligibility_fails_closed(self):
@@ -79,30 +65,25 @@ class I004Phase4Tests(unittest.TestCase):
         }
         self.assert_problem("invalid_approximation", sources)
 
-    def test_related_cannot_be_approximation_eligible(self):
+    def test_related_cannot_carry_approximation_even_when_ineligible(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "related"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": ["undercoverage"],
-            "rationale": "related is not substitution",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=False, losses=[])
+        self.assert_problem("invalid_approximation", sources)
+
+    def test_exact_cannot_carry_approximation_even_when_ineligible(self):
+        sources = base_sources()
+        projection = sources["mappings"]["mappings"][0]["projections"][0]
+        projection["assessment"] = "exact"
+        projection["approximation"] = approximation(eligible=False, losses=[])
         self.assert_problem("invalid_approximation", sources)
 
     def test_valid_broader_approximation_contract_is_structurally_accepted(self):
         sources = base_sources()
         projection = sources["mappings"]["mappings"][0]["projections"][0]
         projection["assessment"] = "broader"
-        projection["approximation"] = {
-            "status": "reviewed",
-            "eligible": True,
-            "losses": ["undercoverage"],
-            "rationale": "reviewed bounded subset",
-            "review_id": "review:approx",
-        }
+        projection["approximation"] = approximation(eligible=True, losses=["undercoverage"])
         validate_semantic_bundle(bundle(sources))
 
     def test_class_equivalent_property_publication_fails(self):
