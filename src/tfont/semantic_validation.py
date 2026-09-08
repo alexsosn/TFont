@@ -5,6 +5,7 @@ from typing import Any
 
 from .parent_identity import parent_manifest_digest
 from .semantic_digest_v2 import mapping_semantic_digest_v2
+from .semantic_policy_validation import validate_mapping_policies
 from .semantic_vocabulary import (
     CANDIDATE_ASSESSMENTS,
     CAPABILITY_IDS,
@@ -308,6 +309,15 @@ def _validate_target_locks(bundle: SemanticSourceBundle, indexes: SemanticIndexe
                 _fail(artifact, "unknown_ontology_target", f"target not present in lock terms_used: {target!r}", path=prefix + ("target",), related_id=target if type(target) is str else None)
 
 
+def _validate_policies(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
+    artifact = bundle.mappings
+
+    def fail(category: str, message: str, path: tuple[str | int, ...], related_id: str | None) -> None:
+        _fail(artifact, category, message, path=path, related_id=related_id)
+
+    validate_mapping_policies(indexes.mappings, fail=fail)
+
+
 def _validate_evidence_bindings(bundle: SemanticSourceBundle, indexes: SemanticIndexes) -> None:
     artifact = bundle.mappings
     evidences = dict(indexes.evidences)
@@ -362,6 +372,7 @@ def validate_semantic_bundle(bundle: SemanticSourceBundle) -> ValidatedSemanticB
     _validate_record_states(bundle, indexes)
     _validate_projection_and_candidate_legality(bundle, indexes)
     _validate_target_locks(bundle, indexes)
+    _validate_policies(bundle, indexes)
     _validate_evidence_bindings(bundle, indexes)
     mapping_digests = _validate_mapping_digests_and_reviews(bundle, indexes)
 
