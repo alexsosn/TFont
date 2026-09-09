@@ -18,6 +18,19 @@ def assert_problem(testcase: unittest.TestCase, category: str, callable_, *args)
 
 
 class I006AdversarialReviewContractTests(unittest.TestCase):
+    def test_request_validation_precedes_malformed_ir_lookup(self):
+        ir = compiled_noun_ir(("bhsa",))
+        bad_ir = replace(ir, variants=(ir.variants[0], ir.variants[0]))
+        bad_request = request_for(RESOLVER, ("bhsa",), mode="approximate")
+        assert_problem(
+            self,
+            "unsupported_semantic_mode",
+            RESOLVER.semantic_resolve,
+            bad_ir,
+            bad_request,
+            (),
+        )
+
     def test_verified_required_bundle_without_digest_is_invalid_prerequisite(self):
         ir = with_bundle_digest(
             compiled_noun_ir(("bhsa",)),
@@ -108,6 +121,25 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
                     request_for(RESOLVER, ("bhsa",)),
                     (state,),
                 )
+
+    def test_malformed_native_binding_steps_fail_through_compiled_ir_boundary(self):
+        ir = compiled_noun_ir(("bhsa",))
+        key, rows = ir.semantic_index[0]
+        malformed_binding = replace(
+            rows[0].native_execution_binding,
+            steps=(object(),),
+        )
+        malformed_row = replace(rows[0], native_execution_binding=malformed_binding)
+        bad_ir = replace(ir, semantic_index=((key, (malformed_row,)),))
+        state = prerequisite_for(RESOLVER, bad_ir.variants[0])
+        assert_problem(
+            self,
+            "invalid_compiled_ir",
+            RESOLVER.semantic_resolve,
+            bad_ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (state,),
+        )
 
 
 if __name__ == "__main__":
