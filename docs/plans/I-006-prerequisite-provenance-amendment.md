@@ -1,4 +1,4 @@
-# I-006 plan amendment: preserve prerequisite trust provenance and reject duplicate lookup state
+# I-006 plan amendment: preserve prerequisite trust provenance and close resolver coherence gaps
 
 **Issue:** #124  
 **Amends:** `docs/plans/I-006-exact-semantic-resolver-plan.md`  
@@ -52,15 +52,9 @@ Silently deduplicating or selecting one by input order would make caller input o
 
 ### Normative correction
 
-For every requested corpus, prerequisite indexing must reject more than one `RuntimePrerequisiteState` for the same exact `BundleVariantKey`, whether the records are byte/equality-identical or conflicting.
+For every requested corpus, prerequisite indexing must reject more than one `RuntimePrerequisiteState` for the same exact `BundleVariantKey`, whether the records are equality-identical or conflicting.
 
-Use:
-
-```text
-invalid_prerequisite
-```
-
-for duplicate exact-variant prerequisite rows. `ambiguous_prerequisite_variant` remains reserved for two or more distinct fresh variants that could each represent the requested corpus.
+Use `invalid_prerequisite` for duplicate exact-variant prerequisite rows. `ambiguous_prerequisite_variant` remains reserved for two or more distinct fresh variants that could each represent the requested corpus.
 
 No first-row, last-row, newest-row, equality-deduplication, or source-contract preference rule is allowed.
 
@@ -74,11 +68,7 @@ No first-row, last-row, newest-row, equality-deduplication, or source-contract p
 
 `CompiledSemanticIR` and its child records are immutable public dataclasses, but immutability does not prove that an instance came from `compile_semantic_ir()`. A caller can hand-construct an object with duplicate entries in tuple-backed index families.
 
-A resolver implementation that converts these tuples directly with `dict(...)` could silently apply last-one-wins semantics. This is particularly dangerous for:
-
-- duplicate `BundleVariantIR.key` values in `ir.variants`;
-- duplicate `SemanticKey` rows in `ir.semantic_index`;
-- duplicate `CapabilityKey` rows in `ir.capability_facts`.
+A resolver implementation that converts these tuples directly with `dict(...)` could silently apply last-one-wins semantics. This is particularly dangerous for duplicate `BundleVariantIR.key` values in `ir.variants`, duplicate `SemanticKey` rows in `ir.semantic_index`, and duplicate `CapabilityKey` rows in `ir.capability_facts`.
 
 I-006 already promises defensive `invalid_compiled_ir` checks, so the uniqueness boundary must be explicit before RED.
 
@@ -104,6 +94,49 @@ This is a defensive coherence gate only. The resolver still does not re-run I-00
 14. reversing the order of malformed duplicate-key entries yields the same category rather than changing the selected data;
 15. valid IR emitted by `compile_semantic_ir()` remains accepted unchanged.
 
+## 4. Finding: an injected target row could otherwise escape the selected release authority
+
+The parent plan defensively checks a target row's local fields, review status, routing, bundle digest and native-binding identity. That is necessary but not sufficient for a public hand-constructed `CompiledSemanticIR`.
+
+A malicious or malformed `TargetBindingIR` can claim the selected `BundleVariantKey` while carrying mapping/review/ontology authority that is absent from the selected `ProfileReleaseSignature`. A fresh runtime prerequisite for release A must never authorize a target row injected from release B merely because the row copies release A's variant key.
+
+### Normative correction
+
+Before an exact binding can become an `ExactNativePlan`, verify it is anchored in the selected `BundleVariantIR.release_signature` and that the variant record itself is internally coherent.
+
+For the selected `BundleVariantIR` require:
+
+- `release_key.corpus_id == key.corpus_id`;
+- `release_key.authored_profile_id == key.authored_profile_id`;
+- `release_key.profile_version == key.profile_version`;
+- `release_signature.ontology_bundle_digest == key.ontology_bundle_digest`;
+- the repeated `BundleVariantIR.mapping_digests` and `ontology_locks` equal the corresponding release-signature fields;
+- the repeated schema/contract/algorithm version fields on `BundleVariantIR` equal their release-signature counterparts.
+
+For the selected `TargetBindingIR` require:
+
+- `(mapping_id, mapping_semantic_digest)` exists exactly in `release_signature.mapping_digests`;
+- `(mapping_id, mapping_review)` equals the matching entry in `release_signature.mapping_reviews`;
+- `(mapping_id, projection_id, projection_review)` equals the matching entry in `release_signature.projection_reviews`;
+- `ontology_lock` equals one of the selected release signature's `ontology_locks`;
+- every `native_dependencies` ID exists in the selected release signature's dependency-record ID set;
+- the already frozen row/key/routing/corpus/variant/bundle/native-binding coherence checks also pass.
+
+Any failure is `invalid_compiled_ir`. Do not repair, infer, or search a different release row.
+
+The resolver need not reconstruct I-004 source evidence or recompute mapping/projection semantic digests. It verifies only the compiled cross-links it relies upon for execution authority.
+
+### RED additions
+
+16. a binding whose mapping digest is absent from the selected release signature fails `invalid_compiled_ir`;
+17. a binding whose mapping review fingerprint differs from the release signature fails `invalid_compiled_ir`;
+18. a binding whose projection review fingerprint differs from the release signature fails `invalid_compiled_ir`;
+19. a binding whose ontology-lock fingerprint is absent/different in the release signature fails `invalid_compiled_ir`;
+20. a binding naming a native dependency outside the selected release signature fails `invalid_compiled_ir`;
+21. a variant whose release key disagrees with its variant key fails `invalid_compiled_ir`;
+22. a variant whose ontology-bundle digest or repeated release fields disagree with its release signature fails `invalid_compiled_ir`;
+23. valid compiler-produced noun rows satisfy all cross-link checks without source re-validation.
+
 ## Scope
 
-No new evaluator, signature/authentication scheme, filesystem inspection, Context-Fabric execution, trust-store policy, semantic source validation, or multi-binding composition is introduced. These corrections preserve execution provenance and remove caller-order ambiguity at the I-006 boundary.
+No new evaluator, signature/authentication scheme, filesystem inspection, Context-Fabric execution, trust-store policy, semantic source validation, or multi-binding composition is introduced. These corrections preserve execution provenance, remove caller-order ambiguity, and ensure that runtime prerequisites authorize only bindings contained in the selected compiled release authority.
