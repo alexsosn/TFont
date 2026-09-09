@@ -5,6 +5,7 @@ on:
     branches:
       - feature/f-021-feature-id-uniqueness
     paths:
+      - CONTRIBUTING.md
       - docs/research/F-*.md
       - docs/plans/F-021-*.md
       - scripts/check_f_series_ownership.py
@@ -13,6 +14,7 @@ on:
       - .github/workflows/f021-feature-id-ownership.yml
   pull_request:
     paths:
+      - CONTRIBUTING.md
       - docs/research/F-*.md
       - docs/plans/F-021-*.md
       - scripts/check_f_series_ownership.py
@@ -49,8 +51,11 @@ jobs:
       - name: Run post-D-004 repository controls
         run: python -m unittest tests.f021.test_feature_id_ownership.RepositoryMetadataControls -v
 
-      - name: Run intended F-021 RED/GREEN contract
+      - name: Run F-021 ownership checker contract
         run: python -m unittest tests.f021.test_feature_id_ownership.FeatureOwnershipCheckerREDTests -v
+
+      - name: Run contributor documentation RED/GREEN contract
+        run: python -m unittest tests.f021.test_contributor_documentation -v
 
       - name: Run D-004 ownership regression
         if: always()
