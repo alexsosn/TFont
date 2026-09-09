@@ -1,5 +1,7 @@
 # F-014 research — portable exact-file path spelling boundary
 
+**Issue:** #84  
+
 ## Trigger
 
 Cross-platform F-012 CI exposed an existing I-003 portability defect. On Windows, `file_component_digest(<regular-file> + os.sep + ".")` can reach `os.lstat()` as the underlying regular file, while POSIX rejects the same conceptual spelling. TFont therefore currently lets host pathname normalization decide whether an exact-file component spelling is accepted.
