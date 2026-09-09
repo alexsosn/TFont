@@ -57,6 +57,14 @@ def _raise_source_depth(source_name: str) -> None:
     )
 
 
+def _raise_schema_recursion(source_name: str) -> None:
+    _raise(
+        "invalid_schema",
+        "schema validation exceeded recursion capacity",
+        source_name,
+    )
+
+
 def _plain_json(
     value: Any,
     *,
@@ -239,6 +247,8 @@ def validate_source(
             object_pairs_hook=_json_pairs,
             parse_constant=_reject_json_constant,
         )
+    except RecursionError:
+        _raise_schema_recursion(schema_source_name)
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         _raise("invalid_schema", str(exc), schema_source_name)
 
@@ -261,19 +271,25 @@ def validate_source(
                 schema_path=_problem_path(exc.schema_path),
             )
         ) from exc
+    except RecursionError:
+        _raise_schema_recursion(schema_source_name)
 
     effective_source_name = schema_name if source_name is None else source_name
     normalized_data = _plain_json(data, source_name=effective_source_name)
 
     validator = Draft202012Validator(schema)
-    errors = sorted(
-        validator.iter_errors(normalized_data),
-        key=lambda error: (
-            tuple(str(part) for part in error.absolute_path),
-            tuple(str(part) for part in error.absolute_schema_path),
-            error.message,
-        ),
-    )
+    try:
+        errors = sorted(
+            validator.iter_errors(normalized_data),
+            key=lambda error: (
+                tuple(str(part) for part in error.absolute_path),
+                tuple(str(part) for part in error.absolute_schema_path),
+                error.message,
+            ),
+        )
+    except RecursionError:
+        _raise_schema_recursion(schema_source_name)
+
     if errors:
         error = errors[0]
         raise SourceValidationError(
