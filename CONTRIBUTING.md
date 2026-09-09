@@ -37,6 +37,14 @@ Each research document should contain:
 - unresolved questions;
 - acceptance-criteria traceability.
 
+## F-series research ownership
+
+Every `docs/research/F-NNN-*.md` artifact must include exactly one canonical ownership line in its metadata header: `**Issue:** #N`.
+
+Multiple research, evidence, or amendment artifacts may use the same `F-NNN` only when they all declare the same issue owner.
+
+Run `python scripts/check_f_series_ownership.py` before opening or finalizing a PR that adds or changes F-series research metadata.
+
 ## Design PRs
 
 Designs belong in `docs/plans/`. They must define stable contracts before code, including version compatibility, error behavior, provenance, extensibility, serialization, and how approximate mappings are represented.
