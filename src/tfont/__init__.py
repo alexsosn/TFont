@@ -22,6 +22,7 @@ from .parent_identity import (
     tf_payload_digest,
 )
 from .semantic_ir import (
+    ApproximationIR,
     AuthorityKey,
     BundleVariantIR,
     BundleVariantKey,
@@ -38,6 +39,8 @@ from .semantic_ir import (
     NativeBindingIR,
     NativeKey,
     NativeRecordIR,
+    OntologyBundleRequirementIR,
+    OntologyDeclarationIR,
     OntologyLockFingerprint,
     ProfileReleaseKey,
     ProfileReleaseSignature,
@@ -67,6 +70,7 @@ from .source_validation import (
 )
 
 __all__ = [
+    "ApproximationIR",
     "AuthorityKey",
     "BundleVariantIR",
     "BundleVariantKey",
@@ -86,6 +90,8 @@ __all__ = [
     "NativeBindingIR",
     "NativeKey",
     "NativeRecordIR",
+    "OntologyBundleRequirementIR",
+    "OntologyDeclarationIR",
     "OntologyLockFingerprint",
     "PROJECTION_SEMANTIC_ALGORITHM",
     "ProfileReleaseKey",
