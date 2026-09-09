@@ -26,6 +26,10 @@ def simple_object_schema(*, required: list[str] | None = None) -> dict:
     return schema
 
 
+def is_schema_self_validation(instance) -> bool:  # noqa: ANN001
+    return isinstance(instance, dict) and instance.get("$schema") == DRAFT_2020_12
+
+
 class CustomSchemaRecursionControls(unittest.TestCase):
     def test_invalid_utf8_custom_schema_remains_invalid_schema(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -78,9 +82,12 @@ class CustomSchemaRecursionControls(unittest.TestCase):
     def test_source_preflight_wins_before_validator_traversal(self):
         recursive: dict = {}
         recursive["self"] = recursive
+        original_iter_errors = source_validation.Draft202012Validator.iter_errors
 
-        def must_not_run(self, instance):  # noqa: ANN001
-            raise AssertionError("iter_errors must not run before source preflight")
+        def must_not_run_for_source(self, instance):  # noqa: ANN001
+            if is_schema_self_validation(instance):
+                return original_iter_errors(self, instance)
+            raise AssertionError("source iter_errors must not run before source preflight")
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -88,7 +95,7 @@ class CustomSchemaRecursionControls(unittest.TestCase):
             with mock.patch.object(
                 source_validation.Draft202012Validator,
                 "iter_errors",
-                new=must_not_run,
+                new=must_not_run_for_source,
             ):
                 with self.assertRaises(SourceValidationError) as raised:
                     validate_source(
@@ -145,8 +152,11 @@ class CustomSchemaRecursionREDTests(unittest.TestCase):
 
     def test_lazy_iter_errors_recursion_is_contained_after_preflight(self):
         state = {"called": False, "advanced": False}
+        original_iter_errors = source_validation.Draft202012Validator.iter_errors
 
         def lazy_iter_errors(self, instance):  # noqa: ANN001
+            if is_schema_self_validation(instance):
+                return original_iter_errors(self, instance)
             state["called"] = True
 
             def recurse_on_advance():
