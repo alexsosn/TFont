@@ -25,7 +25,7 @@ Research artifacts are allocation authority. Multiple same-ID artifacts are lega
 
 F-021 v1 does **not** infer issue ownership from `docs/plans`, workflow filenames, or `tests/fNNN` paths. Follow-up issue #112 owns research for richer downstream ownership metadata.
 
-## 3. Implementation location and public repository-tool surface
+## 3. Implementation location and repository-tool surface
 
 Create:
 
@@ -42,39 +42,50 @@ The script is repository tooling rather than an installed TFont API. It must rem
 python scripts/check_f_series_ownership.py
 ```
 
-It must also expose pure functions that tests can load by file path without making `scripts` an installed/importable package.
+It also exposes pure functions that tests load by exact file path; `scripts` does not become an installed/importable package.
 
 Planned functions:
 
 ```python
 check_artifacts(artifacts: Mapping[str, str]) -> list[str]
-scan_repository(root: Path) -> dict[str, str]
+scan_repository(root: Path) -> tuple[dict[str, str], list[str]]
 check_repository(root: Path) -> list[str]
 main(argv: Sequence[str] | None = None) -> int
 ```
 
-`artifacts` maps repository-relative paths to UTF-8 Markdown content. Returned diagnostics are already sorted strings.
+`artifacts` maps repository-relative POSIX-style paths to UTF-8 Markdown content. Returned diagnostics are sorted strings.
 
-The CLI accepts at most one optional repository-root positional argument. With no argument, the default root is `Path(__file__).resolve().parents[1]`. It prints one diagnostic per line to stderr and exits `1` when diagnostics exist; it prints nothing and exits `0` on success. Invalid CLI argument count may use `argparse`'s standard exit behavior and is not part of the ownership contract.
+The CLI accepts at most one optional repository-root positional argument. With no argument, the default root is `Path(__file__).resolve().parents[1]`. It prints one diagnostic per line to stderr and exits `1` when diagnostics exist; it prints nothing and exits `0` on success. Invalid CLI argument count may use `argparse`'s normal behavior and is outside the ownership contract.
 
 ## 4. Filename and enumeration contract
 
-`scan_repository(root)`:
+The checker recognizes artifact paths with this semantic shape:
 
-1. resolves only `root / "docs" / "research"` as the authority directory;
-2. enumerates `F-[0-9][0-9][0-9]-*.md` entries;
-3. includes regular files only;
-4. stores repository-relative POSIX-style paths such as `docs/research/F-019-...md`;
-5. reads UTF-8 text;
-6. returns entries in no semantically significant order; `check_artifacts()` is responsible for deterministic sorting.
-
-Filesystem/read failures must not be silently ignored. The checker should convert an expected repository read failure into a deterministic diagnostic of the form:
-
-```text
-read_error: <path>: <ExceptionClass>: <message>
+```regex
+^docs/research/(F-[0-9]{3})-.*\.md$
 ```
 
-The implementation must not catch process-fatal exceptions broadly. Ordinary `OSError`, `UnicodeError`, and path-value failures at this repository-read boundary are sufficient.
+`check_artifacts()` ignores mapping entries that do not match that path shape. This makes synthetic use deterministic and preserves the same authority surface as repository scanning. It must not reinterpret R/P/I/A/D paths as F-series ownership.
+
+`scan_repository(root)`:
+
+1. inspects only `root / "docs" / "research"`;
+2. enumerates entries matching `F-[0-9][0-9][0-9]-*.md`;
+3. includes entries for which `Path.is_file()` is true;
+4. stores repository-relative POSIX-style paths such as `docs/research/F-019-...md`;
+5. attempts to read UTF-8 text;
+6. returns `(artifacts, read_diagnostics)`;
+7. does not give filesystem enumeration order semantic meaning.
+
+A per-file read failure must not silently remove an artifact from the invariant. Catch only ordinary repository-read failures (`OSError`, `UnicodeError`, `ValueError`) and emit a stable diagnostic without platform-dependent exception text:
+
+```text
+read_error: <path>: <ExceptionClass>
+```
+
+A file with a read error is absent from `artifacts` and represented by that diagnostic. `check_repository(root)` returns the lexical sort of `read_diagnostics + check_artifacts(artifacts)`.
+
+Process-fatal exceptions are not broadly swallowed.
 
 Unrelated R/P/I/A/D research files are outside enumeration and ignored.
 
@@ -102,9 +113,9 @@ Canonical regex:
 
 ### Owner-like malformed lines
 
-Within the bounded header region, **any** line whose left-stripped text begins with `**Issue:**` but does not match the canonical regex is malformed ownership metadata.
+Within the bounded header region, any line whose left-stripped text begins with `**Issue:**` but does not match the canonical regex is malformed ownership metadata.
 
-This includes, for example:
+Examples include:
 
 - `**Issue:** #0`
 - `**Issue:** 99`
@@ -112,13 +123,13 @@ This includes, for example:
 - ` **Issue:** #99` (leading indentation is not canonical)
 - `**Issue:** #99 extra`
 
-A file containing one canonical owner plus one malformed owner-like line is still invalid. Malformed metadata cannot be hidden by also supplying a valid line.
+A file containing one canonical owner plus one malformed owner-like line remains invalid. Malformed metadata cannot be hidden by also supplying a valid line.
 
 Lines elsewhere containing `#99`, `Issue`, or prose references do not count unless they are owner-like inside the bounded header region.
 
 ## 6. Per-artifact validity contract
 
-For each scanned path, ownership is valid only when:
+For each scanned/matching path, ownership is valid only when:
 
 1. there are zero malformed owner-like header lines; and
 2. there is exactly one canonical owner line.
@@ -133,7 +144,7 @@ Diagnostics are frozen as follows:
 - two or more canonical owner lines, regardless of whether values match:
   `duplicate_owner: <path>: lines <comma-separated line numbers>`
 
-When an artifact has any malformed or duplicate-owner diagnostic, it contributes no owner to cross-artifact conflict grouping. This prevents a syntactically invalid file from manufacturing secondary conflict noise.
+When an artifact has any malformed or duplicate-owner diagnostic, it contributes no owner to cross-artifact conflict grouping. This prevents syntactically invalid files from manufacturing secondary conflict noise.
 
 If an artifact has malformed lines and zero canonical owners, do not additionally emit `missing_owner`; malformed diagnostics are sufficient and more specific.
 
@@ -157,6 +168,8 @@ Same-feature/same-owner multi-artifact groups pass.
 
 `check_artifacts()` returns the complete diagnostic list sorted lexically after all per-artifact and conflict diagnostics are generated.
 
+`check_repository()` lexically sorts the combined read + ownership diagnostic set.
+
 Synthetic tests must permute input dictionary insertion order and still receive byte-identical diagnostic ordering.
 
 The checker must not depend on filesystem enumeration order, locale, Git state, network state, issue titles, or timestamps.
@@ -165,7 +178,7 @@ The checker must not depend on filesystem enumeration order, locale, Git state, 
 
 Before `scripts/check_f_series_ownership.py` exists, add `tests/f021/**` and the focused workflow only. Do not add an empty/placeholder checker.
 
-The test module should have two classes:
+The test module has two classes.
 
 ### `RepositoryMetadataControls`
 
@@ -180,11 +193,17 @@ These controls must pass on the tests-only RED head.
 
 ### `FeatureOwnershipCheckerREDTests`
 
-These load `scripts/check_f_series_ownership.py` by exact file path using `importlib.util`. On RED, loading must fail because the checker file does not exist.
+The test file defines the exact expected checker path and a loader using `importlib.util.spec_from_file_location`.
 
-Once GREEN adds the checker, the same tests exercise the planned contract with synthetic temporary/input mappings and the real repository.
+RED behavior is deliberately narrow:
 
-Required intended cases after the module becomes loadable:
+- `test_checker_module_exists` is the single intended failing test while the checker path is absent;
+- all remaining checker-contract tests are decorated/skipped when that exact path does not exist;
+- no placeholder module is added merely to make imports work.
+
+This produces one attributable RED failure rather than a wall of repeated `FileNotFoundError`/import errors. After GREEN creates the checker, the skip condition disappears and the already-authored contract tests execute unchanged.
+
+Required checker-contract cases:
 
 1. different owners under one F ID -> one `conflicting_owner` failure;
 2. same owner under one F ID -> pass;
@@ -198,13 +217,14 @@ Required intended cases after the module becomes loadable:
 10. body prose issue mention after `## ` does not count;
 11. owner on physical line 12 is accepted; line 13 is outside the contract;
 12. first `## ` stops metadata scanning earlier;
-13. unrelated namespace paths supplied to `check_artifacts()` are ignored or rejected according to the function's documented input precondition; repository enumeration itself must never include them;
+13. unrelated namespace paths supplied to `check_artifacts()` are ignored;
 14. diagnostics are stable across input order;
-15. `check_repository(current_root)` passes on the post-D-004 tree;
-16. CLI exits `0` and is silent on current repository;
-17. CLI on a temporary synthetic repository with a conflict exits `1` and prints the sorted diagnostic.
+15. `scan_repository()` returns a stable `read_error` diagnostic on an injected ordinary read failure;
+16. `check_repository(current_root)` passes on the post-D-004 tree;
+17. CLI exits `0` and is silent on current repository;
+18. CLI on a temporary synthetic repository with a conflict exits `1` and prints the sorted diagnostic.
 
-The RED workflow is valid only when repository metadata controls pass and intended checker tests fail because the planned checker file/API is absent—not because current ownership metadata is broken.
+The RED workflow is valid only when repository metadata controls pass and exactly the module-existence contract fails because the planned checker file is absent—not because current ownership metadata is broken.
 
 ## 10. Focused workflow
 
@@ -223,7 +243,7 @@ Steps:
 3. run repository metadata controls;
 4. run intended F-021 checker tests;
 5. under `if: always()`, run D-004 repository-state ownership tests as a migration regression;
-6. under `if: always()`, run `python scripts/check_f_series_ownership.py` once the checker exists; on the RED head this step may be conditionally skipped by file-existence guard so RED attribution remains the intended test module absence.
+6. under `if: always()`, run `python scripts/check_f_series_ownership.py` only when the checker file exists; on RED the file-existence guard skips this direct invocation so failure attribution remains the single module-existence test.
 
 Repository-wide discovery remains owned only by `.github/workflows/full-suite.yml`.
 
@@ -239,23 +259,23 @@ Workflow triggers cover:
 
 ## 11. Minimal GREEN
 
-After valid RED evidence, add only `scripts/check_f_series_ownership.py` as the implementation needed to make the intended tests pass.
+After valid RED evidence, add only `scripts/check_f_series_ownership.py` as the implementation needed to make the checker-contract tests pass.
 
 Do not weaken/change RED assertions unless a test defect is independently demonstrated. Any new production/runtime TFont code is out of scope.
 
-If the checker needs no third-party dependencies, do not add any.
+No third-party dependency should be required; do not add one.
 
 ## 12. Documentation / contributor ergonomics
 
-After core GREEN, update `CONTRIBUTING.md` in a separate docs-only substep driven by a failing docs/static assertion added **before** the documentation change.
+Baseline `CONTRIBUTING.md` describes the research process but does not yet state the F-series owner-header invariant or direct checker command.
 
-The contributor rule should state concisely:
+After core GREEN, add a docs/static assertion **before** changing `CONTRIBUTING.md`. That RED must demonstrate the missing contributor-facing rule. Then make a docs-only GREEN that states concisely:
 
 - new `docs/research/F-NNN-*.md` artifacts require exactly one canonical `**Issue:** #N` header;
 - same F ID may have multiple research/evidence/amendment artifacts only when all share the same issue owner;
 - run `python scripts/check_f_series_ownership.py` before opening/finalizing a PR.
 
-This documentation substep must not alter checker semantics. If current `CONTRIBUTING.md` already states the exact rule sufficiently, document the finding in the PR and skip the change rather than duplicating it.
+This documentation substep must not alter checker semantics. If current main moves and independently gains an equivalent rule before this substep, rerun the docs assertion and reconcile rather than duplicate it.
 
 ## 13. Exact-head regression gate
 
@@ -267,7 +287,7 @@ Before final review require:
 - F-007 single-full-suite ownership green;
 - F-011 Node-24 action-major policy green;
 - direct CLI invocation green on exact head;
-- compare against then-current `main` contains only F-021 research amendment, plan, tests/workflow, repository checker, and any separately TDD-gated CONTRIBUTING change;
+- compare against then-current `main` contains only F-021 research amendment, plan, tests/workflow, repository checker, and the separately TDD-gated CONTRIBUTING change;
 - no `src/**`, schemas, package metadata, digest/runtime/semantic code, or unrelated docs changes.
 
 If `main` moves, integrate current main and rerun exact-head CI. Re-scan current F-series research ownership after integration; a newly added artifact must satisfy the checker rather than be added to an allowlist.
@@ -281,9 +301,10 @@ Final review must attack at least:
 - duplicate same-owner lines accepted;
 - invalid artifacts participating in conflict grouping and producing misleading extra diagnostics;
 - body prose or line-13 owner references counted as metadata;
+- unrelated synthetic paths treated as ownership input;
 - nondeterminism from dict/filesystem ordering;
 - conflict formatting/order instability;
-- missing read-error containment;
+- read failures silently dropping artifacts;
 - CLI exit/output contract;
 - use of Git, GitHub API, registry, or hidden allowlist;
 - downstream workflow/test owner claims leaking into v1 despite lack of metadata;
@@ -294,4 +315,4 @@ Any blocker returns to the earliest affected research/plan/RED/GREEN gate.
 
 ## 15. Exit condition
 
-F-021 completes when the checked-out repository can deterministically enforce exactly one valid issue owner per F-series research artifact and exactly one owner per F ID through a directly runnable pure-Python checker and CI gate, with no registry/network/history dependency, focused/full exact-head CI green, and fresh logically-independent adversarial review approving the exact final head.
+F-021 completes when the checked-out repository can deterministically enforce exactly one valid issue owner per F-series research artifact and exactly one owner per F ID through a directly runnable pure-Python checker and CI gate, with no registry/network/history dependency, contributor instructions updated, focused/full exact-head CI green, and fresh logically-independent adversarial review approving the exact final head.
