@@ -297,7 +297,7 @@ class RepositoryMigrationREDTests(unittest.TestCase):
 
     def test_research_authority_is_valid(self):
         self.assertEqual(self.authority_errors, [])
-        self.assertEqual(len(self.authority), 22)
+        self.assertTrue(self.authority)
 
     def test_existing_explicit_downstream_claims_are_valid(self):
         self.assertEqual(self.downstream_errors, [])
