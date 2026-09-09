@@ -4,10 +4,7 @@ import copy
 from typing import Any
 
 from tfont.digests import evidence_record_digest
-from tfont.semantic_digest_v2 import (
-    mapping_semantic_digest_v2,
-    projection_semantic_digest_v1,
-)
+from tfont.semantic_digest_v2 import mapping_semantic_digest_v2, projection_semantic_digest_v1
 from tfont.semantic_validation import (
     SemanticArtifact,
     SemanticSourceBundle,
@@ -31,10 +28,7 @@ def _evidence(corpus_id: str) -> dict[str, Any]:
         "source_uri": "https://example.org/evidence/noun",
         "source_revision": "fixture-v1",
         "content_mode": "normalized-record",
-        "reviewed_content": {
-            "target": OLIA_NOUN,
-            "native": "word.sp=subs",
-        },
+        "reviewed_content": {"target": OLIA_NOUN, "native": "word.sp=subs"},
         "content_digest": "placeholder",
     }
     record["content_digest"] = evidence_record_digest(record)
@@ -78,9 +72,7 @@ def noun_sources(
     projection_review_id: str | None = None,
     audit_suffix: str = "",
 ) -> dict[str, Any]:
-    if authored_profile_id is None:
-        authored_profile_id = f"tfont-{corpus_id}"
-
+    authored_profile_id = authored_profile_id or f"tfont-{corpus_id}"
     evidence = _evidence(corpus_id)
     evidence_binding = _binding(evidence)
     component_id = f"{corpus_id}-tf"
@@ -97,7 +89,6 @@ def noun_sources(
             "value_semantics": "semantic",
         },
     }
-
     profile = {
         "schema_version": 2,
         "profile_id": authored_profile_id,
@@ -115,7 +106,6 @@ def noun_sources(
         "minimum_tfont_runtime": "0.1.0",
         "license": "CC-BY-4.0",
     }
-
     parent = {
         "algorithm": "tfont-parent-components-sha256-v1",
         "components": [
@@ -127,24 +117,26 @@ def noun_sources(
             }
         ],
     }
-
+    semantic_route = projection_route == "semantic"
     lock = {
         "lock_id": lock_id,
-        "ontology_id": "olia" if projection_route == "semantic" else "authority-test",
+        "ontology_id": "olia" if semantic_route else "authority-test",
         "support_tier": "core",
-        "term_namespace": "http://purl.org/olia/olia.owl#"
-        if projection_route == "semantic"
-        else "https://example.org/authority/",
+        "term_namespace": (
+            "http://purl.org/olia/olia.owl#"
+            if semantic_route
+            else "https://example.org/authority/"
+        ),
         "release": "fixture-release",
         "source_uri": "https://example.org/ontology-fixture.ttl",
+        "snapshot_artifact": "fixtures/ontology-fixture.ttl",
         "content_digest": _sha("f"),
         "license": "CC-BY-4.0",
-        "terms_used": [OLIA_NOUN if projection_route == "semantic" else AUTHORITY_NOUN],
+        "terms_used": [OLIA_NOUN if semantic_route else AUTHORITY_NOUN],
     }
 
-    mapping_id = f"mapping:{corpus_id}:noun"
     mapping: dict[str, Any] = {
-        "mapping_id": mapping_id,
+        "mapping_id": f"mapping:{corpus_id}:noun",
         "corpus_id": corpus_id,
         "native_binding": {
             "component_id": component_id,
@@ -169,20 +161,18 @@ def noun_sources(
     }
     if audit_suffix:
         mapping["review"]["reviewer_id"] += audit_suffix
-        mapping["review"]["reviewed_at"] = f"2026-09-09T00:00:0{len(audit_suffix) % 9}Z"
+        mapping["review"]["reviewed_at"] = (
+            f"2026-09-09T00:00:0{len(audit_suffix) % 9}Z"
+        )
         mapping["review"]["notes"] = [f"fixture audit metadata {audit_suffix}"]
 
     if native_state == "positive":
         projection = {
             "projection_id": f"projection:{corpus_id}:noun",
-            "target": OLIA_NOUN if projection_route == "semantic" else AUTHORITY_NOUN,
-            "reference_kind": "semantic-pivot"
-            if projection_route == "semantic"
-            else "authority-value",
-            "query_role": "semantic-constraint"
-            if projection_route == "semantic"
-            else "authority-value-filter",
-            "formal_kind": "class" if projection_route == "semantic" else "skos-concept",
+            "target": OLIA_NOUN if semantic_route else AUTHORITY_NOUN,
+            "reference_kind": "semantic-pivot" if semantic_route else "authority-value",
+            "query_role": "semantic-constraint" if semantic_route else "authority-value-filter",
+            "formal_kind": "class" if semantic_route else "skos-concept",
             "semantic_role": "annotation-value",
             "profile_id": "linguistic",
             "capability_id": "linguistic.part-of-speech",
@@ -224,7 +214,6 @@ def noun_sources(
 
     mapping["mapping_semantic_digest"] = mapping_semantic_digest_v2(mapping)
     mapping["review"]["reviewed_mapping_digest"] = mapping["mapping_semantic_digest"]
-
     return {
         "profile": profile,
         "parent": parent,
@@ -310,9 +299,7 @@ def source_bundle(sources: dict[str, Any]) -> SemanticSourceBundle:
 def validate_structural_sources(sources: dict[str, Any]) -> None:
     validate_source(sources["profile"], "profile", source_name="profile.json")
     validate_source(
-        sources["parent"],
-        "parent-component-manifest",
-        source_name="parent.json",
+        sources["parent"], "parent-component-manifest", source_name="parent.json"
     )
     validate_source(sources["mappings"], "mapping", source_name="mappings.json")
     for index, lock in enumerate(sources["locks"]):
