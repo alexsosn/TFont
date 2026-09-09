@@ -38,6 +38,22 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
             (state,),
         )
 
+    def test_duplicate_stale_same_variant_is_invalid_before_freshness(self):
+        ir = compiled_noun_ir(("bhsa",))
+        state = prerequisite_for(RESOLVER, ir.variants[0])
+        stale = replace(
+            state,
+            profile_release_fingerprint="sha256:" + "0" * 64,
+        )
+        assert_problem(
+            self,
+            "invalid_prerequisite",
+            RESOLVER.semantic_resolve,
+            ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (stale, stale),
+        )
+
     def test_variant_repeated_mapping_digests_must_match_release_signature(self):
         ir = compiled_noun_ir(("bhsa",))
         variant = ir.variants[0]
