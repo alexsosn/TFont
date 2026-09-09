@@ -40,7 +40,9 @@ Primary references:
 - Python 3.10 `pathlib.Path.open` / `Path.read_bytes`: https://docs.python.org/3.10/library/pathlib.html
 - Python 3.12 `pathlib.Path.open` / `Path.read_bytes`: https://docs.python.org/3.12/library/pathlib.html
 
-The concrete RED case is an embedded NUL in `schema_root`. The path object/string can be formed, but the subsequent open/read boundary raises `ValueError` (for example `embedded null byte`) rather than `OSError`.
+F-020 also reuses the more specific CPython filesystem-converter evidence already recorded for the sibling F-019 source-file boundary in `docs/research/F-019-cpython-path-conversion-evidence.md`. That note traces `_io.FileIO` through the platform filesystem converters on Windows and non-Windows builds, records the C-API prohibition on embedded NULs, and identifies `ValueError` as an established path-conversion failure on the supported CPython family. The mechanism is relevant here because `Path.read_bytes()` ultimately reaches the same file-opening/path-conversion boundary; only the TFont authority/category differs (`invalid_schema` rather than `decode_error`).
+
+The concrete RED case is an embedded NUL in `schema_root`. The path object/string can be formed, but the subsequent open/read boundary raises a path-conversion exception such as `ValueError` rather than necessarily reaching an `OSError`. TFont must not standardize the host exception text or depend on every platform surfacing the same underlying exception class; it must contain the supported boundary in the existing `invalid_schema` family.
 
 ## Decision
 
@@ -86,7 +88,7 @@ F-020 should not change packaged-resource semantics merely to make both branches
 
 - **F-015** adds direct-instance `_plain_json()` preflight after successful schema authority checks. F-020 preserves that precedence and should integrate after F-015 rather than race it in `source_validation.py`.
 - **F-016** contains recursion failures in custom schema parsing/validation. F-020 is only the native schema-file read boundary and must not add recursion handling.
-- **F-019** handles invalid filesystem paths for source-document loading, mapping them to `decode_error`. F-020 is deliberately separate because explicit schema-file failures map to `invalid_schema`.
+- **F-019** handles invalid filesystem paths for source-document loading, mapping them to `decode_error`. F-020 is deliberately separate because explicit schema-file failures map to `invalid_schema`. Its accepted CPython/path-conversion evidence and mandatory cross-platform test precedent are reused here.
 
 Production for F-020 should wait until overlapping `source_validation.py` lanes F-015/F-019 are merged or rebased; research does not need to wait.
 
@@ -94,15 +96,23 @@ Production for F-020 should wait until overlapping `source_validation.py` lanes 
 
 After the overlap gate clears, the plan/tests should pin at least:
 
-1. embedded-NUL explicit schema root for a `.json` schema -> `SourceValidationError(category="invalid_schema")`, not raw `ValueError`;
-2. diagnostic `source_name` is the constructed schema file path;
+1. embedded-NUL explicit schema root for a `.json` schema -> `SourceValidationError(category="invalid_schema")`, not raw host `ValueError`;
+2. diagnostic `source_name` is the exact constructed schema file path;
 3. ordinary missing schema file remains `invalid_schema` with unchanged provenance;
 4. invalid schema UTF-8 / malformed JSON / invalid Draft schema retain current `invalid_schema` behavior;
 5. packaged schema validation remains unchanged;
 6. valid explicit `schema_root` remains unchanged;
-7. invalid schema path still takes precedence over malformed direct instance input after F-015.
+7. invalid schema path still takes precedence over malformed direct instance input after F-015;
+8. out-of-contract `schema_root` types that fail during `Path(schema_root)` construction remain programming/type errors rather than being relabeled `invalid_schema`.
 
-Run on Python 3.10 and 3.12. Cross-platform Windows/POSIX evidence is useful because native path conversion is platform-facing, but no platform-specific path normalization should be introduced.
+The RED, GREEN, and final exact-head gate are mandatory on all four supported filesystem-facing cells:
+
+- Ubuntu 24.04 × Python 3.10;
+- Ubuntu 24.04 × Python 3.12;
+- Windows latest × Python 3.10;
+- Windows latest × Python 3.12.
+
+Runner unavailability blocks the missing cell; it does not weaken the matrix. Tests assert only the stable TFont category/provenance/precedence contract, not platform-specific CPython exception wording.
 
 ## Non-goals
 
@@ -116,4 +126,4 @@ Run on Python 3.10 and 3.12. Cross-platform Windows/POSIX evidence is useful bec
 
 ## Conclusion
 
-F-020 is implementable as a narrow public error-boundary repair once overlapping validation work lands. A host `ValueError` caused by an invalid explicit schema-root filesystem spelling should not escape TFont; it should remain in the existing `invalid_schema` authority family with exact schema-path provenance.
+F-020 is implementable as a narrow public error-boundary repair once overlapping validation work lands. A host path-conversion failure caused by an invalid explicit schema-root filesystem spelling should not escape TFont; it should remain in the existing `invalid_schema` authority family with exact schema-path provenance, and that contract must be demonstrated on the complete supported Ubuntu/Windows × Python 3.10/3.12 matrix.
