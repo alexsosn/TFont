@@ -78,11 +78,36 @@ def check_artifacts(artifacts: Mapping[str, str]) -> list[str]:
     return sorted(diagnostics)
 
 
+def _relative_path(path: Path, root: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
+def _safe_kind(
+    path: Path, root: Path, *, directory: bool
+) -> tuple[bool | None, str | None]:
+    try:
+        result = path.is_dir() if directory else path.is_file()
+    except (OSError, ValueError) as exc:
+        return None, f"scan_error: {_relative_path(path, root)}: {type(exc).__name__}"
+    return result, None
+
+
+def _safe_children(directory: Path, root: Path) -> tuple[list[Path] | None, str | None]:
+    try:
+        children = sorted(directory.iterdir())
+    except (OSError, ValueError) as exc:
+        return None, f"scan_error: {_relative_path(directory, root)}: {type(exc).__name__}"
+    return children, None
+
+
 def _scan_research_repository(
     root: Path,
 ) -> tuple[dict[str, str], list[str], set[str], bool]:
     research_dir = root / "docs" / "research"
-    if not research_dir.is_dir():
+    is_directory, scan_diagnostic = _safe_kind(research_dir, root, directory=True)
+    if scan_diagnostic is not None:
+        return {}, [scan_diagnostic], set(), True
+    if not is_directory:
         return (
             {},
             [f"authority_error: {AUTHORITY_PATH}: missing_or_not_directory"],
@@ -90,30 +115,47 @@ def _scan_research_repository(
             True,
         )
 
-    candidates = sorted(research_dir.glob("F-[0-9][0-9][0-9]-*.md"))
-    files = [path for path in candidates if path.is_file()]
-    if not files:
-        return (
-            {},
-            [f"authority_error: {AUTHORITY_PATH}: no_f_series_artifacts"],
-            set(),
-            True,
-        )
+    children, scan_diagnostic = _safe_children(research_dir, root)
+    if scan_diagnostic is not None:
+        return {}, [scan_diagnostic], set(), True
+    assert children is not None
 
     artifacts: dict[str, str] = {}
     diagnostics: list[str] = []
     invalid_features: set[str] = set()
-    for path in files:
-        relative_path = path.relative_to(root).as_posix()
+    global_failure = False
+    regular_files = 0
+
+    for path in children:
+        match = PLAN_FILENAME_RE.fullmatch(path.name)
+        if match is None:
+            continue
+        is_file, scan_diagnostic = _safe_kind(path, root, directory=False)
+        if scan_diagnostic is not None:
+            diagnostics.append(scan_diagnostic)
+            invalid_features.add(match.group(1))
+            global_failure = True
+            continue
+        if not is_file:
+            continue
+
+        regular_files += 1
+        relative_path = _relative_path(path, root)
         try:
             artifacts[relative_path] = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError, ValueError) as exc:
             diagnostics.append(f"read_error: {relative_path}: {type(exc).__name__}")
-            match = PLAN_FILENAME_RE.fullmatch(path.name)
-            if match is not None:
-                invalid_features.add(match.group(1))
+            invalid_features.add(match.group(1))
 
-    return artifacts, sorted(diagnostics), invalid_features, False
+    if regular_files == 0 and not global_failure:
+        return (
+            {},
+            [f"authority_error: {AUTHORITY_PATH}: no_f_series_artifacts"],
+            invalid_features,
+            True,
+        )
+
+    return artifacts, sorted(diagnostics), invalid_features, global_failure
 
 
 def scan_repository(root: Path) -> tuple[dict[str, str], list[str]]:
@@ -152,7 +194,7 @@ def _research_authority(
 
 
 def _read_text(path: Path, root: Path) -> tuple[str | None, str | None]:
-    relative_path = path.relative_to(root).as_posix()
+    relative_path = _relative_path(path, root)
     try:
         return path.read_text(encoding="utf-8"), None
     except (OSError, UnicodeError, ValueError) as exc:
@@ -183,7 +225,7 @@ def _check_plan(
     authority: Mapping[str, int],
     invalid_features: set[str],
 ) -> list[str]:
-    relative_path = path.relative_to(root).as_posix()
+    relative_path = _relative_path(path, root)
     text, read_diagnostic = _read_text(path, root)
     if read_diagnostic is not None:
         return [read_diagnostic]
@@ -227,7 +269,7 @@ def _check_workflow(
     authority: Mapping[str, int],
     invalid_features: set[str],
 ) -> list[str]:
-    relative_path = path.relative_to(root).as_posix()
+    relative_path = _relative_path(path, root)
     text, read_diagnostic = _read_text(path, root)
     if read_diagnostic is not None:
         return [read_diagnostic]
@@ -260,8 +302,11 @@ def _check_test_package(
     invalid_features: set[str],
 ) -> list[str]:
     sidecar = package / "issue-owner.txt"
-    relative_path = sidecar.relative_to(root).as_posix()
-    if not sidecar.is_file():
+    relative_path = _relative_path(sidecar, root)
+    is_file, scan_diagnostic = _safe_kind(sidecar, root, directory=False)
+    if scan_diagnostic is not None:
+        return [scan_diagnostic]
+    if not is_file:
         return [f"missing_owner: {relative_path}"]
 
     text, read_diagnostic = _read_text(sidecar, root)
@@ -296,42 +341,78 @@ def _check_downstream(
     diagnostics: list[str] = []
 
     plans_dir = root / "docs" / "plans"
-    if plans_dir.is_dir():
-        for path in sorted(plans_dir.glob("F-[0-9][0-9][0-9]-*.md")):
-            if not path.is_file():
-                continue
-            match = PLAN_FILENAME_RE.fullmatch(path.name)
-            if match is None:
-                continue
-            diagnostics.extend(
-                _check_plan(path, root, match.group(1), authority, invalid_features)
-            )
+    plans_is_dir, scan_diagnostic = _safe_kind(plans_dir, root, directory=True)
+    if scan_diagnostic is not None:
+        diagnostics.append(scan_diagnostic)
+    elif plans_is_dir:
+        children, scan_diagnostic = _safe_children(plans_dir, root)
+        if scan_diagnostic is not None:
+            diagnostics.append(scan_diagnostic)
+        else:
+            assert children is not None
+            for path in children:
+                match = PLAN_FILENAME_RE.fullmatch(path.name)
+                if match is None:
+                    continue
+                is_file, scan_diagnostic = _safe_kind(path, root, directory=False)
+                if scan_diagnostic is not None:
+                    diagnostics.append(scan_diagnostic)
+                    continue
+                if not is_file:
+                    continue
+                diagnostics.extend(
+                    _check_plan(path, root, match.group(1), authority, invalid_features)
+                )
 
     workflows_dir = root / ".github" / "workflows"
-    if workflows_dir.is_dir():
-        for path in sorted(workflows_dir.iterdir()):
-            if not path.is_file():
-                continue
-            match = WORKFLOW_FILENAME_RE.fullmatch(path.name)
-            if match is None:
-                continue
-            feature = f"F-{match.group(1)}"
-            diagnostics.extend(
-                _check_workflow(path, root, feature, authority, invalid_features)
-            )
+    workflows_is_dir, scan_diagnostic = _safe_kind(workflows_dir, root, directory=True)
+    if scan_diagnostic is not None:
+        diagnostics.append(scan_diagnostic)
+    elif workflows_is_dir:
+        children, scan_diagnostic = _safe_children(workflows_dir, root)
+        if scan_diagnostic is not None:
+            diagnostics.append(scan_diagnostic)
+        else:
+            assert children is not None
+            for path in children:
+                match = WORKFLOW_FILENAME_RE.fullmatch(path.name)
+                if match is None:
+                    continue
+                is_file, scan_diagnostic = _safe_kind(path, root, directory=False)
+                if scan_diagnostic is not None:
+                    diagnostics.append(scan_diagnostic)
+                    continue
+                if not is_file:
+                    continue
+                feature = f"F-{match.group(1)}"
+                diagnostics.extend(
+                    _check_workflow(path, root, feature, authority, invalid_features)
+                )
 
     tests_dir = root / "tests"
-    if tests_dir.is_dir():
-        for package in sorted(tests_dir.iterdir()):
-            if not package.is_dir():
-                continue
-            match = TEST_PACKAGE_RE.fullmatch(package.name)
-            if match is None:
-                continue
-            feature = f"F-{match.group(1)}"
-            diagnostics.extend(
-                _check_test_package(package, root, feature, authority, invalid_features)
-            )
+    tests_is_dir, scan_diagnostic = _safe_kind(tests_dir, root, directory=True)
+    if scan_diagnostic is not None:
+        diagnostics.append(scan_diagnostic)
+    elif tests_is_dir:
+        children, scan_diagnostic = _safe_children(tests_dir, root)
+        if scan_diagnostic is not None:
+            diagnostics.append(scan_diagnostic)
+        else:
+            assert children is not None
+            for package in children:
+                match = TEST_PACKAGE_RE.fullmatch(package.name)
+                if match is None:
+                    continue
+                is_directory, scan_diagnostic = _safe_kind(package, root, directory=True)
+                if scan_diagnostic is not None:
+                    diagnostics.append(scan_diagnostic)
+                    continue
+                if not is_directory:
+                    continue
+                feature = f"F-{match.group(1)}"
+                diagnostics.extend(
+                    _check_test_package(package, root, feature, authority, invalid_features)
+                )
 
     return sorted(diagnostics)
 
