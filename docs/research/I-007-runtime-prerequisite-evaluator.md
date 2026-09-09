@@ -160,7 +160,9 @@ Value identity must preserve null vs absence and must not coerce strings/numbers
 Two modes remain distinct.
 
 - `observed`: the declared values are required observed support facts. `pass` when each required value can be observed under exact JSON-scalar identity; additional values do not invalidate compatibility.
-- `closed-reviewed`: the declared set is a reviewed closed domain. Runtime compatibility requires the observed domain to stay within/equal the reviewed closure according to the source contract. For v1, use **set equality** between the declared closed domain and the complete observed non-missing feature value domain. Any extra or missing value is fail; inability to enumerate a complete domain is unknown.
+- `closed-reviewed`: the declared set is a reviewed **allowed closed domain**, as established by the P-002 source contract. Runtime compatibility requires every completely observed non-missing feature value to belong to that reviewed set: **observed domain ⊆ reviewed closed domain**. Any observed out-of-domain value is `fail`; inability to enumerate the complete observed domain is `unknown`. A reviewed allowed value need not occur in every materialized corpus release, so absence of an allowed value is not itself a compatibility failure.
+
+This asymmetry is intentional. P-002 says `closed-reviewed` means the reviewed source contract explicitly claims a closed domain and requires evidence so a finite observed release sample cannot silently become that closure. It does not say every allowed member must occur in every release. Therefore set equality would over-constrain valid corpora.
 
 The closed-reviewed source evidence remains compile-time review authority; I-007 does not re-review or fetch it.
 
@@ -293,7 +295,7 @@ Minimum RED matrix:
 10. timestamps/local paths do not enter identity;
 11. all eight dependency kinds have pass/fail/unknown boundary tests where meaningful;
 12. JSON scalar identity preserves null, false, zero and strings without coercion;
-13. closed-reviewed value domain detects extra and missing values;
+13. closed-reviewed value domain rejects observed values outside the reviewed closure but permits reviewed values that simply do not occur in the current release;
 14. extent interpretation without explicit adapter fact is unknown, never guessed;
 15. old v1 compatibility-report-shaped data cannot become executable prerequisite state;
 16. no semantic lookup/query execution/network fetch occurs in evaluation;
