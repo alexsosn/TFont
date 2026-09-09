@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import stat
@@ -8,10 +9,63 @@ from typing import Any
 
 from .digests import DigestError, canonical_json_bytes
 
+if os.name == "nt":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+
 FILE_BYTES_ALGORITHM = "tfont-file-bytes-sha256-v1"
 DIRECTORY_FILES_ALGORITHM = "tfont-directory-files-sha256-v1"
 TF_FILES_ALGORITHM = "tfont-tf-files-sha256-v1"
 PARENT_COMPONENTS_ALGORITHM = "tfont-parent-components-sha256-v1"
+
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
+_FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
+_FILE_SHARE_READ = 0x00000001
+_FILE_SHARE_WRITE = 0x00000002
+_FILE_SHARE_DELETE = 0x00000004
+_GENERIC_READ = 0x80000000
+_OPEN_EXISTING = 3
+_FILE_ATTRIBUTE_TAG_INFO_CLASS = 9
+
+
+if os.name == "nt":
+    class _FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
+        _fields_ = [
+            ("FileAttributes", wintypes.DWORD),
+            ("ReparseTag", wintypes.DWORD),
+        ]
+
+
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    _win32_create_filew = _kernel32.CreateFileW
+    _win32_create_filew.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    _win32_create_filew.restype = wintypes.HANDLE
+
+    _win32_get_file_information_by_handle_ex = _kernel32.GetFileInformationByHandleEx
+    _win32_get_file_information_by_handle_ex.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    ]
+    _win32_get_file_information_by_handle_ex.restype = wintypes.BOOL
+
+    _win32_close_handle_api = _kernel32.CloseHandle
+    _win32_close_handle_api.argtypes = [wintypes.HANDLE]
+    _win32_close_handle_api.restype = wintypes.BOOL
+
+    _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
 
 
 @dataclass(frozen=True)
@@ -130,25 +184,142 @@ def _file_identity(st: os.stat_result, path: str) -> tuple[int, int]:
     return device, inode
 
 
+if os.name == "nt":
+    def _win32_last_error() -> OSError:
+        return ctypes.WinError(ctypes.get_last_error())
+
+
+    def _win32_create_file_handle(path: str) -> int:
+        handle = _win32_create_filew(
+            path,
+            _GENERIC_READ,
+            _FILE_SHARE_READ | _FILE_SHARE_WRITE | _FILE_SHARE_DELETE,
+            None,
+            _OPEN_EXISTING,
+            _FILE_FLAG_OPEN_REPARSE_POINT,
+            None,
+        )
+        if handle == _INVALID_HANDLE_VALUE:
+            raise _win32_last_error()
+        return handle
+
+
+    def _win32_handle_is_reparse(handle: int) -> bool:
+        info = _FILE_ATTRIBUTE_TAG_INFO()
+        succeeded = _win32_get_file_information_by_handle_ex(
+            handle,
+            _FILE_ATTRIBUTE_TAG_INFO_CLASS,
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+        )
+        if not succeeded:
+            raise _win32_last_error()
+        return bool(info.FileAttributes & _FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+    def _win32_close_handle(handle: int) -> None:
+        if not _win32_close_handle_api(handle):
+            raise _win32_last_error()
+
+
+    def _win32_close_handle_ignoring_errors(handle: int) -> None:
+        try:
+            _win32_close_handle(handle)
+        except OSError:
+            pass
+
+
+def _open_trusted_file_descriptor(path: str) -> int:
+    if os.name != "nt":
+        nofollow = getattr(os, "O_NOFOLLOW", 0)
+        nonblock = getattr(os, "O_NONBLOCK", 0)
+        if type(nofollow) is not int or nofollow == 0:
+            _fail("filesystem_error", "trusted final-component no-follow open is unavailable", path)
+        if type(nonblock) is not int or nonblock == 0:
+            _fail("filesystem_error", "trusted nonblocking final-component open is unavailable", path)
+
+        flags = os.O_RDONLY | nofollow | nonblock | getattr(os, "O_CLOEXEC", 0)
+        try:
+            return os.open(path, flags)
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                try:
+                    final_state = os.lstat(path)
+                except (OSError, ValueError):
+                    final_state = None
+                if final_state is not None and _is_link_like(final_state):
+                    _fail("symlink_not_allowed", "link-like file object is not allowed", path)
+            _fail("filesystem_error", str(exc), path)
+        except ValueError as exc:
+            _fail("filesystem_error", str(exc), path)
+
+    raw_handle: int | None = None
+    try:
+        raw_handle = _win32_create_file_handle(path)
+        try:
+            is_reparse = _win32_handle_is_reparse(raw_handle)
+        except (OSError, ValueError) as exc:
+            _win32_close_handle_ignoring_errors(raw_handle)
+            raw_handle = None
+            _fail("filesystem_error", str(exc), path)
+
+        if is_reparse:
+            _win32_close_handle_ignoring_errors(raw_handle)
+            raw_handle = None
+            _fail("symlink_not_allowed", "link-like file object is not allowed", path)
+
+        try:
+            descriptor = msvcrt.open_osfhandle(raw_handle, os.O_RDONLY)
+        except (OSError, ValueError) as exc:
+            _win32_close_handle_ignoring_errors(raw_handle)
+            raw_handle = None
+            _fail("filesystem_error", str(exc), path)
+
+        raw_handle = None
+        try:
+            msvcrt.setmode(descriptor, os.O_BINARY)
+        except (OSError, ValueError) as exc:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            _fail("filesystem_error", str(exc), path)
+        return descriptor
+    except IdentityError:
+        raise
+    except (OSError, ValueError) as exc:
+        if raw_handle is not None:
+            _win32_close_handle_ignoring_errors(raw_handle)
+        _fail("filesystem_error", str(exc), path)
+
+
+def _sha256_descriptor(descriptor: int, path: str) -> str:
+    digest = hashlib.sha256()
+    while True:
+        chunk = os.read(descriptor, 1024 * 1024)
+        if not chunk:
+            break
+        digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
+
+
 def _sha256_file(path: str, expected: os.stat_result) -> str:
     expected_identity = _file_identity(expected, path)
-    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     descriptor: int | None = None
     try:
-        descriptor = os.open(path, flags)
+        try:
+            descriptor = _open_trusted_file_descriptor(path)
+        except IdentityError as exc:
+            if exc.problem.category == "symlink_not_allowed":
+                _fail("filesystem_error", "file object became link-like between inspection and hashing", path)
+            raise
+
         opened = os.fstat(descriptor)
         if not stat.S_ISREG(opened.st_mode):
             _fail("filesystem_error", "opened file object is not a regular file", path)
         if _file_identity(opened, path) != expected_identity:
             _fail("filesystem_error", "file identity changed between inspection and hashing", path)
-
-        digest = hashlib.sha256()
-        while True:
-            chunk = os.read(descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-        return f"sha256:{digest.hexdigest()}"
+        return _sha256_descriptor(descriptor, path)
     except IdentityError:
         raise
     except (OSError, ValueError) as exc:
