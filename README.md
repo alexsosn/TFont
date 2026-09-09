@@ -9,7 +9,7 @@ TFont is an active proof-of-concept implementation. The foundational research an
 - structural source validation;
 - deterministic canonicalization and digest primitives;
 - parent/component identity for files, directories, Text-Fabric payloads, and expected-parent manifests;
-- cross-artifact semantic validation for reviewed semantic source bundles.
+- cross-artifact semantic validation for authored semantic source bundles.
 
 The common ontology semantic-adapter is now accepted architecture: reviewed corpus-native semantic records can carry typed semantic-pivot or authority-value projections while identity, catalogue, provenance, and locator references remain separate. Ambiguous, native-only, and unsupported states remain explicit and fail closed rather than being guessed into shared targets.
 
@@ -61,11 +61,13 @@ TFont can validate an assembled `SemanticSourceBundle` after its individual sour
 
 - supported profile, mapping, dependency, and catalogue contract versions;
 - duplicate IDs, required-component authority, dependency closure, and mapping/profile scope;
-- controlled semantic vocabularies and reviewed native record states;
+- controlled semantic vocabularies and native record-state legality;
 - projection, candidate, ambiguity, target-routing, and ontology-lock legality;
 - ontology-bundle and bridge closure requirements;
 - evidence bindings, review bindings, and mapping-v2 semantic-digest freshness;
 - explicit native value/domain/extent semantics and publication/approximation policy constraints.
+
+Review-binding checks validate authored review data when present; semantic validation success is not execution authorization.
 
 Successful validation returns a `ValidatedSemanticBundle` with deterministic parent, mapping, bundle, and index information. Failures use `SemanticValidationError` with artifact/source/path provenance.
 
