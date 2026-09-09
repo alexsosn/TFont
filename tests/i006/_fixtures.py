@@ -110,6 +110,7 @@ def validated_binding_presence_bundle(
     else:
         dependency["kind"] = "feature-present"
         dependency["assertion"].pop("value", None)
+        dependency["assertion"].pop("value_semantics", None)
         mapping["native_binding"].pop("value", None)
         projection["native_execution_binding"].pop("value", None)
 
