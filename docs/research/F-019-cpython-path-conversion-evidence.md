@@ -1,5 +1,7 @@
 # F-019 evidence note — CPython filesystem path conversion
 
+**Issue:** #94  
+
 This note closes the version/platform evidence question left deliberately conservative in the main F-019 report.
 
 ## File-open path
