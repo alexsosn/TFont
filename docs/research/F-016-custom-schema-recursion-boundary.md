@@ -1,5 +1,7 @@
 # F-016 research — custom schema recursion failure boundary
 
+**Issue:** #88  
+
 ## Question
 
 `validate_source(..., schema_root=...)` accepts caller-supplied JSON Schema files. TFont currently translates ordinary schema decoding and `SchemaError` failures into `SourceValidationError(category="invalid_schema")`, but raw `RecursionError` can escape from schema JSON decoding, `Draft202012Validator.check_schema()`, or later recursive schema traversal.

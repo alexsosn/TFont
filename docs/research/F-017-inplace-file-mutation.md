@@ -1,5 +1,7 @@
 # F-017 research — in-place mutation during identity hashing
 
+**Issue:** #91  
+
 ## Question
 
 F-012 now binds reads to the exact file object accepted by TFont: after a no-follow inspection, the opened descriptor is `fstat()`-verified against `(st_dev, st_ino)` before any byte is read. That closes pathname substitution.
