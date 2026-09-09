@@ -57,7 +57,7 @@ main(argv: Sequence[str] | None = None) -> int
 
 The CLI accepts at most one optional repository-root positional argument. With no argument, the default root is `Path(__file__).resolve().parents[1]`. It prints one diagnostic per line to stderr and exits `1` when diagnostics exist; it prints nothing and exits `0` on success. Invalid CLI argument count may use `argparse`'s normal behavior and is outside the ownership contract.
 
-## 4. Filename and enumeration contract
+## 4. Filename, authority, and enumeration contract
 
 The checker recognizes artifact paths with this semantic shape:
 
@@ -67,15 +67,23 @@ The checker recognizes artifact paths with this semantic shape:
 
 `check_artifacts()` ignores mapping entries that do not match that path shape. This makes synthetic use deterministic and preserves the same authority surface as repository scanning. It must not reinterpret R/P/I/A/D paths as F-series ownership.
 
-`scan_repository(root)`:
+The repository checker must fail closed when the authority surface itself is absent. Before enumeration, `scan_repository(root)` checks `root / "docs" / "research"`:
 
-1. inspects only `root / "docs" / "research"`;
-2. enumerates entries matching `F-[0-9][0-9][0-9]-*.md`;
-3. includes entries for which `Path.is_file()` is true;
-4. stores repository-relative POSIX-style paths such as `docs/research/F-019-...md`;
-5. attempts to read UTF-8 text;
-6. returns `(artifacts, read_diagnostics)`;
-7. does not give filesystem enumeration order semantic meaning.
+- missing or non-directory authority path ->
+  `authority_error: docs/research: missing_or_not_directory`
+- existing authority directory with zero matching F-series research artifacts after enumeration ->
+  `authority_error: docs/research: no_f_series_artifacts`
+
+These repository-level diagnostics are distinct from per-file read errors. They prevent an incorrect CLI root, accidental removal of the authority directory, or deletion of all F-series research from producing a vacuous success.
+
+When the authority directory exists, `scan_repository(root)`:
+
+1. enumerates entries matching `F-[0-9][0-9][0-9]-*.md`;
+2. includes entries for which `Path.is_file()` is true;
+3. stores repository-relative POSIX-style paths such as `docs/research/F-019-...md`;
+4. attempts to read UTF-8 text;
+5. returns `(artifacts, scan_diagnostics)`;
+6. does not give filesystem enumeration order semantic meaning.
 
 A per-file read failure must not silently remove an artifact from the invariant. Catch only ordinary repository-read failures (`OSError`, `UnicodeError`, `ValueError`) and emit a stable diagnostic without platform-dependent exception text:
 
@@ -83,7 +91,7 @@ A per-file read failure must not silently remove an artifact from the invariant.
 read_error: <path>: <ExceptionClass>
 ```
 
-A file with a read error is absent from `artifacts` and represented by that diagnostic. `check_repository(root)` returns the lexical sort of `read_diagnostics + check_artifacts(artifacts)`.
+A file with a read error is absent from `artifacts` and represented by that diagnostic. Enumeration/authority diagnostics and read diagnostics share the `scan_diagnostics` return list. `check_repository(root)` returns the lexical sort of `scan_diagnostics + check_artifacts(artifacts)`.
 
 Process-fatal exceptions are not broadly swallowed.
 
@@ -168,7 +176,7 @@ Same-feature/same-owner multi-artifact groups pass.
 
 `check_artifacts()` returns the complete diagnostic list sorted lexically after all per-artifact and conflict diagnostics are generated.
 
-`check_repository()` lexically sorts the combined read + ownership diagnostic set.
+`check_repository()` lexically sorts the combined scan + ownership diagnostic set.
 
 Synthetic tests must permute input dictionary insertion order and still receive byte-identical diagnostic ordering.
 
@@ -184,6 +192,7 @@ The test module has two classes.
 
 These controls do not import the planned checker. They independently establish the post-D-004 prerequisite state:
 
+- `docs/research` exists and contains F-series research artifacts;
 - every current F-series research artifact has one canonical owner in the reviewed bounded region;
 - no current same-ID group has multiple owner values;
 - F-019 primary and CPython evidence both carry #94;
@@ -220,9 +229,12 @@ Required checker-contract cases:
 13. unrelated namespace paths supplied to `check_artifacts()` are ignored;
 14. diagnostics are stable across input order;
 15. `scan_repository()` returns a stable `read_error` diagnostic on an injected ordinary read failure;
-16. `check_repository(current_root)` passes on the post-D-004 tree;
-17. CLI exits `0` and is silent on current repository;
-18. CLI on a temporary synthetic repository with a conflict exits `1` and prints the sorted diagnostic.
+16. missing/non-directory `docs/research` -> `authority_error: docs/research: missing_or_not_directory`;
+17. existing `docs/research` with zero F-series artifacts -> `authority_error: docs/research: no_f_series_artifacts`;
+18. `check_repository(current_root)` passes on the post-D-004 tree;
+19. CLI exits `0` and is silent on current repository;
+20. CLI pointed at a wrong/empty repository root exits `1` with the authority diagnostic;
+21. CLI on a temporary synthetic repository with a conflict exits `1` and prints the sorted conflict diagnostic.
 
 The RED workflow is valid only when repository metadata controls pass and exactly the module-existence contract fails because the planned checker file is absent—not because current ownership metadata is broken.
 
@@ -297,6 +309,7 @@ If `main` moves, integrate current main and rerun exact-head CI. Re-scan current
 Final review must attack at least:
 
 - primary/supporting exemption accidentally reintroduced;
+- authority directory/all-artifact deletion vacuously passing;
 - malformed owner-like lines accepted because one canonical line also exists;
 - duplicate same-owner lines accepted;
 - invalid artifacts participating in conflict grouping and producing misleading extra diagnostics;
@@ -305,6 +318,7 @@ Final review must attack at least:
 - nondeterminism from dict/filesystem ordering;
 - conflict formatting/order instability;
 - read failures silently dropping artifacts;
+- CLI wrong-root success;
 - CLI exit/output contract;
 - use of Git, GitHub API, registry, or hidden allowlist;
 - downstream workflow/test owner claims leaking into v1 despite lack of metadata;
@@ -315,4 +329,4 @@ Any blocker returns to the earliest affected research/plan/RED/GREEN gate.
 
 ## 15. Exit condition
 
-F-021 completes when the checked-out repository can deterministically enforce exactly one valid issue owner per F-series research artifact and exactly one owner per F ID through a directly runnable pure-Python checker and CI gate, with no registry/network/history dependency, contributor instructions updated, focused/full exact-head CI green, and fresh logically-independent adversarial review approving the exact final head.
+F-021 completes when the checked-out repository can deterministically enforce exactly one valid issue owner per F-series research artifact and exactly one owner per F ID through a directly runnable pure-Python checker and CI gate, fails closed when its research authority surface is absent, uses no registry/network/history dependency, has contributor instructions updated, passes focused/full exact-head CI, and receives a fresh logically-independent adversarial review approving the exact final head.
