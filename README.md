@@ -4,15 +4,16 @@ TFont is an experimental semantic interoperability layer for Text-Fabric / Conte
 
 ## Current status
 
-TFont is an active proof-of-concept implementation. The foundational research and accepted architecture are merged, together with three production foundations on `main`:
+TFont is an active proof-of-concept implementation. The foundational research and accepted architecture are merged, together with four production foundations on `main`:
 
 - structural source validation;
 - deterministic canonicalization and digest primitives;
-- parent/component identity for files, directories, Text-Fabric payloads, and expected-parent manifests.
+- parent/component identity for files, directories, Text-Fabric payloads, and expected-parent manifests;
+- cross-artifact semantic validation for reviewed semantic source bundles.
 
 The common ontology semantic-adapter is now accepted architecture: reviewed corpus-native semantic records can carry typed semantic-pivot or authority-value projections while identity, catalogue, provenance, and locator references remain separate. Ambiguous, native-only, and unsupported states remain explicit and fail closed rather than being guessed into shared targets.
 
-Cross-artifact semantic validation, compatibility evaluation, semantic IR/compiler and runtime resolution, and corpus-specific mappings are not yet shipped capabilities. The accepted semantic architecture defines those later stages; it does not mean the validator or resolver is already implemented on `main`.
+Cross-artifact semantic validation is implemented on `main`. Compatibility evaluation, semantic IR/compiler and runtime resolution, and corpus-specific mappings are not yet shipped capabilities. The validator checks authored semantic artifacts and their cross-artifact closure; it does not by itself execute native corpus queries or declare a materialized corpus compatible.
 
 ## Implemented capabilities
 
@@ -35,11 +36,12 @@ TFont also provides deterministic identity primitives for:
 - RFC 8785/JCS canonical JSON bytes;
 - normalized source-file and source-bundle digests;
 - exact evidence-payload and normalized evidence-record digests;
-- mapping semantic digests;
+- mapping semantic digests, including the mapping-v2 semantic projection;
+- projection semantic digests;
 - profile semantic digests for an already assembled semantic projection;
 - stable `DigestError` diagnostics for canonicalization and projection failures.
 
-These helpers compute deterministic projections and digests; they do not resolve or verify cross-artifact semantic relationships.
+These helpers compute deterministic projections and digests; they do not resolve or verify cross-artifact semantic relationships by themselves.
 
 ### Parent/component identity
 
@@ -52,6 +54,22 @@ TFont can compute stable identities for the materialized corpus components that 
 - stable `IdentityError` diagnostics for invalid paths, filesystem failures, and unsupported filesystem objects.
 
 These functions establish what corpus material a profile or mapping is meant to apply to. They do not by themselves declare that the parent is semantically compatible with a profile or ontology mapping.
+
+### Cross-artifact semantic validation
+
+TFont can validate an assembled `SemanticSourceBundle` after its individual source artifacts have passed structural validation. `validate_semantic_bundle()` checks the authored semantic contract across the bundle, including:
+
+- supported profile, mapping, dependency, and catalogue contract versions;
+- duplicate IDs, required-component authority, dependency closure, and mapping/profile scope;
+- controlled semantic vocabularies and reviewed native record states;
+- projection, candidate, ambiguity, target-routing, and ontology-lock legality;
+- ontology-bundle and bridge closure requirements;
+- evidence bindings, review bindings, and mapping-v2 semantic-digest freshness;
+- explicit native value/domain/extent semantics and publication/approximation policy constraints.
+
+Successful validation returns a `ValidatedSemanticBundle` with deterministic parent, mapping, bundle, and index information. Failures use `SemanticValidationError` with artifact/source/path provenance.
+
+This is validation of explicit semantic source artifacts, not compatibility evaluation against a live corpus. It does not compile semantic IR, resolve live ontology resources, or execute native/cross-corpus queries.
 
 ## Accepted semantic architecture
 
@@ -67,7 +85,7 @@ In that model:
 - ontology locks, bundle/bridge closure, evidence/review binding, and approximation policy are explicit prerequisites for later semantic execution;
 - TFont does not silently infer mappings from feature names, URI spelling, observed values, or ontology labels.
 
-This is accepted architecture, not yet shipped cross-artifact semantic validation or runtime resolution.
+The cross-artifact validator now enforces these authored semantic contracts. Compatibility evaluation, semantic IR/compiler, runtime resolution, and corpus-specific mapping releases remain later stages.
 
 ## Development install
 
@@ -123,6 +141,23 @@ manifest_digest = parent_manifest_digest({
         }
     ],
 })
+```
+
+Cross-artifact semantic validation uses explicit public bundle types. The following shows the assembly shape; the dictionaries are assumed to have been structurally validated already, and mappings may require additional ontology-lock/evidence artifacts:
+
+```python
+from tfont import SemanticArtifact, SemanticSourceBundle, validate_semantic_bundle
+
+bundle = SemanticSourceBundle(
+    profile=SemanticArtifact("profile", "profile.yaml", profile_data),
+    expected_parent_manifest=SemanticArtifact(
+        "parent-component-manifest", "expected-parent.json", parent_data
+    ),
+    mappings=SemanticArtifact("mapping", "mappings.yaml", mappings_data),
+    ontology_locks=ontology_lock_artifacts,
+    evidences=evidence_artifacts,
+)
+validated = validate_semantic_bundle(bundle)
 ```
 
 ## Interoperability targets
