@@ -180,7 +180,7 @@ def load_source(path: str | Path) -> JSONValue:
     source_name = str(source_path)
     try:
         text = source_path.read_bytes().decode("utf-8-sig")
-    except (OSError, UnicodeDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         _raise("decode_error", str(exc), source_name)
 
     suffix = source_path.suffix.lower()
