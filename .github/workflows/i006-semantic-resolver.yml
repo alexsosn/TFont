@@ -39,6 +39,8 @@ jobs:
       - name: I-006 resolver contract
         run: python -m unittest discover -s tests/i006 -v
       - name: I-005 semantic IR regressions
+        if: always()
         run: python -m unittest discover -s tests/i005 -v
       - name: I-004 semantic validation regressions
+        if: always()
         run: python -m unittest discover -s tests/i004 -v
