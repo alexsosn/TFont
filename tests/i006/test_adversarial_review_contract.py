@@ -21,7 +21,7 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
     def test_request_validation_precedes_malformed_ir_lookup(self):
         ir = compiled_noun_ir(("bhsa",))
         bad_ir = replace(ir, variants=(ir.variants[0], ir.variants[0]))
-        bad_request = request_for(RESOLVER, ("bhsa",), mode="approximate")
+        bad_request = request_for(RESOLVER, ("bhsa",), semantic_mode="approximate")
         assert_problem(
             self,
             "unsupported_semantic_mode",
