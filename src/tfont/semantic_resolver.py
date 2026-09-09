@@ -11,6 +11,7 @@ from .semantic_ir import (
     CapabilityFactsIR,
     CapabilityKey,
     CompiledSemanticIR,
+    EdgeStepIR,
     EvidenceFingerprint,
     NativeBindingIR,
     OntologyLockFingerprint,
@@ -125,9 +126,20 @@ class SemanticResolutionError(ValueError):
         super().__init__(f"{problem.category}: {problem.message}")
 
 
-def _fail(category: str, message: str, *, corpus_id: str | None = None, related_id: str | None = None) -> None:
+def _fail(
+    category: str,
+    message: str,
+    *,
+    corpus_id: str | None = None,
+    related_id: str | None = None,
+) -> None:
     raise SemanticResolutionError(
-        SemanticResolutionProblem(category, message, corpus_id=corpus_id, related_id=related_id)
+        SemanticResolutionProblem(
+            category,
+            message,
+            corpus_id=corpus_id,
+            related_id=related_id,
+        )
     )
 
 
@@ -178,7 +190,10 @@ def _lock_projection(value: OntologyLockFingerprint) -> dict[str, str]:
 
 
 def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
-    return {"evidence_id": value.evidence_id, "content_digest": value.content_digest}
+    return {
+        "evidence_id": value.evidence_id,
+        "content_digest": value.content_digest,
+    }
 
 
 def _profile_release_projection(signature: ProfileReleaseSignature) -> dict[str, Any]:
@@ -191,8 +206,8 @@ def _profile_release_projection(signature: ProfileReleaseSignature) -> dict[str,
         "minimum_tfont_runtime": signature.minimum_tfont_runtime,
         "profiles": list(signature.profiles),
         "capabilities": list(signature.capabilities),
-        "dependency_records": [[key, value] for key, value in signature.dependency_records],
-        "mapping_digests": [[key, value] for key, value in signature.mapping_digests],
+        "dependency_records": [list(item) for item in signature.dependency_records],
+        "mapping_digests": [list(item) for item in signature.mapping_digests],
         "ontology_bundle_digest": signature.ontology_bundle_digest,
         "ontology_locks": [_lock_projection(item) for item in signature.ontology_locks],
         "mapping_semantic_algorithm": signature.mapping_semantic_algorithm,
@@ -217,18 +232,54 @@ def profile_release_fingerprint(signature: ProfileReleaseSignature) -> str:
 def _validate_dependency_result(value: DependencyPrerequisiteResult) -> None:
     if type(value) is not DependencyPrerequisiteResult:
         raise TypeError("dependency result must be DependencyPrerequisiteResult")
-    if not value.dependency_id or type(value.dependency_id) is not str:
+    if type(value.dependency_id) is not str or not value.dependency_id:
         _fail("invalid_prerequisite", "dependency_id must be a non-empty string")
     if value.result not in {"pass", "fail", "unknown"}:
-        _fail("invalid_prerequisite", "dependency result is not recognized", related_id=value.dependency_id)
+        _fail(
+            "invalid_prerequisite",
+            "dependency result is not recognized",
+            related_id=value.dependency_id,
+        )
     if type(value.evaluator_rule_version) is not str or not value.evaluator_rule_version:
-        _fail("invalid_prerequisite", "evaluator_rule_version must be non-empty", related_id=value.dependency_id)
-    if value.observed_evidence_digest is not None and type(value.observed_evidence_digest) is not str:
-        _fail("invalid_prerequisite", "observed evidence digest must be a string or null", related_id=value.dependency_id)
+        _fail(
+            "invalid_prerequisite",
+            "evaluator_rule_version must be non-empty",
+            related_id=value.dependency_id,
+        )
+    if (
+        value.observed_evidence_digest is not None
+        and type(value.observed_evidence_digest) is not str
+    ):
+        _fail(
+            "invalid_prerequisite",
+            "observed evidence digest must be a string or null",
+            related_id=value.dependency_id,
+        )
+
+
+def _canonical_dependency_results(
+    values: tuple[DependencyPrerequisiteResult, ...],
+) -> tuple[DependencyPrerequisiteResult, ...]:
+    if type(values) is not tuple:
+        _fail("invalid_prerequisite", "dependency_results must be a tuple")
+    seen: set[str] = set()
+    rows: list[DependencyPrerequisiteResult] = []
+    for value in values:
+        _validate_dependency_result(value)
+        if value.dependency_id in seen:
+            _fail(
+                "invalid_prerequisite",
+                "duplicate dependency result",
+                related_id=value.dependency_id,
+            )
+        seen.add(value.dependency_id)
+        rows.append(value)
+    rows.sort(key=lambda row: _utf16(row.dependency_id))
+    return tuple(rows)
 
 
 def _runtime_projection(state: RuntimePrerequisiteState) -> dict[str, Any]:
-    dependencies = sorted(state.dependency_results, key=lambda row: _utf16(row.dependency_id))
+    dependencies = _canonical_dependency_results(state.dependency_results)
     return {
         "algorithm": RUNTIME_PREREQUISITE_FINGERPRINT_ALGORITHM,
         "variant": _variant_projection(state.variant),
@@ -250,70 +301,170 @@ def _runtime_projection(state: RuntimePrerequisiteState) -> dict[str, Any]:
     }
 
 
-def runtime_prerequisite_fingerprint(state: RuntimePrerequisiteState) -> str:
+def _validate_prerequisite_shape(state: RuntimePrerequisiteState) -> None:
     if type(state) is not RuntimePrerequisiteState:
         raise TypeError("state must be RuntimePrerequisiteState")
-    seen: set[str] = set()
-    for row in state.dependency_results:
-        _validate_dependency_result(row)
-        if row.dependency_id in seen:
-            _fail("invalid_prerequisite", "duplicate dependency result", related_id=row.dependency_id)
-        seen.add(row.dependency_id)
+    if type(state.variant) is not BundleVariantKey:
+        _fail("invalid_prerequisite", "variant must be BundleVariantKey")
+    if (
+        type(state.profile_release_fingerprint) is not str
+        or not state.profile_release_fingerprint
+    ):
+        _fail("invalid_prerequisite", "profile release fingerprint must be non-empty")
+    if (
+        type(state.observed_parent_manifest_digest) is not str
+        or not state.observed_parent_manifest_digest
+    ):
+        _fail("invalid_prerequisite", "observed parent manifest digest must be non-empty")
+    if type(state.parent_state) is not str:
+        _fail("invalid_prerequisite", "parent state must be a string")
+    if type(state.ontology_bundle_state) is not str:
+        _fail("invalid_prerequisite", "ontology bundle state must be a string")
+    if (
+        state.active_ontology_bundle_digest is not None
+        and type(state.active_ontology_bundle_digest) is not str
+    ):
+        _fail(
+            "invalid_prerequisite",
+            "active ontology bundle digest must be a string or null",
+        )
     if type(state.source_contract) is not str or not state.source_contract:
         _fail("invalid_prerequisite", "source_contract must be a non-empty string")
+    _canonical_dependency_results(state.dependency_results)
+
+
+def runtime_prerequisite_fingerprint(state: RuntimePrerequisiteState) -> str:
+    _validate_prerequisite_shape(state)
     return _hash(_runtime_projection(state))
 
 
 def _native_binding_projection(binding: NativeBindingIR) -> dict[str, Any]:
+    if type(binding) is not NativeBindingIR:
+        _fail("invalid_compiled_ir", "native binding has the wrong type")
+    if type(binding.value_present) is not bool:
+        _fail("invalid_compiled_ir", "native binding value_present must be boolean")
     result: dict[str, Any] = {}
-    if binding.component_id is not None:
-        result["component_id"] = binding.component_id
-    if binding.node_type is not None:
-        result["node_type"] = binding.node_type
-    if binding.feature is not None:
-        result["feature"] = binding.feature
+    for field in (
+        "component_id",
+        "node_type",
+        "feature",
+        "edge",
+        "direction",
+        "interpretation",
+        "execution_shape",
+    ):
+        value = getattr(binding, field)
+        if value is not None:
+            result[field] = value
     if binding.value_present:
         result["value"] = binding.value
     if binding.closed_values is not None:
         result["closed_values"] = list(binding.closed_values)
-    if binding.edge is not None:
-        result["edge"] = binding.edge
-    if binding.direction is not None:
-        result["direction"] = binding.direction
     if binding.steps is not None:
-        result["steps"] = [{"edge": step.edge, "direction": step.direction} for step in binding.steps]
-    if binding.interpretation is not None:
-        result["interpretation"] = binding.interpretation
-    if binding.execution_shape is not None:
-        result["execution_shape"] = binding.execution_shape
+        steps: list[dict[str, str]] = []
+        for step in binding.steps:
+            if type(step) is not EdgeStepIR:
+                _fail("invalid_compiled_ir", "native binding contains an invalid edge step")
+            steps.append({"edge": step.edge, "direction": step.direction})
+        result["steps"] = steps
     return result
 
 
-def _validate_ir_shape(ir: CompiledSemanticIR) -> tuple[dict[BundleVariantKey, BundleVariantIR], dict[SemanticKey, tuple[TargetBindingIR, ...]], dict[CapabilityKey, CapabilityFactsIR]]:
+def _validate_variant(variant: BundleVariantIR) -> None:
+    if type(variant) is not BundleVariantIR:
+        _fail("invalid_compiled_ir", "variant row has the wrong type")
+    key = variant.key
+    signature = variant.release_signature
+    release_key = variant.release_key
+    if (
+        release_key.corpus_id != key.corpus_id
+        or release_key.authored_profile_id != key.authored_profile_id
+        or release_key.profile_version != key.profile_version
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "variant release key does not match variant key",
+            corpus_id=key.corpus_id,
+        )
+    if signature.ontology_bundle_digest != key.ontology_bundle_digest:
+        _fail(
+            "invalid_compiled_ir",
+            "variant ontology bundle digest disagrees with release signature",
+            corpus_id=key.corpus_id,
+        )
+    if variant.mapping_digests != signature.mapping_digests:
+        _fail(
+            "invalid_compiled_ir",
+            "variant mapping digests disagree with release signature",
+            corpus_id=key.corpus_id,
+        )
+    if variant.ontology_locks != signature.ontology_locks:
+        _fail(
+            "invalid_compiled_ir",
+            "variant ontology locks disagree with release signature",
+            corpus_id=key.corpus_id,
+        )
+    repeated = (
+        (variant.profile_schema_version, signature.profile_schema_version),
+        (variant.profile_catalog_version, signature.profile_catalog_version),
+        (variant.dependency_contract_version, signature.dependency_contract_version),
+        (variant.mapping_schema_version, signature.mapping_schema_version),
+        (variant.mapping_semantic_algorithm, signature.mapping_semantic_algorithm),
+        (variant.projection_semantic_algorithm, signature.projection_semantic_algorithm),
+    )
+    if any(left != right for left, right in repeated):
+        _fail(
+            "invalid_compiled_ir",
+            "variant contract fields disagree with release signature",
+            corpus_id=key.corpus_id,
+        )
+    dependency_ids = [dependency_id for dependency_id, _ in signature.dependency_records]
+    if len(dependency_ids) != len(set(dependency_ids)):
+        _fail(
+            "invalid_compiled_ir",
+            "release signature contains duplicate dependency IDs",
+            corpus_id=key.corpus_id,
+        )
+
+
+def _validate_ir_shape(
+    ir: CompiledSemanticIR,
+) -> tuple[
+    dict[BundleVariantKey, BundleVariantIR],
+    dict[SemanticKey, tuple[TargetBindingIR, ...]],
+    dict[CapabilityKey, CapabilityFactsIR],
+]:
     if type(ir) is not CompiledSemanticIR:
         raise TypeError("ir must be CompiledSemanticIR")
     variants: dict[BundleVariantKey, BundleVariantIR] = {}
     for variant in ir.variants:
+        _validate_variant(variant)
         if variant.key in variants:
-            _fail("invalid_compiled_ir", "duplicate variant key", corpus_id=variant.key.corpus_id)
-        if (
-            variant.release_key.corpus_id != variant.key.corpus_id
-            or variant.release_key.authored_profile_id != variant.key.authored_profile_id
-            or variant.release_key.profile_version != variant.key.profile_version
-        ):
-            _fail("invalid_compiled_ir", "variant release key does not match variant key", corpus_id=variant.key.corpus_id)
-        if variant.release_signature.ontology_bundle_digest != variant.key.ontology_bundle_digest:
-            _fail("invalid_compiled_ir", "variant ontology bundle digest disagrees with release signature", corpus_id=variant.key.corpus_id)
+            _fail(
+                "invalid_compiled_ir",
+                "duplicate variant key",
+                corpus_id=variant.key.corpus_id,
+            )
         variants[variant.key] = variant
+
     semantic: dict[SemanticKey, tuple[TargetBindingIR, ...]] = {}
     for key, rows in ir.semantic_index:
+        if type(key) is not SemanticKey or type(rows) is not tuple:
+            _fail("invalid_compiled_ir", "semantic index has an invalid row shape")
         if key in semantic:
             _fail("invalid_compiled_ir", "duplicate semantic index key")
         semantic[key] = rows
+
     capabilities: dict[CapabilityKey, CapabilityFactsIR] = {}
     for key, facts in ir.capability_facts:
+        if type(key) is not CapabilityKey or type(facts) is not CapabilityFactsIR:
+            _fail("invalid_compiled_ir", "capability facts have an invalid row shape")
         if key in capabilities:
-            _fail("invalid_compiled_ir", "duplicate capability key", corpus_id=key.variant.corpus_id)
+            _fail(
+                "invalid_compiled_ir",
+                "duplicate capability key",
+                corpus_id=key.variant.corpus_id,
+            )
         capabilities[key] = facts
     return variants, semantic, capabilities
 
@@ -335,25 +486,42 @@ def _validate_request(request: SemanticResolveRequest) -> SemanticResolveRequest
     if (
         key.profile_id not in PROFILE_IDS
         or key.capability_id not in CAPABILITY_IDS
+        or not key.capability_id.startswith(key.profile_id + ".")
         or key.formal_kind not in FORMAL_KINDS
         or key.semantic_role not in SEMANTIC_ROLES
-        or type(key.target) is not str
-        or not key.target
-        or not key.capability_id.startswith(key.profile_id + ".")
     ):
-        _fail("unknown_request_vocabulary", "request uses unknown or inconsistent semantic vocabulary")
-    corpora = tuple(sorted(request.corpora, key=_utf16))
-    return SemanticResolveRequest(key=key, corpora=corpora, semantic_mode="exact")
+        _fail(
+            "unknown_request_vocabulary",
+            "request uses unknown or inconsistent semantic vocabulary",
+        )
+    if type(key.target) is not str or not key.target:
+        _fail("invalid_request", "semantic target must be a non-empty string")
+    return SemanticResolveRequest(
+        key=key,
+        corpora=tuple(sorted(request.corpora, key=_utf16)),
+        semantic_mode="exact",
+    )
 
 
-def _materialize_prerequisites(prerequisites: Iterable[RuntimePrerequisiteState]) -> tuple[RuntimePrerequisiteState, ...]:
+def _materialize_prerequisites(
+    prerequisites: Iterable[RuntimePrerequisiteState],
+) -> tuple[RuntimePrerequisiteState, ...]:
     try:
         rows = tuple(prerequisites)
     except TypeError:
         raise TypeError("prerequisites must be iterable") from None
+    seen: set[BundleVariantKey] = set()
     for row in rows:
         if type(row) is not RuntimePrerequisiteState:
             raise TypeError("prerequisite items must be RuntimePrerequisiteState")
+        _validate_prerequisite_shape(row)
+        if row.variant in seen:
+            _fail(
+                "invalid_prerequisite",
+                "duplicate prerequisite for the same variant",
+                corpus_id=row.variant.corpus_id,
+            )
+        seen.add(row.variant)
     return rows
 
 
@@ -364,71 +532,124 @@ def _select_prerequisite(
 ) -> tuple[RuntimePrerequisiteState, BundleVariantIR]:
     selected = [row for row in rows if row.variant.corpus_id == corpus_id]
     if not selected:
-        _fail("missing_prerequisite", "no runtime prerequisite for requested corpus", corpus_id=corpus_id)
+        _fail(
+            "missing_prerequisite",
+            "no runtime prerequisite for requested corpus",
+            corpus_id=corpus_id,
+        )
+
+    fresh: list[tuple[RuntimePrerequisiteState, BundleVariantIR]] = []
+    saw_stale = False
     for row in selected:
         variant = variants.get(row.variant)
         if variant is None:
-            _fail("stale_prerequisite", "prerequisite variant is not in compiled IR", corpus_id=corpus_id)
-        if row.profile_release_fingerprint != profile_release_fingerprint(variant.release_signature):
-            _fail("stale_prerequisite", "profile release fingerprint is stale", corpus_id=corpus_id)
-    variant_keys = {row.variant for row in selected}
-    if len(selected) != len(variant_keys):
-        _fail("invalid_prerequisite", "duplicate prerequisite for the same variant", corpus_id=corpus_id)
-    if len(variant_keys) != 1:
-        _fail("ambiguous_prerequisite_variant", "multiple current variants have prerequisites", corpus_id=corpus_id)
-    row = selected[0]
-    return row, variants[row.variant]
+            saw_stale = True
+            continue
+        if row.profile_release_fingerprint != profile_release_fingerprint(
+            variant.release_signature
+        ):
+            saw_stale = True
+            continue
+        fresh.append((row, variant))
+
+    if not fresh:
+        if saw_stale:
+            _fail(
+                "stale_prerequisite",
+                "prerequisite does not match current compiled release",
+                corpus_id=corpus_id,
+            )
+        _fail(
+            "missing_prerequisite",
+            "no current runtime prerequisite for requested corpus",
+            corpus_id=corpus_id,
+        )
+    if len(fresh) > 1:
+        _fail(
+            "ambiguous_prerequisite_variant",
+            "multiple current variants have prerequisites",
+            corpus_id=corpus_id,
+        )
+    return fresh[0]
 
 
-def _prerequisite_problem(state: RuntimePrerequisiteState, variant: BundleVariantIR) -> str | None:
+def _prerequisite_problem(
+    state: RuntimePrerequisiteState,
+    variant: BundleVariantIR,
+) -> str | None:
+    corpus_id = variant.key.corpus_id
     if type(state.source_contract) is not str or not state.source_contract:
         return "invalid_prerequisite"
-    if state.parent_state not in {"verified-exact", "verified-compatible", "unverified", "incompatible"}:
+    if state.parent_state not in {
+        "verified-exact",
+        "verified-compatible",
+        "unverified",
+        "incompatible",
+    }:
         return "invalid_prerequisite"
     if state.parent_state == "unverified":
         return "parent_unverified"
     if state.parent_state == "incompatible":
         return "parent_incompatible"
+
     expected_parent = variant.key.expected_parent_manifest_digest
-    if state.parent_state == "verified-exact" and state.observed_parent_manifest_digest != expected_parent:
+    if (
+        state.parent_state == "verified-exact"
+        and state.observed_parent_manifest_digest != expected_parent
+    ):
         return "stale_prerequisite"
-    if state.parent_state == "verified-compatible" and state.observed_parent_manifest_digest == expected_parent:
+    if (
+        state.parent_state == "verified-compatible"
+        and state.observed_parent_manifest_digest == expected_parent
+    ):
         return "invalid_prerequisite"
 
-    seen: set[str] = set()
-    for row in state.dependency_results:
-        if type(row) is not DependencyPrerequisiteResult:
-            raise TypeError("dependency result must be DependencyPrerequisiteResult")
-        if row.dependency_id in seen:
-            return "invalid_prerequisite"
-        seen.add(row.dependency_id)
-        if (
-            type(row.dependency_id) is not str
-            or not row.dependency_id
-            or row.result not in {"pass", "fail", "unknown"}
-            or type(row.evaluator_rule_version) is not str
-            or not row.evaluator_rule_version
-            or (row.observed_evidence_digest is not None and type(row.observed_evidence_digest) is not str)
-        ):
-            return "invalid_prerequisite"
-    expected_dependencies = {dependency_id for dependency_id, _ in variant.release_signature.dependency_records}
-    if seen != expected_dependencies:
+    try:
+        dependencies = _canonical_dependency_results(state.dependency_results)
+    except SemanticResolutionError as error:
+        return error.problem.category
+    expected_dependencies = {
+        dependency_id for dependency_id, _ in variant.release_signature.dependency_records
+    }
+    actual_dependencies = {row.dependency_id for row in dependencies}
+    if actual_dependencies != expected_dependencies:
         return "stale_prerequisite"
-    if any(row.result != "pass" for row in state.dependency_results):
+    if any(row.result != "pass" for row in dependencies):
         return "dependency_unavailable"
 
     required_bundle = variant.key.ontology_bundle_digest
     if required_bundle is None:
-        if state.ontology_bundle_state != "not-required" or state.active_ontology_bundle_digest is not None:
+        if (
+            state.ontology_bundle_state != "not-required"
+            or state.active_ontology_bundle_digest is not None
+        ):
             return "invalid_prerequisite"
     else:
         if state.ontology_bundle_state == "unavailable":
             return "ontology_bundle_unavailable"
         if state.ontology_bundle_state != "verified":
             return "invalid_prerequisite"
+        if state.active_ontology_bundle_digest is None:
+            return "invalid_prerequisite"
         if state.active_ontology_bundle_digest != required_bundle:
             return "stale_prerequisite"
     return None
+
+
+def _zero_capability_facts() -> CapabilityFactsIR:
+    return CapabilityFactsIR(
+        reviewed_native_support=0,
+        shared_projections=0,
+        exact=0,
+        close=0,
+        broader=0,
+        narrower=0,
+        related=0,
+        ambiguous=0,
+        native_only=0,
+        unsupported=0,
+        mapping_ids=(),
+    )
 
 
 def _capability_view(
@@ -438,14 +659,19 @@ def _capability_view(
     capability_id: str,
     capabilities: dict[CapabilityKey, CapabilityFactsIR],
 ) -> SemanticCapabilityView:
-    key = CapabilityKey(variant.key, profile_id, capability_id)
-    facts = capabilities.get(key)
+    facts = capabilities.get(
+        CapabilityKey(
+            variant=variant.key,
+            profile_id=profile_id,
+            capability_id=capability_id,
+        )
+    )
     if facts is None:
-        facts = CapabilityFactsIR(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ())
-    problem = _prerequisite_problem(state, variant)
+        facts = _zero_capability_facts()
+    prerequisite_problem = _prerequisite_problem(state, variant)
     if facts.reviewed_native_support == 0:
         status = "absent"
-    elif problem is None:
+    elif prerequisite_problem is None:
         status = "active"
     else:
         status = "unavailable"
@@ -470,26 +696,52 @@ def semantic_capabilities(
     variants, _semantic, capabilities = _validate_ir_shape(ir)
     rows = _materialize_prerequisites(prerequisites)
     if corpora is None:
-        selected_corpora = sorted({variant.key.corpus_id for variant in ir.variants}, key=_utf16)
+        selected_corpora = tuple(
+            sorted({variant.key.corpus_id for variant in ir.variants}, key=_utf16)
+        )
     else:
-        selected_corpora = list(corpora)
-        if any(type(item) is not str or not item for item in selected_corpora) or len(set(selected_corpora)) != len(selected_corpora):
+        try:
+            selected_corpora = tuple(corpora)
+        except TypeError:
+            raise TypeError("corpora must be iterable") from None
+        if any(type(item) is not str or not item for item in selected_corpora):
             _fail("invalid_corpus_selection", "invalid capability corpus selection")
-        selected_corpora.sort(key=_utf16)
+        if len(set(selected_corpora)) != len(selected_corpora):
+            _fail("invalid_corpus_selection", "duplicate capability corpus selection")
+        selected_corpora = tuple(sorted(selected_corpora, key=_utf16))
+
     result: list[SemanticCapabilityView] = []
     for corpus_id in selected_corpora:
         state, variant = _select_prerequisite(corpus_id, rows, variants)
         for profile_id in sorted(variant.release_signature.profiles, key=_utf16):
-            for capability_id in sorted(variant.release_signature.capabilities, key=_utf16):
+            for capability_id in sorted(
+                variant.release_signature.capabilities,
+                key=_utf16,
+            ):
                 if capability_id.startswith(profile_id + "."):
-                    result.append(_capability_view(variant, state, profile_id, capability_id, capabilities))
+                    result.append(
+                        _capability_view(
+                            variant,
+                            state,
+                            profile_id,
+                            capability_id,
+                            capabilities,
+                        )
+                    )
     return tuple(result)
 
 
-def _validate_binding_against_release(binding: TargetBindingIR, variant: BundleVariantIR, request_key: SemanticKey) -> None:
+def _validate_binding_against_release(
+    binding: TargetBindingIR,
+    variant: BundleVariantIR,
+    request_key: SemanticKey,
+) -> None:
+    corpus_id = variant.key.corpus_id
+    if type(binding) is not TargetBindingIR:
+        _fail("invalid_compiled_ir", "semantic index contains an invalid binding row")
     if (
         binding.variant != variant.key
-        or binding.corpus_id != variant.key.corpus_id
+        or binding.corpus_id != corpus_id
         or binding.profile_id != request_key.profile_id
         or binding.capability_id != request_key.capability_id
         or binding.target != request_key.target
@@ -498,30 +750,124 @@ def _validate_binding_against_release(binding: TargetBindingIR, variant: BundleV
         or binding.reference_kind != "semantic-pivot"
         or binding.query_role != "semantic-constraint"
     ):
-        _fail("invalid_compiled_ir", "semantic index binding is incoherent", corpus_id=variant.key.corpus_id, related_id=binding.mapping_id)
-    mapping_digests = dict(variant.release_signature.mapping_digests)
-    if mapping_digests.get(binding.mapping_id) != binding.mapping_semantic_digest:
-        _fail("invalid_compiled_ir", "mapping digest is not part of selected release", corpus_id=binding.corpus_id, related_id=binding.mapping_id)
-    mapping_reviews = dict(variant.release_signature.mapping_reviews)
-    if mapping_reviews.get(binding.mapping_id) != binding.mapping_review or binding.mapping_review.status != "reviewed":
-        _fail("invalid_compiled_ir", "mapping review is not selected release authority", corpus_id=binding.corpus_id, related_id=binding.mapping_id)
-    projection_reviews = {
-        (mapping_id, projection_id): review
-        for mapping_id, projection_id, review in variant.release_signature.projection_reviews
+        _fail(
+            "invalid_compiled_ir",
+            "semantic index binding is incoherent",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
+
+    signature = variant.release_signature
+    if (binding.mapping_id, binding.mapping_semantic_digest) not in signature.mapping_digests:
+        _fail(
+            "invalid_compiled_ir",
+            "mapping digest is not part of selected release",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
+    if (binding.mapping_id, binding.mapping_review) not in signature.mapping_reviews:
+        _fail(
+            "invalid_compiled_ir",
+            "mapping review is not selected release authority",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
+    if (
+        binding.mapping_id,
+        binding.projection_id,
+        binding.projection_review,
+    ) not in signature.projection_reviews:
+        _fail(
+            "invalid_compiled_ir",
+            "projection review is not selected release authority",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if (
+        binding.mapping_review.status != "reviewed"
+        or binding.projection_review.status != "reviewed"
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "semantic binding is not review-authorized",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if binding.mapping_review.reviewed_semantic_digest != binding.mapping_semantic_digest:
+        _fail(
+            "invalid_compiled_ir",
+            "mapping review semantic digest is incoherent",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
+    if (
+        binding.projection_review.reviewed_semantic_digest
+        != binding.projection_semantic_digest
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "projection review semantic digest is incoherent",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if binding.ontology_lock not in signature.ontology_locks:
+        _fail(
+            "invalid_compiled_ir",
+            "ontology lock is not part of selected release",
+            corpus_id=corpus_id,
+            related_id=binding.ontology_lock.lock_id,
+        )
+    release_dependencies = {
+        dependency_id for dependency_id, _ in signature.dependency_records
     }
-    if projection_reviews.get((binding.mapping_id, binding.projection_id)) != binding.projection_review or binding.projection_review.status != "reviewed":
-        _fail("invalid_compiled_ir", "projection review is not selected release authority", corpus_id=binding.corpus_id, related_id=binding.projection_id)
-    if binding.ontology_lock not in variant.release_signature.ontology_locks:
-        _fail("invalid_compiled_ir", "ontology lock is not part of selected release", corpus_id=binding.corpus_id, related_id=binding.ontology_lock.lock_id)
-    release_dependencies = {dependency_id for dependency_id, _ in variant.release_signature.dependency_records}
-    if any(dependency_id not in release_dependencies for dependency_id in binding.native_dependencies):
-        _fail("invalid_compiled_ir", "native dependency is not part of selected release", corpus_id=binding.corpus_id, related_id=binding.mapping_id)
+    if any(
+        dependency_id not in release_dependencies
+        for dependency_id in binding.native_dependencies
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "native dependency is not part of selected release",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
     if binding.ontology_bundle_digest != variant.key.ontology_bundle_digest:
-        _fail("invalid_compiled_ir", "binding ontology bundle digest disagrees with variant", corpus_id=binding.corpus_id, related_id=binding.projection_id)
-    if binding.ontology_bundle_requirement is not None and binding.ontology_bundle_requirement.bundle_digest != variant.key.ontology_bundle_digest:
-        _fail("invalid_compiled_ir", "projection bundle requirement disagrees with variant", corpus_id=binding.corpus_id, related_id=binding.projection_id)
-    if native_binding_identity(_native_binding_projection(binding.native_execution_binding)) != binding.native_execution_binding_identity:
-        _fail("invalid_compiled_ir", "native execution binding identity mismatch", corpus_id=binding.corpus_id, related_id=binding.projection_id)
+        _fail(
+            "invalid_compiled_ir",
+            "binding ontology bundle digest disagrees with variant",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if (
+        binding.ontology_bundle_requirement is not None
+        and binding.ontology_bundle_requirement.bundle_digest
+        != variant.key.ontology_bundle_digest
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "projection bundle requirement disagrees with variant",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+
+    try:
+        reconstructed = _native_binding_projection(binding.native_execution_binding)
+        reconstructed_identity = native_binding_identity(reconstructed)
+    except SemanticResolutionError:
+        raise
+    except Exception:
+        _fail(
+            "invalid_compiled_ir",
+            "native execution binding cannot be reconstructed",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if reconstructed_identity != binding.native_execution_binding_identity:
+        _fail(
+            "invalid_compiled_ir",
+            "native execution binding identity mismatch",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
 
 
 def _plan_projection(plan: ExactNativePlan) -> dict[str, Any]:
@@ -552,12 +898,21 @@ def _plan_projection(plan: ExactNativePlan) -> dict[str, Any]:
         "projection_review": _review_projection(plan.projection_review),
         "ontology_lock": _lock_projection(plan.ontology_lock),
         "ontology_bundle_digest": plan.ontology_bundle_digest,
-        "mapping_evidence": [_evidence_projection(item) for item in plan.mapping_evidence],
-        "projection_evidence": [_evidence_projection(item) for item in plan.projection_evidence],
+        "mapping_evidence": [
+            _evidence_projection(item) for item in plan.mapping_evidence
+        ],
+        "projection_evidence": [
+            _evidence_projection(item) for item in plan.projection_evidence
+        ],
     }
 
 
-def _make_plan(binding: TargetBindingIR, variant: BundleVariantIR, state: RuntimePrerequisiteState, semantic_key: SemanticKey) -> ExactNativePlan:
+def _make_plan(
+    binding: TargetBindingIR,
+    variant: BundleVariantIR,
+    state: RuntimePrerequisiteState,
+    semantic_key: SemanticKey,
+) -> ExactNativePlan:
     prerequisite_fingerprint = runtime_prerequisite_fingerprint(state)
     values = dict(
         resolver_contract=EXACT_RESOLVER_CONTRACT,
@@ -590,7 +945,10 @@ def _make_plan(binding: TargetBindingIR, variant: BundleVariantIR, state: Runtim
         projection_evidence=binding.projection_evidence,
     )
     provisional = ExactNativePlan(plan_fingerprint="", **values)
-    return ExactNativePlan(plan_fingerprint=_hash(_plan_projection(provisional)), **values)
+    return ExactNativePlan(
+        plan_fingerprint=_hash(_plan_projection(provisional)),
+        **values,
+    )
 
 
 def semantic_resolve(
@@ -598,17 +956,27 @@ def semantic_resolve(
     request: SemanticResolveRequest,
     prerequisites: Iterable[RuntimePrerequisiteState],
 ) -> SemanticResolutionResult:
-    variants, semantic_index, capabilities = _validate_ir_shape(ir)
+    if type(ir) is not CompiledSemanticIR:
+        raise TypeError("ir must be CompiledSemanticIR")
     canonical_request = _validate_request(request)
+    variants, semantic_index, capabilities = _validate_ir_shape(ir)
     prerequisite_rows = _materialize_prerequisites(prerequisites)
     plans: list[ExactNativePlan] = []
     bindings_for_key = semantic_index.get(canonical_request.key)
 
     for corpus_id in canonical_request.corpora:
-        state, variant = _select_prerequisite(corpus_id, prerequisite_rows, variants)
-        problem = _prerequisite_problem(state, variant)
-        if problem is not None:
-            _fail(problem, "runtime prerequisite is not executable", corpus_id=corpus_id)
+        state, variant = _select_prerequisite(
+            corpus_id,
+            prerequisite_rows,
+            variants,
+        )
+        prerequisite_problem = _prerequisite_problem(state, variant)
+        if prerequisite_problem is not None:
+            _fail(
+                prerequisite_problem,
+                "runtime prerequisite is not executable",
+                corpus_id=corpus_id,
+            )
 
         capability = _capability_view(
             variant,
@@ -618,27 +986,64 @@ def semantic_resolve(
             capabilities,
         )
         if capability.state == "absent":
-            _fail("capability_absent", "requested capability is absent", corpus_id=corpus_id)
+            _fail(
+                "capability_absent",
+                "requested capability is absent",
+                corpus_id=corpus_id,
+            )
         if capability.state != "active":
-            _fail("capability_unavailable", "requested capability is unavailable", corpus_id=corpus_id)
+            _fail(
+                "capability_unavailable",
+                "requested capability is unavailable",
+                corpus_id=corpus_id,
+            )
 
         if bindings_for_key is None:
-            _fail("semantic_tuple_absent", "semantic tuple is absent", corpus_id=corpus_id)
+            _fail(
+                "semantic_tuple_absent",
+                "semantic tuple is absent",
+                corpus_id=corpus_id,
+            )
         candidates = [
             row
             for row in bindings_for_key
-            if row.corpus_id == corpus_id and row.variant == variant.key
+            if type(row) is TargetBindingIR
+            and row.corpus_id == corpus_id
+            and row.variant == variant.key
         ]
         if not candidates:
-            _fail("semantic_tuple_absent", "semantic tuple is absent for selected corpus variant", corpus_id=corpus_id)
+            _fail(
+                "semantic_tuple_absent",
+                "semantic tuple is absent for selected corpus variant",
+                corpus_id=corpus_id,
+            )
         for candidate in candidates:
-            _validate_binding_against_release(candidate, variant, canonical_request.key)
+            _validate_binding_against_release(
+                candidate,
+                variant,
+                canonical_request.key,
+            )
         exact = [row for row in candidates if row.assessment == "exact"]
         if not exact:
-            _fail("non_exact_mapping", "semantic tuple has no exact mapping", corpus_id=corpus_id)
+            _fail(
+                "non_exact_mapping",
+                "semantic tuple has no exact mapping",
+                corpus_id=corpus_id,
+            )
         if len(exact) > 1:
-            _fail("multiple_exact_bindings", "multiple exact bindings require explicit composition semantics", corpus_id=corpus_id)
-        plans.append(_make_plan(exact[0], variant, state, canonical_request.key))
+            _fail(
+                "multiple_exact_bindings",
+                "multiple exact bindings require explicit composition semantics",
+                corpus_id=corpus_id,
+            )
+        plans.append(
+            _make_plan(
+                exact[0],
+                variant,
+                state,
+                canonical_request.key,
+            )
+        )
 
     plans.sort(key=lambda plan: _utf16(plan.corpus_id))
     plan_tuple = tuple(plans)
