@@ -39,11 +39,21 @@ Each research document should contain:
 
 ## F-series research ownership
 
+F-series research metadata is the sole allocation authority; plans, workflows, and test packages only claim an existing allocation.
+
 Every `docs/research/F-NNN-*.md` artifact must include exactly one canonical ownership line in its metadata header: `**Issue:** #N`.
 
 Multiple research, evidence, or amendment artifacts may use the same `F-NNN` only when they all declare the same issue owner.
 
-Run `python scripts/check_f_series_ownership.py` before opening or finalizing a PR that adds or changes F-series research metadata.
+Every F-series plan under `docs/plans/F-NNN-*.md` must repeat the allocated issue in its metadata header as `**Issue:** #N`.
+
+Every focused F-series workflow under `.github/workflows/fNNN-*.yml` or `.github/workflows/fNNN-*.yaml` must carry `# Issue: #N` within its first 12 physical lines. The workflow claim must match the issue allocated by F-series research metadata.
+
+Every present `tests/fNNN` package must contain `tests/fNNN/issue-owner.txt` with exactly `Issue: #N` (an optional final newline is allowed). A test-module comment or package filename does not substitute for the sidecar.
+
+Research-only F-series features are valid: a research allocation does not require a plan, focused workflow, or test package. Conversely, a downstream plan, workflow, or test package does not allocate a feature ID by itself.
+
+Run `python scripts/check_f_series_ownership.py` before opening or finalizing a PR that adds or changes F-series ownership metadata. For an explicit repository root, run `python scripts/check_f_series_ownership.py .`. The checker validates research authority first, then rejects missing, malformed, unknown, or conflicting downstream claims.
 
 ## Design PRs
 
