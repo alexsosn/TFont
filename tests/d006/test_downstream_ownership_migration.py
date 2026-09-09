@@ -288,6 +288,8 @@ class DownstreamOwnershipParserControls(unittest.TestCase):
 
 
 class RepositoryMigrationREDTests(unittest.TestCase):
+    maxDiff = None
+
     @classmethod
     def setUpClass(cls):
         cls.authority, cls.authority_errors = research_authority(ROOT)
