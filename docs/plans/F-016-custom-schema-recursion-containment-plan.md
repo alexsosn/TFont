@@ -57,12 +57,13 @@ Patch `Draft202012Validator.check_schema` to raise `RecursionError` after a vali
 
 ### RED-C — validator traversal recursion
 
-Use a valid shallow direct instance that passes `_plain_json()`. Patch `Draft202012Validator.iter_errors` so iteration raises `RecursionError`. Assert:
+Use a valid shallow direct instance that passes `_plain_json()`. Patch `Draft202012Validator.iter_errors` to return a generator/iterator whose creation succeeds but whose first advancement raises `RecursionError`. The failure must therefore occur lazily when `sorted(...)` consumes the iterator, not when `iter_errors()` is called. Assert:
 
 - raw recursion does not escape;
 - category is `invalid_schema`;
 - provenance names the schema, not the instance;
-- the failure happens after source preflight.
+- `iter_errors()` was actually called after source preflight;
+- the injected iterator was advanced, proving the catch covers recursive traversal/consumption rather than only method invocation.
 
 Add a control where the direct instance itself is recursively aliased/non-JSON and `iter_errors` is patched to fail if called; existing F-015 source-side category/provenance must win and the validator traversal must not be reached.
 
