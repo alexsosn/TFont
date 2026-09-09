@@ -51,6 +51,25 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
             (state,),
         )
 
+    def test_verified_required_bundle_with_empty_digest_is_invalid_prerequisite(self):
+        ir = with_bundle_digest(
+            compiled_noun_ir(("bhsa",)),
+            "sha256:" + "6" * 64,
+        )
+        state = replace(
+            prerequisite_for(RESOLVER, ir.variants[0]),
+            active_ontology_bundle_digest="",
+            ontology_bundle_state="verified",
+        )
+        assert_problem(
+            self,
+            "invalid_prerequisite",
+            RESOLVER.semantic_resolve,
+            ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (state,),
+        )
+
     def test_duplicate_stale_same_variant_is_invalid_before_freshness(self):
         ir = compiled_noun_ir(("bhsa",))
         state = prerequisite_for(RESOLVER, ir.variants[0])
@@ -140,6 +159,76 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
             request_for(RESOLVER, ("bhsa",)),
             (state,),
         )
+
+    def test_non_binding_semantic_index_row_is_invalid_compiled_ir(self):
+        ir = compiled_noun_ir(("bhsa",))
+        key, _rows = ir.semantic_index[0]
+        bad_ir = replace(ir, semantic_index=((key, (object(),)),))
+        state = prerequisite_for(RESOLVER, bad_ir.variants[0])
+        assert_problem(
+            self,
+            "invalid_compiled_ir",
+            RESOLVER.semantic_resolve,
+            bad_ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (state,),
+        )
+
+    def test_duplicate_release_signature_ids_are_invalid_compiled_ir(self):
+        ir = compiled_noun_ir(("bhsa",))
+        variant = ir.variants[0]
+        signature = variant.release_signature
+
+        mapping_id, mapping_digest = signature.mapping_digests[0]
+        mapping_review_id, mapping_review = signature.mapping_reviews[0]
+        projection_mapping_id, projection_id, projection_review = signature.projection_reviews[0]
+        ontology_lock = signature.ontology_locks[0]
+
+        conflicting_mapping_digest = replace(
+            signature,
+            mapping_digests=signature.mapping_digests
+            + ((mapping_id, "sha256:" + "0" * 64),),
+        )
+        conflicting_mapping_review = replace(
+            signature,
+            mapping_reviews=signature.mapping_reviews
+            + ((mapping_review_id, replace(mapping_review, review_id=mapping_review.review_id + ":other")),),
+        )
+        conflicting_projection_review = replace(
+            signature,
+            projection_reviews=signature.projection_reviews
+            + ((projection_mapping_id, projection_id, replace(projection_review, review_id=projection_review.review_id + ":other")),),
+        )
+        conflicting_lock = replace(
+            signature,
+            ontology_locks=signature.ontology_locks
+            + ((replace(ontology_lock, release=ontology_lock.release + "-other")),),
+        )
+
+        cases = (
+            ("mapping_digests", conflicting_mapping_digest),
+            ("mapping_reviews", conflicting_mapping_review),
+            ("projection_reviews", conflicting_projection_review),
+            ("ontology_locks", conflicting_lock),
+        )
+        for label, bad_signature in cases:
+            with self.subTest(label=label):
+                updates = {"release_signature": bad_signature}
+                if label == "mapping_digests":
+                    updates["mapping_digests"] = bad_signature.mapping_digests
+                if label == "ontology_locks":
+                    updates["ontology_locks"] = bad_signature.ontology_locks
+                bad_variant = replace(variant, **updates)
+                bad_ir = replace(ir, variants=(bad_variant,))
+                state = prerequisite_for(RESOLVER, bad_variant)
+                assert_problem(
+                    self,
+                    "invalid_compiled_ir",
+                    RESOLVER.semantic_resolve,
+                    bad_ir,
+                    request_for(RESOLVER, ("bhsa",)),
+                    (state,),
+                )
 
 
 if __name__ == "__main__":
