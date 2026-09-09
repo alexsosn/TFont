@@ -16,8 +16,8 @@ F_DOC_RE = re.compile(r"^(F-[0-9]{3})-.*\.md$")
 F_WORKFLOW_RE = re.compile(r"^f([0-9]{3})-.*\.ya?ml$")
 F_TEST_RE = re.compile(r"^f([0-9]{3})$")
 ISSUE_RE = re.compile(r"^\*\*Issue:\*\* #([1-9][0-9]*)\s*$")
-WORKFLOW_OWNER_RE = re.compile(r"^\s*#\s*(?:TFont[- ]?)?Issue:\s*#([1-9][0-9]*)\s*$", re.I)
-TEST_OWNER_RE = re.compile(r"^\s*#?\s*(?:TFont[- ]?)?Issue:\s*#([1-9][0-9]*)\s*$", re.I)
+WORKFLOW_OWNER_RE = re.compile(r"^# Issue: #([1-9][0-9]*)\s*$")
+TEST_OWNER_RE = re.compile(r"^Issue: #([1-9][0-9]*)\n?$")
 
 
 def bounded_markdown_owners(text: str) -> tuple[list[int], list[tuple[int, str]]]:
@@ -107,12 +107,17 @@ def inventory_workflows(authority: dict[str, int]) -> dict[str, object]:
             continue
         feature = f"F-{match.group(1)}"
         declared: list[int] = []
-        for line in path.read_text(encoding="utf-8").splitlines()[:20]:
+        malformed: list[tuple[int, str]] = []
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines()[:12], start=1):
             owner_match = WORKFLOW_OWNER_RE.fullmatch(line)
             if owner_match:
                 declared.append(int(owner_match.group(1)))
+            elif line.lstrip().startswith("# Issue:"):
+                malformed.append((line_no, line))
         expected = authority.get(feature)
-        if not declared:
+        if malformed:
+            status = "malformed"
+        elif not declared:
             status = "missing"
         elif len(declared) > 1:
             status = "duplicate"
@@ -128,28 +133,23 @@ def inventory_workflows(authority: dict[str, int]) -> dict[str, object]:
                 "feature": feature,
                 "expected_issue": expected,
                 "declared_issues": declared,
+                "malformed": malformed,
                 "status": status,
             }
         )
     return summarize_rows(rows)
 
 
-def detect_test_owner(package: Path) -> tuple[list[int], str | None]:
-    candidates = [package / "OWNER", package / "OWNERSHIP", package / "ownership.txt"]
-    init_path = package / "__init__.py"
-    if init_path.is_file():
-        candidates.append(init_path)
-    for path in candidates:
-        if not path.is_file():
-            continue
-        declared: list[int] = []
-        for line in path.read_text(encoding="utf-8").splitlines()[:20]:
-            match = TEST_OWNER_RE.fullmatch(line)
-            if match:
-                declared.append(int(match.group(1)))
-        if declared:
-            return declared, path.relative_to(ROOT).as_posix()
-    return [], None
+def detect_test_owner(package: Path) -> tuple[list[int], str | None, bool]:
+    path = package / "issue-owner.txt"
+    if not path.is_file():
+        return [], None, False
+    text = path.read_text(encoding="utf-8")
+    match = TEST_OWNER_RE.fullmatch(text)
+    source = path.relative_to(ROOT).as_posix()
+    if match is None:
+        return [], source, True
+    return [int(match.group(1))], source, False
 
 
 def inventory_test_packages(authority: dict[str, int]) -> dict[str, object]:
@@ -161,12 +161,12 @@ def inventory_test_packages(authority: dict[str, int]) -> dict[str, object]:
         if match is None:
             continue
         feature = f"F-{match.group(1)}"
-        declared, source = detect_test_owner(package)
+        declared, source, malformed = detect_test_owner(package)
         expected = authority.get(feature)
-        if not declared:
+        if malformed:
+            status = "malformed"
+        elif not declared:
             status = "missing"
-        elif len(declared) > 1:
-            status = "duplicate"
         elif expected is None:
             status = "unknown_feature"
         elif declared[0] != expected:
@@ -180,6 +180,7 @@ def inventory_test_packages(authority: dict[str, int]) -> dict[str, object]:
                 "expected_issue": expected,
                 "declared_issues": declared,
                 "owner_source": source,
+                "owner_malformed": malformed,
                 "has_init_py": (package / "__init__.py").is_file(),
                 "python_files": len(list(package.glob("*.py"))),
                 "status": status,

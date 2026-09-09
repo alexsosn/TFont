@@ -1,0 +1,74 @@
+name: D-006 downstream ownership migration
+
+on:
+  push:
+    branches:
+      - research/d006-downstream-ownership-migration
+    paths:
+      - docs/research/F-*.md
+      - docs/plans/F-*.md
+      - .github/workflows/f*.yml
+      - .github/workflows/f*.yaml
+      - tests/f*/**
+      - tests/d006/**
+      - scripts/check_f_series_ownership.py
+      - scripts/research/d005_downstream_ownership_inventory.py
+      - docs/research/D-006-*.md
+      - docs/plans/D-006-*.md
+      - .github/workflows/d006-downstream-ownership-migration.yml
+  pull_request:
+    paths:
+      - docs/research/F-*.md
+      - docs/plans/F-*.md
+      - .github/workflows/f*.yml
+      - .github/workflows/f*.yaml
+      - tests/f*/**
+      - tests/d006/**
+      - scripts/check_f_series_ownership.py
+      - scripts/research/d005_downstream_ownership_inventory.py
+      - docs/research/D-006-*.md
+      - docs/plans/D-006-*.md
+      - .github/workflows/d006-downstream-ownership-migration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d006-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  migration:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.12']
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run parser controls
+        run: python -m unittest tests.d006.test_downstream_ownership_migration.DownstreamOwnershipParserControls -v
+
+      - name: Run repository migration RED/GREEN contract
+        run: python -m unittest tests.d006.test_downstream_ownership_migration.RepositoryMigrationREDTests -v
+
+      - name: Run F-021 ownership regressions
+        if: always()
+        shell: bash
+        run: |
+          python -m unittest discover -s tests/f021 -v
+          python scripts/check_f_series_ownership.py
+
+      - name: Run corrected downstream inventory
+        if: always()
+        run: python scripts/research/d005_downstream_ownership_inventory.py
