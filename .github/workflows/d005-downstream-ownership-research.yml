@@ -1,0 +1,38 @@
+name: D-005 downstream ownership research
+
+on:
+  push:
+    branches:
+      - research/d005-downstream-ownership
+    paths:
+      - docs/research/F-*.md
+      - docs/plans/F-*.md
+      - .github/workflows/f*.yml
+      - tests/f*/**
+      - scripts/research/d005_downstream_ownership_inventory.py
+      - .github/workflows/d005-downstream-ownership-research.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d005-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Inventory downstream ownership metadata
+        run: python scripts/research/d005_downstream_ownership_inventory.py
