@@ -1,0 +1,51 @@
+name: D-004 F-series issue ownership backfill
+
+on:
+  push:
+    branches:
+      - research/d-004-feature-ownership-backfill
+    paths:
+      - docs/research/F-*.md
+      - docs/research/D-004-f-series-issue-ownership-backfill.md
+      - docs/plans/D-004-f-series-issue-ownership-backfill-plan.md
+      - tests/d004/**
+      - .github/workflows/d004-f-series-issue-ownership.yml
+  pull_request:
+    paths:
+      - docs/research/F-*.md
+      - docs/research/D-004-f-series-issue-ownership-backfill.md
+      - docs/plans/D-004-f-series-issue-ownership-backfill-plan.md
+      - tests/d004/**
+      - .github/workflows/d004-f-series-issue-ownership.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d004-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  ownership-backfill:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.12']
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run parser and grouping controls
+        run: python -m unittest tests.d004.test_f_series_issue_ownership_backfill.OwnershipParserControls -v
+
+      - name: Run repository-state RED/GREEN contract
+        run: python -m unittest tests.d004.test_f_series_issue_ownership_backfill.RepositoryOwnershipREDTests -v
