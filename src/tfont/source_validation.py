@@ -207,7 +207,7 @@ def _read_schema_bytes(
         source_name = str(schema_path)
         try:
             return schema_path.read_bytes(), source_name
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
             _raise("invalid_schema", str(exc), source_name)
 
     source_name = f"tfont:schemas/{filename}"
