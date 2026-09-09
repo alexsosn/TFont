@@ -1,4 +1,5 @@
 # F-012 plan — bind file hashing to expected file identity
+**Issue:** #80
 
 ## Preconditions
 

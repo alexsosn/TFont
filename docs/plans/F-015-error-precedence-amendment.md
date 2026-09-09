@@ -1,4 +1,5 @@
 # F-015 plan amendment — preserve schema-authority error precedence
+**Issue:** #87
 
 ## Trigger
 
