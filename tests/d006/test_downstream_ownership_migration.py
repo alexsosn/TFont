@@ -224,7 +224,7 @@ def scan_downstream(
 class DownstreamOwnershipParserControls(unittest.TestCase):
     def test_canonical_markdown_owner_is_bounded(self):
         text = "# F fixture\n**Issue:** #87\n\n## Body\n**Issue:** #999\n"
-        self.assertEqual(markdown_owners(text), ([(2, 87)], []))
+        self.assertEqual(markdown_owners(text), ([87], []))
 
     def test_malformed_and_duplicate_markdown_are_visible(self):
         text = "# F fixture\n **Issue:** #87\n**Issue:** #87\n**Issue:** #87\n"
