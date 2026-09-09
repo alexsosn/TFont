@@ -36,6 +36,6 @@ jobs:
       - name: Fixture validation controls
         run: python -m unittest tests.i005.test_fixture_controls -v
       - name: I-005 compiler contract
-        run: python -m unittest tests.i005.test_semantic_ir_contract -v
+        run: python -m unittest discover -s tests/i005 -v
       - name: I-004 semantic validation regressions
         run: python -m unittest discover -s tests/i004 -v
