@@ -73,10 +73,16 @@ class ReadmeStatusContractTests(unittest.TestCase):
                 self.assertIn(public_name, self.readme)
 
     def test_semantic_bundle_example_uses_canonical_artifact_kinds(self):
-        self.assertIn('SemanticArtifact("parent-component-manifest",', self.readme)
-        self.assertIn('SemanticArtifact("mapping",', self.readme)
-        self.assertNotIn('SemanticArtifact("expected-parent-manifest",', self.readme)
-        self.assertNotIn('SemanticArtifact("mappings",', self.readme)
+        self.assertRegex(
+            self.readme,
+            r'SemanticArtifact\(\s*"parent-component-manifest"\s*,',
+        )
+        self.assertRegex(self.readme, r'SemanticArtifact\(\s*"mapping"\s*,')
+        self.assertNotRegex(
+            self.readme,
+            r'SemanticArtifact\(\s*"expected-parent-manifest"\s*,',
+        )
+        self.assertNotRegex(self.readme, r'SemanticArtifact\(\s*"mappings"\s*,')
 
     def test_unmerged_surfaces_are_not_claimed_as_implemented(self):
         for claim in (
