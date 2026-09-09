@@ -1,5 +1,7 @@
 # F-012 research — bind file hashing to the inspected filesystem object
 
+**Issue:** #80  
+
 ## Scope
 
 F-012 hardens only the regular-file byte-reading boundary used by I-003 identity functions. It builds on merged F-010, so recursive traversal is already iterative, but it does not change F-010 traversal semantics.
