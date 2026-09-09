@@ -38,6 +38,15 @@ class ReadmeStatusContractTests(unittest.TestCase):
             with self.subTest(stale=stale):
                 self.assertNotIn(stale, self.lowered)
 
+    def test_validation_does_not_claim_every_record_is_reviewed(self):
+        for overclaim in (
+            "reviewed semantic source bundles",
+            "reviewed native record states",
+        ):
+            with self.subTest(overclaim=overclaim):
+                self.assertNotIn(overclaim, self.lowered)
+        self.assertIn("review bindings", self.lowered)
+
     def test_future_semantic_stages_remain_explicit(self):
         for future_surface in (
             "compatibility evaluation",
