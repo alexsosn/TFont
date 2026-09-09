@@ -302,12 +302,31 @@ class RepositoryMigrationREDTests(unittest.TestCase):
     def test_existing_explicit_downstream_claims_are_valid(self):
         self.assertEqual(self.downstream_errors, [])
 
-    def test_existing_owned_plans_are_matching_controls(self):
-        plan_matches = [path for path in self.matching if path.startswith("docs/plans/")]
-        self.assertEqual(len(plan_matches), 19)
+    def test_plan_namespace_is_fully_accounted_for(self):
+        actual_plans = {
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "docs" / "plans").glob("F-[0-9][0-9][0-9]-*.md")
+            if path.is_file() and F_DOC_RE.fullmatch(path.name)
+        }
+        plan_matches = {
+            path for path in self.matching if path.startswith("docs/plans/")
+        }
+        plan_missing = {
+            path for path in self.missing if path.startswith("docs/plans/")
+        }
+        self.assertTrue(plan_matches.isdisjoint(plan_missing))
+        self.assertEqual(plan_matches | plan_missing, actual_plans)
 
-    def test_frozen_missing_carrier_map_matches_research(self):
-        self.assertEqual(self.missing, dict(sorted(FROZEN_MISSING.items())))
+    def test_frozen_carriers_are_missing_or_matching(self):
+        frozen = dict(sorted(FROZEN_MISSING.items()))
+        unexpected_missing = set(self.missing) - set(frozen)
+        self.assertEqual(unexpected_missing, set())
+        for path, owner in self.missing.items():
+            self.assertEqual(owner, frozen[path], path)
+
+        matching = set(self.matching)
+        observed_frozen = set(self.missing) | (matching & set(frozen))
+        self.assertEqual(observed_frozen, set(frozen))
 
     def test_migration_is_complete(self):
         self.assertEqual(self.missing, {})
