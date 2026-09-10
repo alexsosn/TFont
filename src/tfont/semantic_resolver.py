@@ -16,6 +16,7 @@ from .semantic_ir import (
     NativeBindingIR,
     OntologyBundleRequirementIR,
     OntologyLockFingerprint,
+    ProfileReleaseKey,
     ProfileReleaseSignature,
     ReviewFingerprint,
     SemanticKey,
@@ -422,7 +423,21 @@ def _has_duplicate_ids(values: Iterable[Any]) -> bool:
 def _validate_variant(variant: BundleVariantIR) -> None:
     if type(variant) is not BundleVariantIR:
         _fail("invalid_compiled_ir", "variant row has the wrong type")
+    if type(variant.key) is not BundleVariantKey:
+        _fail("invalid_compiled_ir", "variant key has the wrong type")
     key = variant.key
+    if type(variant.release_key) is not ProfileReleaseKey:
+        _fail(
+            "invalid_compiled_ir",
+            "variant release key has the wrong type",
+            corpus_id=key.corpus_id,
+        )
+    if type(variant.release_signature) is not ProfileReleaseSignature:
+        _fail(
+            "invalid_compiled_ir",
+            "variant release signature has the wrong type",
+            corpus_id=key.corpus_id,
+        )
     signature = variant.release_signature
     release_key = variant.release_key
     if (
