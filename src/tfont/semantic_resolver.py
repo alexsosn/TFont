@@ -322,11 +322,14 @@ def _validate_prerequisite_shape(state: RuntimePrerequisiteState) -> None:
         _fail("invalid_prerequisite", "ontology bundle state must be a string")
     if (
         state.active_ontology_bundle_digest is not None
-        and type(state.active_ontology_bundle_digest) is not str
+        and (
+            type(state.active_ontology_bundle_digest) is not str
+            or not state.active_ontology_bundle_digest
+        )
     ):
         _fail(
             "invalid_prerequisite",
-            "active ontology bundle digest must be a string or null",
+            "active ontology bundle digest must be a non-empty string or null",
         )
     if type(state.source_contract) is not str or not state.source_contract:
         _fail("invalid_prerequisite", "source_contract must be a non-empty string")
@@ -368,6 +371,15 @@ def _native_binding_projection(binding: NativeBindingIR) -> dict[str, Any]:
             steps.append({"edge": step.edge, "direction": step.direction})
         result["steps"] = steps
     return result
+
+
+def _has_duplicate_ids(values: Iterable[Any]) -> bool:
+    seen: set[Any] = set()
+    for value in values:
+        if value in seen:
+            return True
+        seen.add(value)
+    return False
 
 
 def _validate_variant(variant: BundleVariantIR) -> None:
@@ -418,13 +430,38 @@ def _validate_variant(variant: BundleVariantIR) -> None:
             "variant contract fields disagree with release signature",
             corpus_id=key.corpus_id,
         )
-    dependency_ids = [dependency_id for dependency_id, _ in signature.dependency_records]
-    if len(dependency_ids) != len(set(dependency_ids)):
-        _fail(
-            "invalid_compiled_ir",
-            "release signature contains duplicate dependency IDs",
-            corpus_id=key.corpus_id,
-        )
+    uniqueness_checks = (
+        (
+            "dependency",
+            (dependency_id for dependency_id, _ in signature.dependency_records),
+        ),
+        (
+            "mapping digest",
+            (mapping_id for mapping_id, _ in signature.mapping_digests),
+        ),
+        (
+            "mapping review",
+            (mapping_id for mapping_id, _ in signature.mapping_reviews),
+        ),
+        (
+            "projection review",
+            (
+                (mapping_id, projection_id)
+                for mapping_id, projection_id, _ in signature.projection_reviews
+            ),
+        ),
+        (
+            "ontology lock",
+            (lock.lock_id for lock in signature.ontology_locks),
+        ),
+    )
+    for label, ids in uniqueness_checks:
+        if _has_duplicate_ids(ids):
+            _fail(
+                "invalid_compiled_ir",
+                f"release signature contains duplicate {label} IDs",
+                corpus_id=key.corpus_id,
+            )
 
 
 def _validate_ir_shape(
@@ -451,6 +488,8 @@ def _validate_ir_shape(
     for key, rows in ir.semantic_index:
         if type(key) is not SemanticKey or type(rows) is not tuple:
             _fail("invalid_compiled_ir", "semantic index has an invalid row shape")
+        if any(type(row) is not TargetBindingIR for row in rows):
+            _fail("invalid_compiled_ir", "semantic index contains an invalid binding row")
         if key in semantic:
             _fail("invalid_compiled_ir", "duplicate semantic index key")
         semantic[key] = rows
@@ -577,7 +616,6 @@ def _prerequisite_problem(
     state: RuntimePrerequisiteState,
     variant: BundleVariantIR,
 ) -> str | None:
-    corpus_id = variant.key.corpus_id
     if type(state.source_contract) is not str or not state.source_contract:
         return "invalid_prerequisite"
     if state.parent_state not in {
@@ -629,7 +667,7 @@ def _prerequisite_problem(
             return "ontology_bundle_unavailable"
         if state.ontology_bundle_state != "verified":
             return "invalid_prerequisite"
-        if state.active_ontology_bundle_digest is None:
+        if not state.active_ontology_bundle_digest:
             return "invalid_prerequisite"
         if state.active_ontology_bundle_digest != required_bundle:
             return "stale_prerequisite"
@@ -713,6 +751,13 @@ def semantic_capabilities(
     result: list[SemanticCapabilityView] = []
     for corpus_id in selected_corpora:
         state, variant = _select_prerequisite(corpus_id, rows, variants)
+        prerequisite_problem = _prerequisite_problem(state, variant)
+        if prerequisite_problem in {"invalid_prerequisite", "stale_prerequisite"}:
+            _fail(
+                prerequisite_problem,
+                "runtime prerequisite attestation is incoherent",
+                corpus_id=corpus_id,
+            )
         for profile_id in sorted(variant.release_signature.profiles, key=_utf16):
             for capability_id in sorted(
                 variant.release_signature.capabilities,
@@ -1007,9 +1052,7 @@ def semantic_resolve(
         candidates = [
             row
             for row in bindings_for_key
-            if type(row) is TargetBindingIR
-            and row.corpus_id == corpus_id
-            and row.variant == variant.key
+            if row.corpus_id == corpus_id and row.variant == variant.key
         ]
         if not candidates:
             _fail(
