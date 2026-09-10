@@ -193,6 +193,13 @@ def _lock_projection(value: OntologyLockFingerprint) -> dict[str, str]:
 def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
     if type(value) is not EvidenceFingerprint:
         _fail("invalid_compiled_ir", "evidence row has the wrong type")
+    if (
+        type(value.evidence_id) is not str
+        or not value.evidence_id
+        or type(value.content_digest) is not str
+        or not value.content_digest
+    ):
+        _fail("invalid_compiled_ir", "evidence fingerprint fields must be non-empty strings")
     return {
         "evidence_id": value.evidence_id,
         "content_digest": value.content_digest,
@@ -794,6 +801,13 @@ def _validate_binding_against_release(
             corpus_id=corpus_id,
             related_id=binding.mapping_id,
         )
+    if any(type(item) is not str or not item for item in binding.native_dependencies):
+        _fail(
+            "invalid_compiled_ir",
+            "native dependency IDs must be non-empty strings",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
     if type(binding.mapping_evidence) is not tuple or type(binding.projection_evidence) is not tuple:
         _fail(
             "invalid_compiled_ir",
@@ -808,6 +822,8 @@ def _validate_binding_against_release(
             corpus_id=corpus_id,
             related_id=binding.projection_id,
         )
+    for item in binding.mapping_evidence + binding.projection_evidence:
+        _evidence_projection(item)
     if (
         binding.ontology_bundle_requirement is not None
         and type(binding.ontology_bundle_requirement) is not OntologyBundleRequirementIR
