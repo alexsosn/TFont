@@ -223,6 +223,32 @@ def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
     }
 
 
+def _validate_release_signature_rows(signature: ProfileReleaseSignature) -> None:
+    row_specs = (
+        ("dependency_records", signature.dependency_records, 2),
+        ("mapping_digests", signature.mapping_digests, 2),
+        ("mapping_reviews", signature.mapping_reviews, 2),
+        ("projection_reviews", signature.projection_reviews, 3),
+    )
+    for label, rows, arity in row_specs:
+        if type(rows) is not tuple:
+            _fail("invalid_compiled_ir", f"release {label} must be an exact tuple")
+        for row in rows:
+            if type(row) is not tuple or len(row) != arity:
+                _fail("invalid_compiled_ir", f"release {label} contains an invalid row shape")
+            id_fields = row[:-1] if label in {"mapping_reviews", "projection_reviews"} else row
+            if any(type(item) is not str or not item for item in id_fields):
+                _fail("invalid_compiled_ir", f"release {label} IDs must be non-empty strings")
+            if label == "mapping_reviews":
+                _review_projection(row[1])
+            elif label == "projection_reviews":
+                _review_projection(row[2])
+    if type(signature.ontology_locks) is not tuple:
+        _fail("invalid_compiled_ir", "release ontology_locks must be an exact tuple")
+    for lock in signature.ontology_locks:
+        _lock_projection(lock)
+
+
 def _profile_release_projection(signature: ProfileReleaseSignature) -> dict[str, Any]:
     return {
         "algorithm": PROFILE_RELEASE_FINGERPRINT_ALGORITHM,
@@ -253,6 +279,7 @@ def _profile_release_projection(signature: ProfileReleaseSignature) -> dict[str,
 def profile_release_fingerprint(signature: ProfileReleaseSignature) -> str:
     if type(signature) is not ProfileReleaseSignature:
         raise TypeError("signature must be ProfileReleaseSignature")
+    _validate_release_signature_rows(signature)
     return _hash(_profile_release_projection(signature))
 
 
@@ -439,6 +466,7 @@ def _validate_variant(variant: BundleVariantIR) -> None:
             corpus_id=key.corpus_id,
         )
     signature = variant.release_signature
+    _validate_release_signature_rows(signature)
     release_key = variant.release_key
     if (
         release_key.corpus_id != key.corpus_id
