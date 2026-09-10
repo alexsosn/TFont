@@ -230,6 +230,23 @@ class I006AdversarialReviewContractTests(unittest.TestCase):
                     (state,),
                 )
 
+    def test_nested_variant_authority_types_fail_closed(self):
+        ir = compiled_noun_ir(("bhsa",))
+        variant = ir.variants[0]
+        state = prerequisite_for(RESOLVER, variant)
+        for field in ("key", "release_key", "release_signature"):
+            with self.subTest(field=field):
+                bad_variant = replace(variant, **{field: object()})
+                bad_ir = replace(ir, variants=(bad_variant,))
+                assert_problem(
+                    self,
+                    "invalid_compiled_ir",
+                    RESOLVER.semantic_resolve,
+                    bad_ir,
+                    request_for(RESOLVER, ("bhsa",)),
+                    (state,),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
