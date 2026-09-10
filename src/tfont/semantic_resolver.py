@@ -224,6 +224,16 @@ def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
 
 
 def _validate_release_signature_rows(signature: ProfileReleaseSignature) -> None:
+    vocabulary_specs = (
+        ("profiles", signature.profiles),
+        ("capabilities", signature.capabilities),
+    )
+    for label, values in vocabulary_specs:
+        if type(values) is not tuple:
+            _fail("invalid_compiled_ir", f"release {label} must be an exact tuple")
+        if any(type(item) is not str or not item for item in values):
+            _fail("invalid_compiled_ir", f"release {label} must contain non-empty strings")
+
     row_specs = (
         ("dependency_records", signature.dependency_records, 2),
         ("mapping_digests", signature.mapping_digests, 2),
