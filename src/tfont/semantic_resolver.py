@@ -14,6 +14,7 @@ from .semantic_ir import (
     EdgeStepIR,
     EvidenceFingerprint,
     NativeBindingIR,
+    OntologyBundleRequirementIR,
     OntologyLockFingerprint,
     ProfileReleaseSignature,
     ReviewFingerprint,
@@ -190,6 +191,8 @@ def _lock_projection(value: OntologyLockFingerprint) -> dict[str, str]:
 
 
 def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
+    if type(value) is not EvidenceFingerprint:
+        _fail("invalid_compiled_ir", "evidence row has the wrong type")
     return {
         "evidence_id": value.evidence_id,
         "content_digest": value.content_digest,
@@ -784,6 +787,47 @@ def _validate_binding_against_release(
     corpus_id = variant.key.corpus_id
     if type(binding) is not TargetBindingIR:
         _fail("invalid_compiled_ir", "semantic index contains an invalid binding row")
+    if type(binding.native_dependencies) is not tuple:
+        _fail(
+            "invalid_compiled_ir",
+            "native dependencies must be an exact tuple",
+            corpus_id=corpus_id,
+            related_id=binding.mapping_id,
+        )
+    if type(binding.mapping_evidence) is not tuple or type(binding.projection_evidence) is not tuple:
+        _fail(
+            "invalid_compiled_ir",
+            "binding evidence collections must be exact tuples",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if any(type(item) is not EvidenceFingerprint for item in binding.mapping_evidence + binding.projection_evidence):
+        _fail(
+            "invalid_compiled_ir",
+            "binding evidence contains an invalid row",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if (
+        binding.ontology_bundle_requirement is not None
+        and type(binding.ontology_bundle_requirement) is not OntologyBundleRequirementIR
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "ontology bundle requirement has the wrong type",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
+    if (
+        binding.ontology_bundle_requirement is not None
+        and type(binding.ontology_bundle_requirement.required_profile_contracts) is not tuple
+    ):
+        _fail(
+            "invalid_compiled_ir",
+            "ontology bundle required profile contracts must be an exact tuple",
+            corpus_id=corpus_id,
+            related_id=binding.projection_id,
+        )
     if (
         binding.variant != variant.key
         or binding.corpus_id != corpus_id
