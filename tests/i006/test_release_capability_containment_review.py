@@ -12,8 +12,8 @@ RESOLVER = importlib.import_module("tfont.semantic_resolver")
 
 
 def assert_invalid(testcase: unittest.TestCase, ir) -> None:
-    state = prerequisite_for(RESOLVER, ir.variants[0])
     with testcase.assertRaises(RESOLVER.SemanticResolutionError) as raised:
+        state = prerequisite_for(RESOLVER, ir.variants[0])
         RESOLVER.semantic_capabilities(
             ir,
             (state,),
