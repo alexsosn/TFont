@@ -736,6 +736,15 @@ def _validate_ir_shape(
                 corpus_id=variant.key.corpus_id,
             )
         _validate_capability_facts(facts, corpus_id=variant.key.corpus_id)
+        release_mapping_ids = {
+            mapping_id for mapping_id, _ in signature.mapping_digests
+        }
+        if any(mapping_id not in release_mapping_ids for mapping_id in facts.mapping_ids):
+            _fail(
+                "invalid_compiled_ir",
+                "capability facts reference mapping IDs outside selected release",
+                corpus_id=variant.key.corpus_id,
+            )
         if key in capabilities:
             _fail(
                 "invalid_compiled_ir",
