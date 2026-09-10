@@ -225,14 +225,21 @@ def _evidence_projection(value: EvidenceFingerprint) -> dict[str, str]:
 
 def _validate_release_signature_rows(signature: ProfileReleaseSignature) -> None:
     vocabulary_specs = (
-        ("profiles", signature.profiles),
-        ("capabilities", signature.capabilities),
+        ("profiles", signature.profiles, PROFILE_IDS),
+        ("capabilities", signature.capabilities, CAPABILITY_IDS),
     )
-    for label, values in vocabulary_specs:
+    for label, values, allowed in vocabulary_specs:
         if type(values) is not tuple:
             _fail("invalid_compiled_ir", f"release {label} must be an exact tuple")
         if any(type(item) is not str or not item for item in values):
             _fail("invalid_compiled_ir", f"release {label} must contain non-empty strings")
+        if len(set(values)) != len(values):
+            _fail("invalid_compiled_ir", f"release {label} contain duplicate entries")
+        if any(item not in allowed for item in values):
+            _fail("invalid_compiled_ir", f"release {label} contain unknown vocabulary")
+    release_profiles = set(signature.profiles)
+    if any(capability.split(".", 1)[0] not in release_profiles for capability in signature.capabilities):
+        _fail("invalid_compiled_ir", "release capability is not scoped by a release profile")
 
     row_specs = (
         ("dependency_records", signature.dependency_records, 2),
@@ -457,6 +464,60 @@ def _has_duplicate_ids(values: Iterable[Any]) -> bool:
     return False
 
 
+_CAPABILITY_COUNT_FIELDS = (
+    "reviewed_native_support",
+    "shared_projections",
+    "exact",
+    "close",
+    "broader",
+    "narrower",
+    "related",
+    "ambiguous",
+    "native_only",
+    "unsupported",
+)
+
+
+def _validate_capability_facts(facts: CapabilityFactsIR, *, corpus_id: str | None) -> None:
+    counts = {field: getattr(facts, field) for field in _CAPABILITY_COUNT_FIELDS}
+    if any(type(value) is not int or value < 0 for value in counts.values()):
+        _fail(
+            "invalid_compiled_ir",
+            "capability fact counters must be non-negative exact integers",
+            corpus_id=corpus_id,
+        )
+    if type(facts.mapping_ids) is not tuple:
+        _fail(
+            "invalid_compiled_ir",
+            "capability mapping_ids must be an exact tuple",
+            corpus_id=corpus_id,
+        )
+    if any(type(item) is not str or not item for item in facts.mapping_ids):
+        _fail(
+            "invalid_compiled_ir",
+            "capability mapping_ids must contain non-empty strings",
+            corpus_id=corpus_id,
+        )
+    if len(set(facts.mapping_ids)) != len(facts.mapping_ids):
+        _fail(
+            "invalid_compiled_ir",
+            "capability mapping_ids contain duplicates",
+            corpus_id=corpus_id,
+        )
+    if facts.shared_projections != facts.exact + facts.close + facts.broader + facts.narrower + facts.related:
+        _fail(
+            "invalid_compiled_ir",
+            "capability shared projection counts are incoherent",
+            corpus_id=corpus_id,
+        )
+    if facts.ambiguous + facts.native_only > facts.reviewed_native_support:
+        _fail(
+            "invalid_compiled_ir",
+            "capability native support counts are incoherent",
+            corpus_id=corpus_id,
+        )
+
+
 def _validate_variant(variant: BundleVariantIR) -> None:
     if type(variant) is not BundleVariantIR:
         _fail("invalid_compiled_ir", "variant row has the wrong type")
@@ -588,6 +649,7 @@ def _validate_ir_shape(
     for key, facts in ir.capability_facts:
         if type(key) is not CapabilityKey or type(facts) is not CapabilityFactsIR:
             _fail("invalid_compiled_ir", "capability facts have an invalid row shape")
+        _validate_capability_facts(facts, corpus_id=key.variant.corpus_id)
         if key in capabilities:
             _fail(
                 "invalid_compiled_ir",
