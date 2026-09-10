@@ -36,6 +36,21 @@ class I006AdversarialIRContainmentTests(unittest.TestCase):
             (state,),
         )
 
+    def test_non_string_native_dependency_is_contained_as_invalid_compiled_ir(self):
+        ir = compiled_noun_ir(("bhsa",))
+        key, rows = ir.semantic_index[0]
+        forged_row = replace(rows[0], native_dependencies=([],))
+        bad_ir = replace(ir, semantic_index=((key, (forged_row,)),))
+        state = prerequisite_for(RESOLVER, bad_ir.variants[0])
+        assert_problem(
+            self,
+            "invalid_compiled_ir",
+            RESOLVER.semantic_resolve,
+            bad_ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (state,),
+        )
+
     def test_mutable_evidence_cannot_enter_frozen_plan(self):
         ir = compiled_noun_ir(("bhsa",))
         key, rows = ir.semantic_index[0]
@@ -58,6 +73,23 @@ class I006AdversarialIRContainmentTests(unittest.TestCase):
         ir = compiled_noun_ir(("bhsa",))
         key, rows = ir.semantic_index[0]
         forged_row = replace(rows[0], mapping_evidence=(object(),))
+        bad_ir = replace(ir, semantic_index=((key, (forged_row,)),))
+        state = prerequisite_for(RESOLVER, bad_ir.variants[0])
+        assert_problem(
+            self,
+            "invalid_compiled_ir",
+            RESOLVER.semantic_resolve,
+            bad_ir,
+            request_for(RESOLVER, ("bhsa",)),
+            (state,),
+        )
+
+    def test_evidence_fingerprint_fields_must_be_deeply_immutable(self):
+        ir = compiled_noun_ir(("bhsa",))
+        key, rows = ir.semantic_index[0]
+        evidence = rows[0].mapping_evidence[0]
+        forged_evidence = replace(evidence, content_digest=[])
+        forged_row = replace(rows[0], mapping_evidence=(forged_evidence,))
         bad_ir = replace(ir, semantic_index=((key, (forged_row,)),))
         state = prerequisite_for(RESOLVER, bad_ir.variants[0])
         assert_problem(
