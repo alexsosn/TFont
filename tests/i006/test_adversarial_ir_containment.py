@@ -138,66 +138,40 @@ class I006AdversarialIRContainmentTests(unittest.TestCase):
             ),
         )
 
-    def test_mutable_mapping_review_field_cannot_enter_frozen_plan(self):
+    def test_mutable_mapping_review_field_is_rejected_before_plan_construction(self):
         ir = compiled_noun_ir(("bhsa",))
-        key, rows = ir.semantic_index[0]
+        _key, rows = ir.semantic_index[0]
         row = rows[0]
         forged_review = replace(row.mapping_review, review_id=[])
-        forged_row = replace(row, mapping_review=forged_review)
-        variant = ir.variants[0]
-        signature = variant.release_signature
+        signature = ir.variants[0].release_signature
         forged_mapping_reviews = tuple(
             (mapping_id, forged_review if mapping_id == row.mapping_id else review)
             for mapping_id, review in signature.mapping_reviews
         )
         forged_signature = replace(signature, mapping_reviews=forged_mapping_reviews)
-        forged_variant = replace(variant, release_signature=forged_signature)
-        bad_ir = replace(
-            ir,
-            variants=(forged_variant,),
-            semantic_index=((key, (forged_row,)),),
-        )
-        state = prerequisite_for(RESOLVER, forged_variant)
         assert_problem(
             self,
             "invalid_compiled_ir",
-            RESOLVER.semantic_resolve,
-            bad_ir,
-            request_for(RESOLVER, ("bhsa",)),
-            (state,),
+            RESOLVER.profile_release_fingerprint,
+            forged_signature,
         )
 
-    def test_mutable_ontology_lock_field_cannot_enter_frozen_plan(self):
+    def test_mutable_ontology_lock_field_is_rejected_before_plan_construction(self):
         ir = compiled_noun_ir(("bhsa",))
-        key, rows = ir.semantic_index[0]
+        _key, rows = ir.semantic_index[0]
         row = rows[0]
         forged_lock = replace(row.ontology_lock, term_namespace=[])
-        forged_row = replace(row, ontology_lock=forged_lock)
-        variant = ir.variants[0]
-        signature = variant.release_signature
+        signature = ir.variants[0].release_signature
         forged_locks = tuple(
             forged_lock if lock.lock_id == forged_lock.lock_id else lock
             for lock in signature.ontology_locks
         )
         forged_signature = replace(signature, ontology_locks=forged_locks)
-        forged_variant = replace(
-            variant,
-            release_signature=forged_signature,
-            ontology_locks=forged_locks,
-        )
-        bad_ir = replace(
-            ir,
-            variants=(forged_variant,),
-            semantic_index=((key, (forged_row,)),),
-        )
-        state = prerequisite_for(RESOLVER, forged_variant)
         assert_problem(
             self,
             "invalid_compiled_ir",
-            RESOLVER.semantic_resolve,
-            bad_ir,
-            request_for(RESOLVER, ("bhsa",)),
-            (state,),
+            RESOLVER.profile_release_fingerprint,
+            forged_signature,
         )
 
 
