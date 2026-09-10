@@ -69,6 +69,27 @@ class I006FinalReleaseShapeReviewTests(unittest.TestCase):
                 bad_ir = replace(ir, variants=(bad_variant,))
                 assert_invalid_compiled_ir(self, bad_ir, state)
 
+    def test_release_vocabulary_collection_shapes_fail_closed(self):
+        ir = compiled_noun_ir(("bhsa",))
+        variant = ir.variants[0]
+        state = prerequisite_for(RESOLVER, variant)
+        signature = variant.release_signature
+
+        cases = (
+            ("profiles-not-tuple", replace(signature, profiles=object())),
+            ("capabilities-not-tuple", replace(signature, capabilities=object())),
+            ("profiles-bad-member", replace(signature, profiles=("linguistic", object()))),
+            (
+                "capabilities-bad-member",
+                replace(signature, capabilities=("linguistic.part-of-speech", object())),
+            ),
+        )
+        for label, bad_signature in cases:
+            with self.subTest(label=label):
+                bad_variant = replace(variant, release_signature=bad_signature)
+                bad_ir = replace(ir, variants=(bad_variant,))
+                assert_invalid_compiled_ir(self, bad_ir, state)
+
 
 if __name__ == "__main__":
     unittest.main()
