@@ -518,11 +518,41 @@ def _validate_capability_facts(facts: CapabilityFactsIR, *, corpus_id: str | Non
         )
 
 
+def _validate_compiled_variant_key(value: BundleVariantKey) -> None:
+    if type(value) is not BundleVariantKey:
+        _fail("invalid_compiled_ir", "variant key has the wrong type")
+    fields = (
+        value.corpus_id,
+        value.authored_profile_id,
+        value.profile_version,
+        value.expected_parent_manifest_digest,
+    )
+    if any(type(item) is not str or not item for item in fields):
+        _fail("invalid_compiled_ir", "variant key fields must be non-empty strings")
+    if value.ontology_bundle_digest is not None and (
+        type(value.ontology_bundle_digest) is not str or not value.ontology_bundle_digest
+    ):
+        _fail("invalid_compiled_ir", "variant ontology bundle digest must be a non-empty string or null")
+
+
+def _validate_compiled_semantic_key(value: SemanticKey) -> None:
+    if type(value) is not SemanticKey:
+        _fail("invalid_compiled_ir", "semantic index key has the wrong type")
+    fields = (
+        value.profile_id,
+        value.capability_id,
+        value.target,
+        value.formal_kind,
+        value.semantic_role,
+    )
+    if any(type(item) is not str or not item for item in fields):
+        _fail("invalid_compiled_ir", "semantic index key fields must be non-empty strings")
+
+
 def _validate_variant(variant: BundleVariantIR) -> None:
     if type(variant) is not BundleVariantIR:
         _fail("invalid_compiled_ir", "variant row has the wrong type")
-    if type(variant.key) is not BundleVariantKey:
-        _fail("invalid_compiled_ir", "variant key has the wrong type")
+    _validate_compiled_variant_key(variant.key)
     key = variant.key
     if type(variant.release_key) is not ProfileReleaseKey:
         _fail(
@@ -637,13 +667,15 @@ def _validate_ir_shape(
 
     semantic: dict[SemanticKey, tuple[TargetBindingIR, ...]] = {}
     for key, rows in ir.semantic_index:
-        if type(key) is not SemanticKey or type(rows) is not tuple:
+        _validate_compiled_semantic_key(key)
+        if type(rows) is not tuple:
             _fail("invalid_compiled_ir", "semantic index has an invalid row shape")
         if any(type(row) is not TargetBindingIR for row in rows):
             _fail("invalid_compiled_ir", "semantic index contains an invalid binding row")
         if key in semantic:
             _fail("invalid_compiled_ir", "duplicate semantic index key")
         for row in rows:
+            _validate_compiled_variant_key(row.variant)
             variant = variants.get(row.variant)
             if variant is None:
                 _fail(
@@ -684,8 +716,7 @@ def _validate_ir_shape(
     for key, facts in ir.capability_facts:
         if type(key) is not CapabilityKey or type(facts) is not CapabilityFactsIR:
             _fail("invalid_compiled_ir", "capability facts have an invalid row shape")
-        if type(key.variant) is not BundleVariantKey:
-            _fail("invalid_compiled_ir", "capability key variant has the wrong type")
+        _validate_compiled_variant_key(key.variant)
         variant = variants.get(key.variant)
         if variant is None:
             _fail(
