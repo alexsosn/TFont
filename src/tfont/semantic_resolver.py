@@ -173,6 +173,11 @@ def _semantic_key_projection(value: SemanticKey) -> dict[str, Any]:
 
 
 def _review_projection(value: ReviewFingerprint) -> dict[str, str]:
+    if type(value) is not ReviewFingerprint:
+        _fail("invalid_compiled_ir", "review fingerprint has the wrong type")
+    fields = (value.review_id, value.status, value.reviewed_semantic_digest)
+    if any(type(item) is not str or not item for item in fields):
+        _fail("invalid_compiled_ir", "review fingerprint fields must be non-empty strings")
     return {
         "review_id": value.review_id,
         "status": value.status,
@@ -181,6 +186,17 @@ def _review_projection(value: ReviewFingerprint) -> dict[str, str]:
 
 
 def _lock_projection(value: OntologyLockFingerprint) -> dict[str, str]:
+    if type(value) is not OntologyLockFingerprint:
+        _fail("invalid_compiled_ir", "ontology lock fingerprint has the wrong type")
+    fields = (
+        value.lock_id,
+        value.ontology_id,
+        value.release,
+        value.content_digest,
+        value.term_namespace,
+    )
+    if any(type(item) is not str or not item for item in fields):
+        _fail("invalid_compiled_ir", "ontology lock fingerprint fields must be non-empty strings")
     return {
         "lock_id": value.lock_id,
         "ontology_id": value.ontology_id,
@@ -372,12 +388,23 @@ def _native_binding_projection(binding: NativeBindingIR) -> dict[str, Any]:
     if binding.value_present:
         result["value"] = binding.value
     if binding.closed_values is not None:
+        if type(binding.closed_values) is not tuple:
+            _fail("invalid_compiled_ir", "native binding closed_values must be an exact tuple")
         result["closed_values"] = list(binding.closed_values)
     if binding.steps is not None:
+        if type(binding.steps) is not tuple:
+            _fail("invalid_compiled_ir", "native binding steps must be an exact tuple")
         steps: list[dict[str, str]] = []
         for step in binding.steps:
             if type(step) is not EdgeStepIR:
                 _fail("invalid_compiled_ir", "native binding contains an invalid edge step")
+            if (
+                type(step.edge) is not str
+                or not step.edge
+                or type(step.direction) is not str
+                or not step.direction
+            ):
+                _fail("invalid_compiled_ir", "native binding edge step fields must be non-empty strings")
             steps.append({"edge": step.edge, "direction": step.direction})
         result["steps"] = steps
     return result
