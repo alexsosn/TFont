@@ -377,6 +377,22 @@ def _validate_prerequisite_shape(state: RuntimePrerequisiteState) -> None:
         raise TypeError("state must be RuntimePrerequisiteState")
     if type(state.variant) is not BundleVariantKey:
         _fail("invalid_prerequisite", "variant must be BundleVariantKey")
+    variant_fields = (
+        state.variant.corpus_id,
+        state.variant.authored_profile_id,
+        state.variant.profile_version,
+        state.variant.expected_parent_manifest_digest,
+    )
+    if any(type(item) is not str or not item for item in variant_fields):
+        _fail("invalid_prerequisite", "variant fields must be non-empty strings")
+    if state.variant.ontology_bundle_digest is not None and (
+        type(state.variant.ontology_bundle_digest) is not str
+        or not state.variant.ontology_bundle_digest
+    ):
+        _fail(
+            "invalid_prerequisite",
+            "variant ontology bundle digest must be a non-empty string or null",
+        )
     if (
         type(state.profile_release_fingerprint) is not str
         or not state.profile_release_fingerprint
@@ -769,6 +785,17 @@ def _validate_request(request: SemanticResolveRequest) -> SemanticResolveRequest
     if len(set(request.corpora)) != len(request.corpora):
         _fail("invalid_corpus_selection", "duplicate corpus selection")
     key = request.key
+    vocabulary_fields = (
+        key.profile_id,
+        key.capability_id,
+        key.formal_kind,
+        key.semantic_role,
+    )
+    if any(type(item) is not str for item in vocabulary_fields):
+        _fail(
+            "unknown_request_vocabulary",
+            "request uses unknown or inconsistent semantic vocabulary",
+        )
     if (
         key.profile_id not in PROFILE_IDS
         or key.capability_id not in CAPABILITY_IDS
