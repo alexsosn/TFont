@@ -643,18 +643,73 @@ def _validate_ir_shape(
             _fail("invalid_compiled_ir", "semantic index contains an invalid binding row")
         if key in semantic:
             _fail("invalid_compiled_ir", "duplicate semantic index key")
+        for row in rows:
+            variant = variants.get(row.variant)
+            if variant is None:
+                _fail(
+                    "invalid_compiled_ir",
+                    "semantic binding references a variant outside compiled variants",
+                    corpus_id=row.corpus_id,
+                    related_id=row.mapping_id,
+                )
+            signature = variant.release_signature
+            if (
+                row.corpus_id != variant.key.corpus_id
+                or row.profile_id not in signature.profiles
+                or row.capability_id not in signature.capabilities
+                or not row.capability_id.startswith(row.profile_id + ".")
+            ):
+                _fail(
+                    "invalid_compiled_ir",
+                    "semantic binding is not declared by selected release",
+                    corpus_id=variant.key.corpus_id,
+                    related_id=row.mapping_id,
+                )
+            if (
+                key.profile_id != row.profile_id
+                or key.capability_id != row.capability_id
+                or key.target != row.target
+                or key.formal_kind != row.formal_kind
+                or key.semantic_role != row.semantic_role
+            ):
+                _fail(
+                    "invalid_compiled_ir",
+                    "semantic index key disagrees with binding",
+                    corpus_id=variant.key.corpus_id,
+                    related_id=row.mapping_id,
+                )
         semantic[key] = rows
 
     capabilities: dict[CapabilityKey, CapabilityFactsIR] = {}
     for key, facts in ir.capability_facts:
         if type(key) is not CapabilityKey or type(facts) is not CapabilityFactsIR:
             _fail("invalid_compiled_ir", "capability facts have an invalid row shape")
-        _validate_capability_facts(facts, corpus_id=key.variant.corpus_id)
+        if type(key.variant) is not BundleVariantKey:
+            _fail("invalid_compiled_ir", "capability key variant has the wrong type")
+        variant = variants.get(key.variant)
+        if variant is None:
+            _fail(
+                "invalid_compiled_ir",
+                "capability key references a variant outside compiled variants",
+                corpus_id=key.variant.corpus_id,
+            )
+        signature = variant.release_signature
+        if (
+            key.profile_id not in signature.profiles
+            or key.capability_id not in signature.capabilities
+            or not key.capability_id.startswith(key.profile_id + ".")
+        ):
+            _fail(
+                "invalid_compiled_ir",
+                "capability key is not declared by selected release",
+                corpus_id=variant.key.corpus_id,
+            )
+        _validate_capability_facts(facts, corpus_id=variant.key.corpus_id)
         if key in capabilities:
             _fail(
                 "invalid_compiled_ir",
                 "duplicate capability key",
-                corpus_id=key.variant.corpus_id,
+                corpus_id=variant.key.corpus_id,
             )
         capabilities[key] = facts
     return variants, semantic, capabilities
