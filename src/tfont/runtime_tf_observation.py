@@ -133,7 +133,7 @@ class LoadedTFObservation:
     ) -> tuple[str, tuple[Any, ...]]:
         api = self._api(component_id)
         if api is None:
-            return ("unknown", ())
+            return ("absent", ()) if component_id not in self._components else ("unknown", ())
         loaded = self._loaded_names(api, "Fall")
         if loaded is None or feature not in loaded:
             return ("unknown", ())
@@ -151,6 +151,10 @@ class LoadedTFObservation:
         return ("complete", values)
 
     def extent(self, component_id: str, node_type: str) -> tuple[str, str | None]:
+        if component_id not in self._components:
+            return ("absent", None)
+        if self._component(component_id) is None:
+            return ("unknown", None)
         component = self._extent_interpretations.get(component_id)
         if component is None:
             return ("unknown", None)
