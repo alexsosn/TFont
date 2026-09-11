@@ -28,6 +28,8 @@ OLIA_NS = "http://purl.org/olia/olia.owl#"
 OLIA_NOUN = f"{OLIA_NS}Noun"
 OLIA_COMMON_NOUN = f"{OLIA_NS}CommonNoun"
 OLIA_PROPER_NOUN = f"{OLIA_NS}ProperNoun"
+OLIA_LICENSE_URI = "https://creativecommons.org/licenses/by/3.0/"
+DCT_NS = "http://purl.org/dc/terms/"
 OWL_NS = "http://www.w3.org/2002/07/owl#"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
@@ -80,10 +82,26 @@ def _direct_subclass_parent_iri(relation: ET.Element, base: str) -> str | None:
     return _class_iri(children[0], base)
 
 
+def _verify_olia_license(root: ET.Element, base: str) -> None:
+    ontology = root.find(f"{{{OWL_NS}}}Ontology")
+    if ontology is None:
+        raise SystemExit("OLiA ontology declaration missing from exact payload")
+    licenses = {
+        urljoin(base, resource)
+        for element in ontology.findall(f"{{{DCT_NS}}}license")
+        if (resource := element.attrib.get(f"{{{RDF_NS}}}resource")) is not None
+    }
+    if OLIA_LICENSE_URI not in licenses:
+        raise SystemExit(
+            f"expected OLiA CC-BY-3.0 license assertion missing: {OLIA_LICENSE_URI}"
+        )
+
+
 def measure_olia(path: Path) -> dict[str, object]:
     tree = ET.parse(path)
     root = tree.getroot()
     base = root.attrib.get(f"{{{XML_NS}}}base", "")
+    _verify_olia_license(root, base)
 
     # Only direct rdf:RDF children are class declarations. Nested owl:Class
     # elements in this exact payload are reference nodes inside relations and
@@ -121,6 +139,7 @@ def measure_olia(path: Path) -> dict[str, object]:
         "noun_direct_subclasses": noun_subclasses,
         "content_digest": file_component_digest(path),
         "license": "CC-BY-3.0",
+        "license_uri": OLIA_LICENSE_URI,
     }
 
 
