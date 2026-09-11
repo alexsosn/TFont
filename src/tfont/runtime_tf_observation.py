@@ -80,11 +80,23 @@ class LoadedTFObservation:
         if loaded is None or feature not in loaded:
             return "unknown"
         try:
-            getattr(api.F, feature)
-            tuple(api.F.otype.s(node_type))
+            nodes = tuple(api.F.otype.s(node_type))
+            feature_api = getattr(api.F, feature)
         except Exception:
             return "unknown"
-        return "present"
+        if not nodes:
+            return "absent"
+
+        # A loaded node feature is corpus-global metadata. The P-002
+        # feature-present assertion is narrower: it is scoped to one node type.
+        # Prove that the feature has at least one defined value on that type;
+        # do not treat the same feature on another node type as positive evidence.
+        try:
+            if any(feature_api.v(node) is not None for node in nodes):
+                return "present"
+        except Exception:
+            return "unknown"
+        return "unknown"
 
     def edge(self, component_id: str, edge: str, direction: str) -> str:
         api = self._api(component_id)
