@@ -1,0 +1,166 @@
+name: I-009 research parent identities
+
+on:
+  push:
+    branches:
+      - research/i009-production-noun-bundles
+    paths:
+      - 'scripts/research/i009_measure_parent_identities.py'
+      - '.github/workflows/i009-research-parent-identities.yml'
+      - 'src/tfont/parent_identity.py'
+      - 'docs/research/I-009*.md'
+  pull_request:
+    paths:
+      - 'scripts/research/i009_measure_parent_identities.py'
+      - '.github/workflows/i009-research-parent-identities.yml'
+      - 'src/tfont/parent_identity.py'
+      - 'docs/research/I-009*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact TFont head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Fetch exact upstream revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p upstream
+          fetch_exact() {
+            local name="$1" repo="$2" sha="$3"
+            git init -q "upstream/$name"
+            git -C "upstream/$name" remote add origin "https://github.com/$repo.git"
+            git -C "upstream/$name" fetch -q --depth=1 origin "$sha"
+            git -C "upstream/$name" checkout -q --detach FETCH_HEAD
+            test "$(git -C "upstream/$name" rev-parse HEAD)" = "$sha"
+          }
+          fetch_exact bhsa ETCBC/bhsa 4db00e2157915495e1a4d3d57e41223df24775da
+          fetch_exact syriac ETCBC/syriac bb0eaa7e21b020a26b7566d2e495da9b1f84a919
+          fetch_exact linksyr ETCBC/linksyr 3ba42432b0ed95c1ad65eb06865c3a5f7175f8b6
+          fetch_exact extrabiblical ETCBC/extrabiblical 9a56288e6777bad6328856acf055c780e65dd5d9
+          fetch_exact olia acoli-repo/olia d3bd4f1aef9047b33186bfb2a1795401f3f1a4a6
+      - name: Verify exact semantic evidence inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '**part-of-speech**' upstream/bhsa/docs/features/sp.md
+          grep -F '`subs` |noun' upstream/bhsa/docs/features/sp.md
+          grep -F '`nmpr` |proper noun' upstream/bhsa/docs/features/sp.md
+          grep -F '**sp**: part of speech' upstream/syriac/README.md
+          grep -F 'Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)' upstream/syriac/README.md
+          grep -Fx 'subs' upstream/syriac/tf/0.9/sp.tf >/dev/null
+          grep -F 'sp: "part of speech" =' upstream/linksyr/data/lib/syriac/word_grammar
+          grep -F 'subs: "substantive"' upstream/linksyr/data/lib/syriac/word_grammar
+          grep -F 'prop: "proper noun"' upstream/linksyr/data/lib/syriac/word_grammar
+          grep -F 'sp=subs:ls=prop' upstream/linksyr/data/lib/syriac/lexicon >/dev/null
+          grep -F 'part_of_speech_t' upstream/extrabiblical/programs/tfFromMql.ipynb >/dev/null
+          grep -Fx 'subs' upstream/extrabiblical/tf/0.2/sp.tf >/dev/null
+          grep -Fx 'nmpr' upstream/extrabiblical/tf/0.2/sp.tf >/dev/null
+          grep -F 'Core data and feature documentation' upstream/extrabiblical/README.md
+          grep -F 'Conversion of some extra-biblical writings from ETCBC-encoded texts' upstream/extrabiblical/README.md
+          grep -F 'Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)' upstream/extrabiblical/README.md
+          grep -F 'Creative Commons Attribution licence CC-BY 3.0' upstream/olia/docs/index.md
+          grep -F 'OLiA Reference Model for morphosyntax, morphology and syntax' upstream/olia/docs/index.md
+      - name: Verify ExtraBiblical source POS contract
+        run: |
+          python - <<'PY'
+          import bz2
+          import re
+          from pathlib import Path
+
+          path = Path('upstream/extrabiblical/source/0.2/extraBiblical.mql.bz2')
+          text = bz2.open(path, 'rt', encoding='utf-8', errors='strict').read()
+          match = re.search(
+              r'CREATE ENUMERATION part_of_speech_t\s*=\s*\{(?P<body>.*?)\}\s*GO',
+              text,
+              flags=re.DOTALL,
+          )
+          if match is None:
+              raise SystemExit('part_of_speech_t enumeration missing from exact ExtraBiblical MQL source')
+          body = match.group('body')
+          for name, code in (('subs', 2), ('nmpr', 3)):
+              if re.search(rf'(?m)^\s*{name}\s*=\s*{code}\s*,?\s*$', body) is None:
+                  raise SystemExit(f'{name}={code} missing from exact ExtraBiblical part_of_speech_t enumeration')
+          if re.search(r'(?m)^\s*sp\s*:\s*part_of_speech_t\s*;\s*$', text) is None:
+              raise SystemExit('word sp feature is not typed as part_of_speech_t in exact ExtraBiblical MQL source')
+          print('verified ExtraBiblical source: sp:part_of_speech_t, subs=2, nmpr=3')
+          PY
+      - name: Measure exact parent and ontology identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research/i009_measure_parent_identities.py \
+            --bhsa upstream/bhsa/tf/2021 \
+            --syriac upstream/syriac/tf/0.9 \
+            --extrabiblical upstream/extrabiblical/tf/0.2 \
+            --olia upstream/olia/owl/core/olia.owl \
+            | tee i009-identities.json
+      - name: Verify recorded release identities
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          measured = json.loads(Path('i009-identities.json').read_text(encoding='utf-8'))
+          expected = {
+              'bhsa': (
+                  'sha256:5178414e293a743fc98768abcab5b9cb268e14ad56fd2cfbac544ae2869d2e6f',
+                  'sha256:cc2c65cd79b2cb7faf1a34b94feb3cc2d3291e7064cbec942c53b0e05f1b0837',
+              ),
+              'syriac': (
+                  'sha256:54a2596d5525f3afb34db0a89d5511e6b8471ce4a93fae4825b22f0945ab62ef',
+                  'sha256:afb5a826b9ebe10cdd4ca23d96e00ee7bf677d06496cfcfcee6bb37d2ecff6c4',
+              ),
+              'extrabiblical': (
+                  'sha256:d0ca9bdf90bfdefe19861c2c68e91071650ed511b8a79270490238b30274aee0',
+                  'sha256:d39fe3f4848cadb14ae5ef453a5150ea6281b2874728566198d7de10d72bec4a',
+              ),
+          }
+          rows = {row['corpus_id']: row for row in measured['corpora']}
+          if set(rows) != set(expected):
+              raise SystemExit(f'unexpected measured corpora: {sorted(rows)}')
+          for corpus_id, (content_digest, parent_digest) in expected.items():
+              row = rows[corpus_id]
+              if row['content_digest'] != content_digest:
+                  raise SystemExit(f'{corpus_id} content digest changed: {row["content_digest"]}')
+              if row['parent_manifest_digest'] != parent_digest:
+                  raise SystemExit(f'{corpus_id} parent digest changed: {row["parent_manifest_digest"]}')
+
+          ontology = measured['ontology']
+          if ontology['content_digest'] != 'sha256:5983683f27ba524027ffa12a02aead4a115baf9c8933079eabbb4aa71be4e9fd':
+              raise SystemExit(f'OLiA content digest changed: {ontology["content_digest"]}')
+          if ontology['term'] != 'http://purl.org/olia/olia.owl#Noun':
+              raise SystemExit(f'unexpected OLiA term: {ontology["term"]}')
+          if ontology['license_uri'] != 'https://creativecommons.org/licenses/by/3.0/':
+              raise SystemExit(f'unexpected OLiA license URI: {ontology["license_uri"]}')
+          required = {
+              'http://purl.org/olia/olia.owl#CommonNoun',
+              'http://purl.org/olia/olia.owl#ProperNoun',
+          }
+          actual = set(ontology['noun_direct_subclasses'])
+          if not required.issubset(actual):
+              raise SystemExit(f'missing required OLiA Noun subclasses: {sorted(required - actual)}')
+          print('recorded I-009 release identities verified')
+          PY
+      - name: Verify deterministic repeat
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/research/i009_measure_parent_identities.py \
+            --bhsa upstream/bhsa/tf/2021 \
+            --syriac upstream/syriac/tf/0.9 \
+            --extrabiblical upstream/extrabiblical/tf/0.2 \
+            --olia upstream/olia/owl/core/olia.owl \
+            > i009-identities-repeat.json
+          diff -u i009-identities.json i009-identities-repeat.json
