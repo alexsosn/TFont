@@ -91,6 +91,15 @@ class I007LoadedTFAdapterRedTests(unittest.TestCase):
         self.assertEqual(adapter.values("bhsa-tf", "word", "lemma"), ("unknown", ()))
         self.assertEqual(api.load_calls, 0)
 
+    def test_loaded_feature_does_not_count_for_unrelated_node_type(self):
+        api = FakeLoadedApi()
+        api.F.otype = OtypeFeature({"word": (1,), "phrase": (2,)})
+        api.F.sp = NodeFeature({2: "phrase-only"})
+        adapter, _ = self.make_adapter(api)
+        self.assertEqual(adapter.feature("bhsa-tf", "phrase", "sp"), "present")
+        self.assertEqual(adapter.feature("bhsa-tf", "word", "sp"), "unknown")
+        self.assertEqual(api.load_calls, 0)
+
     def test_values_enumerate_nonmissing_values_for_declared_node_type(self):
         adapter, _ = self.make_adapter()
         state, values = adapter.values("bhsa-tf", "word", "sp")
