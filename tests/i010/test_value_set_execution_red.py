@@ -143,7 +143,10 @@ def test_missing_selected_native_value_fails_runtime_authorization():
             _request(),
             (_context(ir, _API(missing_nmpr=True)),),
         )
-    assert raised.value.problem.category == "dependency_unavailable"
+    # I-007 treats any failed declared dependency as an incompatible loaded
+    # parent before I-006 can authorize a plan. Preserve that fail-closed
+    # precedence rather than weakening runtime state for this new predicate.
+    assert raised.value.problem.category == "parent_incompatible"
 
 
 def test_duplicate_inside_one_selector_still_fails_before_union():
