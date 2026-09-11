@@ -244,6 +244,38 @@ def validate_native_semantics(
                     fail=fail,
                 )
 
+        # Preserve the pre-I-010 semantic claim for legacy bindings that carry
+        # empty/null values without an explicit executable shape.
+        if (
+            binding.get("execution_shape") != "value-predicate"
+            and "value" in binding
+            and binding.get("value") in {"", None}
+        ):
+            required = (
+                binding.get("node_type"),
+                binding.get("feature"),
+                binding.get("value"),
+            )
+            proven = False
+            for dependency in resolved:
+                assertion = dependency.get("assertion")
+                if dependency.get("kind") == "native-value-present" and type(assertion) is dict:
+                    actual = (
+                        assertion.get("node_type"),
+                        assertion.get("feature"),
+                        assertion.get("value"),
+                    )
+                    if actual == required and assertion.get("value_semantics") == "semantic":
+                        proven = True
+                        break
+            if not proven:
+                fail(
+                    "native_semantics_unproven",
+                    "empty/null native value requires matching semantic native-value-present dependency",
+                    ("mappings", mapping_id, "native_binding", "value"),
+                    mapping_id,
+                )
+
         if "closed_values" in binding:
             values = binding.get("closed_values")
             if type(values) is not list or not values:
