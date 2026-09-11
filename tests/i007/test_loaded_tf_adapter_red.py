@@ -100,6 +100,11 @@ class I007LoadedTFAdapterRedTests(unittest.TestCase):
         self.assertEqual(adapter.feature("bhsa-tf", "word", "sp"), "unknown")
         self.assertEqual(api.load_calls, 0)
 
+    def test_missing_component_is_known_absent_for_value_and_extent_observation(self):
+        adapter, _ = self.make_adapter()
+        self.assertEqual(adapter.values("missing", "word", "sp"), ("absent", ()))
+        self.assertEqual(adapter.extent("missing", "word"), ("absent", None))
+
     def test_values_enumerate_nonmissing_values_for_declared_node_type(self):
         adapter, _ = self.make_adapter()
         state, values = adapter.values("bhsa-tf", "word", "sp")
