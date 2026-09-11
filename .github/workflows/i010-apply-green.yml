@@ -5,6 +5,7 @@ on:
     branches:
       - impl/i010-value-set-predicate
     paths:
+      - 'tests/i010/**'
       - 'scripts/dev/i010_apply.py'
       - '.github/workflows/i010-apply-green.yml'
 
