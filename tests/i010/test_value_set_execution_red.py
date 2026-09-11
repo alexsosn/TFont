@@ -158,6 +158,7 @@ def test_scalar_projection_cannot_execute_value_outside_authorized_dependencies(
     sources = noun_sources("bhsa", parent_char="a")
     projection = sources["mappings"]["mappings"][0]["projections"][0]
     projection["native_execution_binding"]["value"] = "verb"
+    projection["native_execution_binding"]["execution_shape"] = "value-predicate"
     _refresh_mapping(sources["mappings"]["mappings"][0])
     validate_structural_sources(sources)
     with pytest.raises(SemanticValidationError) as raised:
