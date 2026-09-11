@@ -448,6 +448,22 @@ def _native_binding_projection(binding: NativeBindingIR) -> dict[str, Any]:
             result[field] = value
     if binding.value_present:
         result["value"] = binding.value
+    if binding.values is not None:
+        if type(binding.values) is not tuple or not binding.values:
+            _fail("invalid_compiled_ir", "native binding values must be a non-empty exact tuple")
+        encoded_values: list[bytes] = []
+        for value in binding.values:
+            if not (value is None or type(value) in {str, int, float, bool}):
+                _fail("invalid_compiled_ir", "native binding values must contain JSON scalars")
+            try:
+                encoded_values.append(canonical_json_bytes(value))
+            except Exception:
+                _fail("invalid_compiled_ir", "native binding values contain a non-canonical JSON scalar")
+        if len(set(encoded_values)) != len(encoded_values):
+            _fail("invalid_compiled_ir", "native binding values contain canonical duplicates")
+        if tuple(encoded_values) != tuple(sorted(encoded_values)):
+            _fail("invalid_compiled_ir", "native binding values are not canonically ordered")
+        result["values"] = list(binding.values)
     if binding.closed_values is not None:
         if type(binding.closed_values) is not tuple:
             _fail("invalid_compiled_ir", "native binding closed_values must be an exact tuple")
@@ -468,6 +484,27 @@ def _native_binding_projection(binding: NativeBindingIR) -> dict[str, Any]:
                 _fail("invalid_compiled_ir", "native binding edge step fields must be non-empty strings")
             steps.append({"edge": step.edge, "direction": step.direction})
         result["steps"] = steps
+    if binding.execution_shape == "value-set-predicate":
+        valid = (
+            type(binding.component_id) is str
+            and bool(binding.component_id)
+            and type(binding.node_type) is str
+            and bool(binding.node_type)
+            and type(binding.feature) is str
+            and bool(binding.feature)
+            and binding.value_present is False
+            and binding.value is None
+            and binding.values is not None
+            and binding.closed_values is None
+            and binding.edge is None
+            and binding.direction is None
+            and binding.steps is None
+            and binding.interpretation is None
+        )
+        if not valid:
+            _fail("invalid_compiled_ir", "value-set-predicate binding has an invalid mixed shape")
+    if binding.execution_shape == "value-predicate" and binding.values is not None:
+        _fail("invalid_compiled_ir", "value-predicate binding cannot carry selected values")
     return result
 
 

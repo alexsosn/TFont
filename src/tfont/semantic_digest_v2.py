@@ -36,6 +36,7 @@ _SET_LIKE_LIST_FIELDS = {
     "ambiguous_candidates",
     "external_references",
     "losses",
+    "values",
 }
 
 

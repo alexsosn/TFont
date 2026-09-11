@@ -5,6 +5,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from .digests import canonical_json_bytes
 from .runtime_prerequisites import (
     LoadedTFObservation,
     RuntimeEvaluationReport,
@@ -240,6 +241,7 @@ def _validate_value_predicate(plan: ExactNativePlan) -> NativeBindingIR:
         and type(binding.value) is str
         and bool(binding.value)
         and binding.execution_shape == "value-predicate"
+        and binding.values is None
         and binding.closed_values is None
         and binding.edge is None
         and binding.direction is None
@@ -250,6 +252,50 @@ def _validate_value_predicate(plan: ExactNativePlan) -> NativeBindingIR:
         _fail(
             "unsupported_native_binding",
             "v0.1 execution supports only an explicit string value-predicate binding",
+            corpus_id=plan.corpus_id,
+            component_id=getattr(binding, "component_id", None),
+        )
+    return binding
+
+
+def _validate_value_set_predicate(plan: ExactNativePlan) -> NativeBindingIR:
+    binding = plan.native_execution_binding
+    values_valid = type(binding) is NativeBindingIR and type(binding.values) is tuple and bool(binding.values)
+    encoded_values: list[bytes] = []
+    if values_valid:
+        for value in binding.values or ():
+            if not (value is None or type(value) in {str, int, float, bool}):
+                values_valid = False
+                break
+            try:
+                encoded_values.append(canonical_json_bytes(value))
+            except Exception:
+                values_valid = False
+                break
+        if values_valid:
+            values_valid = (
+                len(set(encoded_values)) == len(encoded_values)
+                and tuple(encoded_values) == tuple(sorted(encoded_values))
+            )
+    valid = (
+        type(binding) is NativeBindingIR
+        and _nonempty_string(binding.component_id)
+        and _nonempty_string(binding.node_type)
+        and _nonempty_string(binding.feature)
+        and binding.value_present is False
+        and binding.value is None
+        and values_valid
+        and binding.execution_shape == "value-set-predicate"
+        and binding.closed_values is None
+        and binding.edge is None
+        and binding.direction is None
+        and binding.steps is None
+        and binding.interpretation is None
+    )
+    if not valid:
+        _fail(
+            "unsupported_native_binding",
+            "v0.1 value-set execution requires one feature and a canonical finite JSON-scalar value set",
             corpus_id=plan.corpus_id,
             component_id=getattr(binding, "component_id", None),
         )
@@ -425,6 +471,61 @@ def _execute_value_predicate(
     return tuple(result)
 
 
+def _execute_value_set_predicate(
+    plan: ExactNativePlan,
+    component: LoadedComponentContext,
+) -> tuple[int, ...]:
+    binding = _validate_value_set_predicate(plan)
+    feature_selector, otype_lookup = _loaded_feature_api(
+        component.api,
+        binding,
+        corpus_id=plan.corpus_id,
+    )
+    selected_nodes: set[int] = set()
+    for selected_value in binding.values or ():
+        try:
+            raw_nodes = feature_selector(selected_value)
+        except Exception as error:
+            raise ExactExecutionError(
+                ExactExecutionProblem(
+                    "loaded_api_unavailable",
+                    "loaded feature selector failed",
+                    corpus_id=plan.corpus_id,
+                    component_id=binding.component_id,
+                )
+            ) from error
+        nodes = _normalize_result_nodes(
+            raw_nodes,
+            corpus_id=plan.corpus_id,
+            component_id=binding.component_id or "",
+        )
+        selected_nodes.update(nodes)
+
+    result: list[int] = []
+    for node in sorted(selected_nodes):
+        try:
+            node_type = otype_lookup(node)
+        except Exception as error:
+            raise ExactExecutionError(
+                ExactExecutionProblem(
+                    "loaded_api_unavailable",
+                    "loaded node-type lookup failed",
+                    corpus_id=plan.corpus_id,
+                    component_id=binding.component_id,
+                )
+            ) from error
+        if type(node_type) is not str or not node_type:
+            _fail(
+                "loaded_api_unavailable",
+                "loaded node-type lookup returned a malformed value",
+                corpus_id=plan.corpus_id,
+                component_id=binding.component_id,
+            )
+        if node_type == binding.node_type:
+            result.append(node)
+    return tuple(result)
+
+
 def execute_exact_semantic(
     ir: CompiledSemanticIR,
     request: SemanticResolveRequest,
@@ -463,7 +564,24 @@ def execute_exact_semantic(
                 "fresh resolver plan has no authorized runtime context",
                 corpus_id=plan.corpus_id,
             )
-        binding = _validate_value_predicate(plan)
+        binding = plan.native_execution_binding
+        if type(binding) is not NativeBindingIR:
+            _fail(
+                "unsupported_native_binding",
+                "fresh resolver plan has an invalid native binding",
+                corpus_id=plan.corpus_id,
+            )
+        if binding.execution_shape == "value-predicate":
+            binding = _validate_value_predicate(plan)
+        elif binding.execution_shape == "value-set-predicate":
+            binding = _validate_value_set_predicate(plan)
+        else:
+            _fail(
+                "unsupported_native_binding",
+                "v0.1 execution supports only scalar or finite-set feature predicates",
+                corpus_id=plan.corpus_id,
+                component_id=binding.component_id,
+            )
         components = _components(normalized_contexts[plan.corpus_id])
         component = components.get(binding.component_id or "")
         if component is None:
@@ -473,7 +591,10 @@ def execute_exact_semantic(
                 corpus_id=plan.corpus_id,
                 component_id=binding.component_id,
             )
-        nodes = _execute_value_predicate(plan, component)
+        if binding.execution_shape == "value-predicate":
+            nodes = _execute_value_predicate(plan, component)
+        else:
+            nodes = _execute_value_set_predicate(plan, component)
         executions.append(
             ExactCorpusExecution(
                 corpus_id=plan.corpus_id,
