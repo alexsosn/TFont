@@ -17,18 +17,36 @@ from .semantic_resolver import (
 RUNTIME_EVALUATION_CONTRACT = "tfont-runtime-evaluation-v1"
 OBSERVATION_FINGERPRINT_ALGORITHM = "tfont-runtime-observation-jcs-sha256-v1"
 RUNTIME_REPORT_FINGERPRINT_ALGORITHM = "tfont-runtime-report-jcs-sha256-v1"
-NATIVE_VALUE_RULE = "tfont-runtime-native-value-present-v1"
+
+_KIND_RULES = {
+    "component-present": "tfont-runtime-component-present-v1",
+    "node-type-present": "tfont-runtime-node-type-present-v1",
+    "feature-present": "tfont-runtime-feature-present-v1",
+    "edge-present": "tfont-runtime-edge-present-v1",
+    "path-present": "tfont-runtime-path-present-v1",
+    "native-value-present": "tfont-runtime-native-value-present-v1",
+    "value-domain": "tfont-runtime-value-domain-v1",
+    "extent-interpretation": "tfont-runtime-extent-interpretation-v1",
+}
+_DIRECTIONS = {"outgoing", "incoming"}
+_EXTENT_INTERPRETATIONS = {"textualExtent", "occurrenceSet", "technicalAnchor", "noSlot"}
 
 
 class RuntimeObservation(Protocol):
     parent_manifest_digest: str
 
+    def component(self, component_id: str) -> tuple[str, str | None]: ...
+    def node_type(self, component_id: str, node_type: str) -> str: ...
+    def feature(self, component_id: str, node_type: str, feature: str) -> str: ...
+    def edge(self, component_id: str, edge: str, direction: str) -> str: ...
+    def path(self, component_id: str, steps: tuple[tuple[str, str], ...]) -> str: ...
     def values(
         self,
         component_id: str,
         node_type: str,
         feature: str,
     ) -> tuple[str, tuple[Any, ...]]: ...
+    def extent(self, component_id: str, node_type: str) -> tuple[str, str | None]: ...
 
 
 @dataclass(frozen=True)
@@ -78,11 +96,125 @@ def _scalar_key(value: Any) -> tuple[str, Any]:
         return ("integer", value)
     if type(value) is float:
         if not math.isfinite(value):
-            raise RuntimeEvaluationError("non-finite JSON number in observation")
+            raise RuntimeEvaluationError("non-finite JSON number")
         return ("number", value)
     if type(value) is str:
         return ("string", value)
-    raise RuntimeEvaluationError("observation contains a non-JSON scalar")
+    raise RuntimeEvaluationError("value is not a JSON scalar")
+
+
+def _tagged_scalars(values: tuple[Any, ...]) -> tuple[tuple[str, Any], ...]:
+    return tuple(_scalar_key(value) for value in values)
+
+
+def _scalar_projection(values: tuple[tuple[str, Any], ...]) -> list[dict[str, Any]]:
+    rows = [{"type": kind, "value": value} for kind, value in values]
+    rows.sort(key=canonical_json_bytes)
+    return rows
+
+
+def _expect_nonempty_string(value: Any, label: str) -> str:
+    if type(value) is not str or not value:
+        raise RuntimeEvaluationError(f"{label} must be a non-empty string")
+    return value
+
+
+def _expect_exact_keys(value: dict[str, Any], required: set[str], label: str) -> None:
+    if set(value) != required:
+        raise RuntimeEvaluationError(f"{label} has an invalid shape")
+
+
+def _validate_evidence(value: Any) -> None:
+    if type(value) is not list or not value:
+        raise RuntimeEvaluationError("closed-reviewed value-domain requires evidence")
+    seen: set[tuple[str, str]] = set()
+    for row in value:
+        if type(row) is not dict or set(row) != {"evidence_id", "content_digest"}:
+            raise RuntimeEvaluationError("dependency evidence has an invalid shape")
+        key = (
+            _expect_nonempty_string(row.get("evidence_id"), "evidence_id"),
+            _expect_nonempty_string(row.get("content_digest"), "content_digest"),
+        )
+        if key in seen:
+            raise RuntimeEvaluationError("dependency evidence contains duplicates")
+        seen.add(key)
+
+
+def _validate_assertion(record: dict[str, Any]) -> None:
+    kind = record["kind"]
+    assertion = record["assertion"]
+    if type(assertion) is not dict:
+        raise RuntimeEvaluationError("dependency assertion must be an object")
+
+    if kind == "component-present":
+        _expect_exact_keys(assertion, set(), kind)
+        return
+    if kind == "node-type-present":
+        _expect_exact_keys(assertion, {"node_type"}, kind)
+        _expect_nonempty_string(assertion["node_type"], "node_type")
+        return
+    if kind == "feature-present":
+        _expect_exact_keys(assertion, {"node_type", "feature"}, kind)
+        _expect_nonempty_string(assertion["node_type"], "node_type")
+        _expect_nonempty_string(assertion["feature"], "feature")
+        return
+    if kind == "edge-present":
+        _expect_exact_keys(assertion, {"edge", "direction"}, kind)
+        _expect_nonempty_string(assertion["edge"], "edge")
+        if assertion["direction"] not in _DIRECTIONS:
+            raise RuntimeEvaluationError("edge direction is invalid")
+        return
+    if kind == "path-present":
+        _expect_exact_keys(assertion, {"steps"}, kind)
+        steps = assertion["steps"]
+        if type(steps) is not list or not steps:
+            raise RuntimeEvaluationError("path steps must be a non-empty array")
+        for step in steps:
+            if type(step) is not dict:
+                raise RuntimeEvaluationError("path step must be an object")
+            _expect_exact_keys(step, {"edge", "direction"}, "path step")
+            _expect_nonempty_string(step["edge"], "path edge")
+            if step["direction"] not in _DIRECTIONS:
+                raise RuntimeEvaluationError("path direction is invalid")
+        return
+    if kind == "native-value-present":
+        _expect_exact_keys(
+            assertion,
+            {"node_type", "feature", "value", "value_semantics"},
+            kind,
+        )
+        _expect_nonempty_string(assertion["node_type"], "node_type")
+        _expect_nonempty_string(assertion["feature"], "feature")
+        if assertion["value_semantics"] != "semantic":
+            raise RuntimeEvaluationError("native value semantics must be semantic")
+        _scalar_key(assertion["value"])
+        return
+    if kind == "value-domain":
+        _expect_exact_keys(
+            assertion,
+            {"node_type", "feature", "values", "domain_semantics"},
+            kind,
+        )
+        _expect_nonempty_string(assertion["node_type"], "node_type")
+        _expect_nonempty_string(assertion["feature"], "feature")
+        values = assertion["values"]
+        if type(values) is not list or not values:
+            raise RuntimeEvaluationError("value-domain values must be a non-empty array")
+        tagged = [_scalar_key(value) for value in values]
+        if len({canonical_json_bytes({"type": kind_, "value": value}) for kind_, value in tagged}) != len(tagged):
+            raise RuntimeEvaluationError("value-domain values must be unique by JSON identity")
+        if assertion["domain_semantics"] not in {"observed", "closed-reviewed"}:
+            raise RuntimeEvaluationError("value-domain semantics are invalid")
+        if assertion["domain_semantics"] == "closed-reviewed":
+            _validate_evidence(record.get("evidence"))
+        return
+    if kind == "extent-interpretation":
+        _expect_exact_keys(assertion, {"node_type", "interpretation"}, kind)
+        _expect_nonempty_string(assertion["node_type"], "node_type")
+        if assertion["interpretation"] not in _EXTENT_INTERPRETATIONS:
+            raise RuntimeEvaluationError("extent interpretation is invalid")
+        return
+    raise RuntimeEvaluationError("dependency kind is not recognized")
 
 
 def _validate_variant(variant: BundleVariantIR) -> None:
@@ -97,6 +229,8 @@ def _validate_variant(variant: BundleVariantIR) -> None:
     ):
         raise RuntimeEvaluationError("variant release key does not match variant key")
     signature = variant.release_signature
+    if signature.dependency_contract_version != 1:
+        raise RuntimeEvaluationError("unsupported dependency contract version")
     if signature.ontology_bundle_digest != key.ontology_bundle_digest:
         raise RuntimeEvaluationError("variant ontology bundle identity is incoherent")
     if variant.mapping_digests != signature.mapping_digests:
@@ -113,86 +247,267 @@ def _dependency_records(variant: BundleVariantIR) -> tuple[tuple[str, dict[str, 
         if type(row) is not tuple or len(row) != 2:
             raise RuntimeEvaluationError("invalid dependency record envelope")
         dependency_id, encoded = row
-        if type(dependency_id) is not str or not dependency_id or dependency_id in seen:
-            raise RuntimeEvaluationError("dependency IDs must be unique non-empty strings")
-        if type(encoded) is not str or not encoded:
-            raise RuntimeEvaluationError("dependency record must be canonical JSON text")
+        _expect_nonempty_string(dependency_id, "dependency_id")
+        if dependency_id in seen:
+            raise RuntimeEvaluationError("dependency IDs must be unique")
+        _expect_nonempty_string(encoded, "dependency record")
         try:
             record = json.loads(encoded)
         except (TypeError, ValueError) as error:
             raise RuntimeEvaluationError("dependency record is invalid JSON") from error
-        if type(record) is not dict or record.get("dependency_id") != dependency_id:
+        if type(record) is not dict:
+            raise RuntimeEvaluationError("dependency record must decode to an object")
+        allowed_top = {"dependency_id", "component_id", "kind", "assertion", "evidence"}
+        required_top = {"dependency_id", "component_id", "kind", "assertion"}
+        if not required_top.issubset(record) or not set(record).issubset(allowed_top):
+            raise RuntimeEvaluationError("dependency record has an invalid envelope")
+        if record["dependency_id"] != dependency_id:
             raise RuntimeEvaluationError("dependency record identity mismatch")
-        if record.get("kind") != "native-value-present":
-            raise RuntimeEvaluationError("dependency kind is not implemented by this GREEN slice")
-        if type(record.get("component_id")) is not str or not record["component_id"]:
-            raise RuntimeEvaluationError("native-value dependency has invalid component_id")
-        assertion = record.get("assertion")
-        if type(assertion) is not dict:
-            raise RuntimeEvaluationError("native-value dependency has invalid assertion")
-        if type(assertion.get("node_type")) is not str or not assertion["node_type"]:
-            raise RuntimeEvaluationError("native-value dependency has invalid node_type")
-        if type(assertion.get("feature")) is not str or not assertion["feature"]:
-            raise RuntimeEvaluationError("native-value dependency has invalid feature")
-        if "value" not in assertion:
-            raise RuntimeEvaluationError("native-value dependency is missing value")
-        _scalar_key(assertion["value"])
+        _expect_nonempty_string(record["component_id"], "component_id")
+        kind = _expect_nonempty_string(record["kind"], "dependency kind")
+        if kind not in _KIND_RULES:
+            raise RuntimeEvaluationError("dependency kind is not recognized")
+        _validate_assertion(record)
         seen.add(dependency_id)
         rows.append((dependency_id, record))
     rows.sort(key=lambda item: _utf16(item[0]))
     return tuple(rows)
 
 
-def _evaluate_native_value(
-    dependency_id: str,
-    record: dict[str, Any],
-    observation: RuntimeObservation,
-) -> DependencyPrerequisiteResult:
-    assertion = record["assertion"]
-    try:
-        state, values = observation.values(
-            record["component_id"],
-            assertion["node_type"],
-            assertion["feature"],
-        )
-    except Exception:
-        state, values = "unknown", ()
-    if state == "unknown":
-        return DependencyPrerequisiteResult(
-            dependency_id=dependency_id,
-            result="unknown",
-            observed_evidence_digest=None,
-            evaluator_rule_version=NATIVE_VALUE_RULE,
-        )
-    if state != "complete" or type(values) is not tuple:
-        return DependencyPrerequisiteResult(
-            dependency_id=dependency_id,
-            result="unknown",
-            observed_evidence_digest=None,
-            evaluator_rule_version=NATIVE_VALUE_RULE,
-        )
-    tagged = tuple(_scalar_key(value) for value in values)
-    wanted = _scalar_key(assertion["value"])
-    result = "pass" if wanted in tagged else "fail"
-    canonical_values = sorted(
-        ({"type": kind, "value": value} for kind, value in tagged),
-        key=lambda item: canonical_json_bytes(item),
+def _unknown(dependency_id: str, kind: str) -> DependencyPrerequisiteResult:
+    return DependencyPrerequisiteResult(
+        dependency_id=dependency_id,
+        result="unknown",
+        observed_evidence_digest=None,
+        evaluator_rule_version=_KIND_RULES[kind],
     )
-    evidence = {
-        "algorithm": OBSERVATION_FINGERPRINT_ALGORITHM,
-        "kind": "native-value-present",
+
+
+def _known(
+    dependency_id: str,
+    kind: str,
+    result: str,
+    evidence: dict[str, Any],
+) -> DependencyPrerequisiteResult:
+    return DependencyPrerequisiteResult(
+        dependency_id=dependency_id,
+        result=result,
+        observed_evidence_digest=_hash(
+            {"algorithm": OBSERVATION_FINGERPRINT_ALGORITHM, **evidence}
+        ),
+        evaluator_rule_version=_KIND_RULES[kind],
+    )
+
+
+def _status_fact(
+    dependency_id: str,
+    kind: str,
+    state: Any,
+    evidence: dict[str, Any],
+) -> DependencyPrerequisiteResult:
+    if state == "present":
+        return _known(dependency_id, kind, "pass", {**evidence, "state": "present"})
+    if state == "absent":
+        return _known(dependency_id, kind, "fail", {**evidence, "state": "absent"})
+    return _unknown(dependency_id, kind)
+
+
+def _call_status(method: Any, *args: Any) -> Any:
+    try:
+        return method(*args)
+    except Exception:
+        return "unknown"
+
+
+def _observed_values(
+    observation: RuntimeObservation,
+    component_id: str,
+    node_type: str,
+    feature: str,
+) -> tuple[str, tuple[Any, ...]]:
+    try:
+        result = observation.values(component_id, node_type, feature)
+    except Exception:
+        return "unknown", ()
+    if type(result) is not tuple or len(result) != 2:
+        return "unknown", ()
+    state, values = result
+    if state != "complete" or type(values) is not tuple:
+        return "unknown", ()
+    try:
+        _tagged_scalars(values)
+    except RuntimeEvaluationError:
+        return "unknown", ()
+    return "complete", values
+
+
+def _values_evidence(record: dict[str, Any], tagged: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+    assertion = record["assertion"]
+    return {
+        "kind": record["kind"],
         "component_id": record["component_id"],
         "node_type": assertion["node_type"],
         "feature": assertion["feature"],
         "complete": True,
-        "values": canonical_values,
+        "values": _scalar_projection(tagged),
     }
-    return DependencyPrerequisiteResult(
-        dependency_id=dependency_id,
-        result=result,
-        observed_evidence_digest=_hash(evidence),
-        evaluator_rule_version=NATIVE_VALUE_RULE,
-    )
+
+
+def _evaluate_dependency(
+    dependency_id: str,
+    record: dict[str, Any],
+    observation: RuntimeObservation,
+) -> DependencyPrerequisiteResult:
+    kind = record["kind"]
+    component_id = record["component_id"]
+    assertion = record["assertion"]
+
+    if kind == "component-present":
+        try:
+            observed = observation.component(component_id)
+        except Exception:
+            return _unknown(dependency_id, kind)
+        if type(observed) is not tuple or len(observed) != 2:
+            return _unknown(dependency_id, kind)
+        state, content_digest = observed
+        if state not in {"present", "absent"}:
+            return _unknown(dependency_id, kind)
+        return _known(
+            dependency_id,
+            kind,
+            "pass" if state == "present" else "fail",
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "state": state,
+                "content_digest": content_digest,
+            },
+        )
+
+    if kind == "node-type-present":
+        state = _call_status(observation.node_type, component_id, assertion["node_type"])
+        return _status_fact(
+            dependency_id,
+            kind,
+            state,
+            {"kind": kind, "component_id": component_id, "node_type": assertion["node_type"]},
+        )
+
+    if kind == "feature-present":
+        state = _call_status(
+            observation.feature,
+            component_id,
+            assertion["node_type"],
+            assertion["feature"],
+        )
+        return _status_fact(
+            dependency_id,
+            kind,
+            state,
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "node_type": assertion["node_type"],
+                "feature": assertion["feature"],
+            },
+        )
+
+    if kind == "edge-present":
+        state = _call_status(
+            observation.edge,
+            component_id,
+            assertion["edge"],
+            assertion["direction"],
+        )
+        return _status_fact(
+            dependency_id,
+            kind,
+            state,
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "edge": assertion["edge"],
+                "direction": assertion["direction"],
+            },
+        )
+
+    if kind == "path-present":
+        steps = tuple((step["edge"], step["direction"]) for step in assertion["steps"])
+        state = _call_status(observation.path, component_id, steps)
+        return _status_fact(
+            dependency_id,
+            kind,
+            state,
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "steps": [{"edge": edge, "direction": direction} for edge, direction in steps],
+            },
+        )
+
+    if kind in {"native-value-present", "value-domain"}:
+        state, values = _observed_values(
+            observation,
+            component_id,
+            assertion["node_type"],
+            assertion["feature"],
+        )
+        if state != "complete":
+            return _unknown(dependency_id, kind)
+        observed = _tagged_scalars(values)
+        evidence = _values_evidence(record, observed)
+        observed_keys = {
+            canonical_json_bytes({"type": scalar_type, "value": scalar})
+            for scalar_type, scalar in observed
+        }
+        if kind == "native-value-present":
+            scalar_type, scalar = _scalar_key(assertion["value"])
+            wanted = canonical_json_bytes({"type": scalar_type, "value": scalar})
+            return _known(
+                dependency_id,
+                kind,
+                "pass" if wanted in observed_keys else "fail",
+                evidence,
+            )
+        allowed = tuple(_scalar_key(value) for value in assertion["values"])
+        allowed_keys = {
+            canonical_json_bytes({"type": scalar_type, "value": scalar})
+            for scalar_type, scalar in allowed
+        }
+        if assertion["domain_semantics"] == "observed":
+            passed = allowed_keys.issubset(observed_keys)
+        else:
+            passed = observed_keys.issubset(allowed_keys)
+        return _known(
+            dependency_id,
+            kind,
+            "pass" if passed else "fail",
+            {**evidence, "domain_semantics": assertion["domain_semantics"]},
+        )
+
+    if kind == "extent-interpretation":
+        try:
+            observed = observation.extent(component_id, assertion["node_type"])
+        except Exception:
+            return _unknown(dependency_id, kind)
+        if type(observed) is not tuple or len(observed) != 2:
+            return _unknown(dependency_id, kind)
+        state, interpretation = observed
+        if state != "known" or interpretation not in _EXTENT_INTERPRETATIONS:
+            return _unknown(dependency_id, kind)
+        return _known(
+            dependency_id,
+            kind,
+            "pass" if interpretation == assertion["interpretation"] else "fail",
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "node_type": assertion["node_type"],
+                "interpretation": interpretation,
+            },
+        )
+
+    raise RuntimeEvaluationError("unreachable dependency kind")
 
 
 def _bundle_state(
@@ -257,7 +572,7 @@ def evaluate_runtime_prerequisites(
         raise RuntimeEvaluationError("observation parent manifest digest must be non-empty")
 
     results = tuple(
-        _evaluate_native_value(dependency_id, record, observation)
+        _evaluate_dependency(dependency_id, record, observation)
         for dependency_id, record in _dependency_records(variant)
     )
     if any(row.result == "fail" for row in results):
@@ -269,10 +584,7 @@ def evaluate_runtime_prerequisites(
     else:
         compatibility_state = "verified-compatible"
 
-    active_digest, bundle_state = _bundle_state(
-        variant,
-        active_ontology_bundle_digest,
-    )
+    active_digest, bundle_state = _bundle_state(variant, active_ontology_bundle_digest)
     values = dict(
         contract=RUNTIME_EVALUATION_CONTRACT,
         variant=variant.key,
