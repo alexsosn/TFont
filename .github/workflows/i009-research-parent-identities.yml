@@ -58,6 +58,7 @@ jobs:
           grep -F '`subs` |noun' upstream/bhsa/docs/features/sp.md
           grep -F '`nmpr` |proper noun' upstream/bhsa/docs/features/sp.md
           grep -F '**sp**: part of speech' upstream/syriac/README.md
+          grep -F 'Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)' upstream/syriac/README.md
           grep -Fx 'subs' upstream/syriac/tf/0.9/sp.tf >/dev/null
           grep -F 'sp: "part of speech" =' upstream/linksyr/data/lib/syriac/word_grammar
           grep -F 'subs: "substantive"' upstream/linksyr/data/lib/syriac/word_grammar
@@ -68,6 +69,7 @@ jobs:
           grep -Fx 'nmpr' upstream/extrabiblical/tf/0.2/sp.tf >/dev/null
           grep -F 'Core data and feature documentation' upstream/extrabiblical/README.md
           grep -F 'Conversion of some extra-biblical writings from ETCBC-encoded texts' upstream/extrabiblical/README.md
+          grep -F 'Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)' upstream/extrabiblical/README.md
           grep -F 'Creative Commons Attribution licence CC-BY 3.0' upstream/olia/docs/index.md
           grep -F 'OLiA Reference Model for morphosyntax, morphology and syntax' upstream/olia/docs/index.md
       - name: Verify ExtraBiblical source POS contract
@@ -140,6 +142,8 @@ jobs:
               raise SystemExit(f'OLiA content digest changed: {ontology["content_digest"]}')
           if ontology['term'] != 'http://purl.org/olia/olia.owl#Noun':
               raise SystemExit(f'unexpected OLiA term: {ontology["term"]}')
+          if ontology['license_uri'] != 'https://creativecommons.org/licenses/by/3.0/':
+              raise SystemExit(f'unexpected OLiA license URI: {ontology["license_uri"]}')
           required = {
               'http://purl.org/olia/olia.owl#CommonNoun',
               'http://purl.org/olia/olia.owl#ProperNoun',
