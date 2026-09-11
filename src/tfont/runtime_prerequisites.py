@@ -257,6 +257,8 @@ def _dependency_records(variant: BundleVariantIR) -> tuple[tuple[str, dict[str, 
             raise RuntimeEvaluationError("dependency record is invalid JSON") from error
         if type(record) is not dict:
             raise RuntimeEvaluationError("dependency record must decode to an object")
+        if canonical_json_bytes(record).decode("utf-8") != encoded:
+            raise RuntimeEvaluationError("dependency record must use canonical JSON encoding")
         allowed_top = {"dependency_id", "component_id", "kind", "assertion", "evidence"}
         required_top = {"dependency_id", "component_id", "kind", "assertion"}
         if not required_top.issubset(record) or not set(record).issubset(allowed_top):
