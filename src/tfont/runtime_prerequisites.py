@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .digests import canonical_json_bytes
+from .runtime_tf_observation import LoadedTFObservation
 from .semantic_ir import BundleVariantIR, BundleVariantKey
 from .semantic_resolver import (
     DependencyPrerequisiteResult,
