@@ -48,6 +48,7 @@ class NativeBindingIR:
     steps: tuple[EdgeStepIR, ...] | None
     interpretation: str | None
     execution_shape: str | None
+    values: tuple[str | int | float | bool | None, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -483,7 +484,11 @@ def _reference_sort(value: ExternalReferenceIR) -> tuple[Any, ...]:
 def native_binding_identity(binding: dict[str, Any]) -> str:
     if type(binding) is not dict:
         raise TypeError("native binding must be an exact dict")
-    payload = canonical_json_bytes(binding)
+    normalized = dict(binding)
+    selected_values = normalized.get("values")
+    if type(selected_values) is list:
+        normalized["values"] = sorted(selected_values, key=canonical_json_bytes)
+    payload = canonical_json_bytes(normalized)
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
@@ -494,6 +499,12 @@ def _native_binding(binding: dict[str, Any]) -> NativeBindingIR:
         steps = tuple(EdgeStepIR(step["edge"], step["direction"]) for step in steps_value)
     closed_value = binding.get("closed_values")
     closed_values = tuple(closed_value) if type(closed_value) is list else None
+    selected_value = binding.get("values")
+    selected_values = (
+        tuple(sorted(selected_value, key=canonical_json_bytes))
+        if type(selected_value) is list
+        else None
+    )
     return NativeBindingIR(
         component_id=binding.get("component_id"),
         node_type=binding.get("node_type"),
@@ -506,6 +517,7 @@ def _native_binding(binding: dict[str, Any]) -> NativeBindingIR:
         steps=steps,
         interpretation=binding.get("interpretation"),
         execution_shape=binding.get("execution_shape"),
+        values=selected_values,
     )
 
 

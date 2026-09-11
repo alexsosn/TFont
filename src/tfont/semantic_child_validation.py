@@ -23,6 +23,82 @@ def _sorted_records(value: Any, id_field: str) -> list[dict[str, Any]]:
     )
 
 
+def _scalar_identity(value: Any) -> tuple[str, Any] | None:
+    if value is None:
+        return ("null", None)
+    if type(value) is bool:
+        return ("boolean", value)
+    if type(value) is int:
+        return ("integer", value)
+    if type(value) is float:
+        return ("number", value)
+    if type(value) is str:
+        return ("string", value)
+    return None
+
+
+def _validate_value_set_dependency_coverage(
+    binding: dict[str, Any],
+    *,
+    resolved_dependencies: list[dict[str, Any]],
+    path: tuple[str | int, ...],
+    related_id: str,
+    fail: Fail,
+) -> None:
+    if binding.get("execution_shape") != "value-set-predicate":
+        return
+    selected = binding.get("values")
+    if type(selected) is not list or not selected:
+        fail(
+            "native_semantics_unproven",
+            "value-set-predicate requires a non-empty selected value set",
+            path + ("values",),
+            related_id,
+        )
+        return
+
+    authorized: set[tuple[str, str, str, tuple[str, Any]]] = set()
+    for dependency in resolved_dependencies:
+        assertion = dependency.get("assertion")
+        if (
+            dependency.get("kind") != "native-value-present"
+            or type(assertion) is not dict
+            or assertion.get("value_semantics") != "semantic"
+        ):
+            continue
+        identity = _scalar_identity(assertion.get("value"))
+        component_id = dependency.get("component_id")
+        node_type = assertion.get("node_type")
+        feature = assertion.get("feature")
+        if (
+            identity is not None
+            and type(component_id) is str
+            and type(node_type) is str
+            and type(feature) is str
+        ):
+            authorized.add((component_id, node_type, feature, identity))
+
+    component_id = binding.get("component_id")
+    node_type = binding.get("node_type")
+    feature = binding.get("feature")
+    for value in selected:
+        identity = _scalar_identity(value)
+        required = (component_id, node_type, feature, identity)
+        if (
+            identity is None
+            or type(component_id) is not str
+            or type(node_type) is not str
+            or type(feature) is not str
+            or required not in authorized
+        ):
+            fail(
+                "native_semantics_unproven",
+                "value-set-predicate requires a matching semantic native-value-present dependency for every selected value",
+                path + ("values",),
+                related_id,
+            )
+
+
 def check_evidence_bindings(
     bindings: Any,
     *,
@@ -133,6 +209,31 @@ def validate_native_semantics(
         ]
         dependency_ids.sort(key=_utf16_key)
         resolved = [dependencies[dependency_id] for dependency_id in dependency_ids if dependency_id in dependencies]
+
+        _validate_value_set_dependency_coverage(
+            binding,
+            resolved_dependencies=resolved,
+            path=("mappings", mapping_id, "native_binding"),
+            related_id=mapping_id,
+            fail=fail,
+        )
+        for projection in _sorted_records(mapping.get("projections", []), "projection_id"):
+            projection_id = projection.get("projection_id")
+            execution = projection.get("native_execution_binding")
+            if type(execution) is dict:
+                _validate_value_set_dependency_coverage(
+                    execution,
+                    resolved_dependencies=resolved,
+                    path=(
+                        "mappings",
+                        mapping_id,
+                        "projections",
+                        projection_id,
+                        "native_execution_binding",
+                    ),
+                    related_id=projection_id if type(projection_id) is str else mapping_id,
+                    fail=fail,
+                )
 
         if "value" in binding and binding.get("value") in {"", None}:
             required = (binding.get("node_type"), binding.get("feature"), binding.get("value"))

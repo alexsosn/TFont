@@ -28,6 +28,12 @@
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/jsonScalar"}
         },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/jsonScalar"}
+        },
         "edge": {"type": "string", "minLength": 1},
         "direction": {"enum": ["outgoing", "incoming"]},
         "steps": {
@@ -39,10 +45,39 @@
           "enum": ["textualExtent", "occurrenceSet", "technicalAnchor", "noSlot"]
         },
         "execution_shape": {
-          "enum": ["membership", "value-predicate", "edge-path", "identity-key", "inspection-only"]
+          "enum": ["membership", "value-predicate", "value-set-predicate", "edge-path", "identity-key", "inspection-only"]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"execution_shape": {"const": "value-predicate"}}, "required": ["execution_shape"]},
+          "then": {
+            "required": ["component_id", "node_type", "feature", "value"],
+            "not": {"anyOf": [
+              {"required": ["values"]}, {"required": ["closed_values"]}, {"required": ["edge"]},
+              {"required": ["direction"]}, {"required": ["steps"]}, {"required": ["interpretation"]}
+            ]}
+          }
+        },
+        {
+          "if": {"properties": {"execution_shape": {"const": "value-set-predicate"}}, "required": ["execution_shape"]},
+          "then": {
+            "required": ["component_id", "node_type", "feature", "values"],
+            "not": {"anyOf": [
+              {"required": ["value"]}, {"required": ["closed_values"]}, {"required": ["edge"]},
+              {"required": ["direction"]}, {"required": ["steps"]}, {"required": ["interpretation"]}
+            ]}
+          }
+        },
+        {
+          "if": {"required": ["values"]},
+          "then": {
+            "required": ["execution_shape"],
+            "properties": {"execution_shape": {"const": "value-set-predicate"}}
+          }
+        }
+      ]
     },
     "evidenceBinding": {
       "type": "object",
