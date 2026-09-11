@@ -8,10 +8,16 @@ from typing import Any, Protocol
 
 from .digests import canonical_json_bytes
 from .runtime_tf_observation import LoadedTFObservation
-from .semantic_ir import BundleVariantIR, BundleVariantKey
+from .semantic_ir import (
+    BundleVariantIR,
+    BundleVariantKey,
+    ProfileReleaseKey,
+    ProfileReleaseSignature,
+)
 from .semantic_resolver import (
     DependencyPrerequisiteResult,
     RuntimePrerequisiteState,
+    SemanticResolutionError,
     profile_release_fingerprint,
 )
 
@@ -30,24 +36,43 @@ _KIND_RULES = {
     "extent-interpretation": "tfont-runtime-extent-interpretation-v1",
 }
 _DIRECTIONS = {"outgoing", "incoming"}
-_EXTENT_INTERPRETATIONS = {"textualExtent", "occurrenceSet", "technicalAnchor", "noSlot"}
+_EXTENT_INTERPRETATIONS = {
+    "textualExtent",
+    "occurrenceSet",
+    "technicalAnchor",
+    "noSlot",
+}
 
 
 class RuntimeObservation(Protocol):
     parent_manifest_digest: str
 
     def component(self, component_id: str) -> tuple[str, str | None]: ...
+
     def node_type(self, component_id: str, node_type: str) -> str: ...
+
     def feature(self, component_id: str, node_type: str, feature: str) -> str: ...
+
     def edge(self, component_id: str, edge: str, direction: str) -> str: ...
-    def path(self, component_id: str, steps: tuple[tuple[str, str], ...]) -> str: ...
+
+    def path(
+        self,
+        component_id: str,
+        steps: tuple[tuple[str, str], ...],
+    ) -> str: ...
+
     def values(
         self,
         component_id: str,
         node_type: str,
         feature: str,
     ) -> tuple[str, tuple[Any, ...]]: ...
-    def extent(self, component_id: str, node_type: str) -> tuple[str, str | None]: ...
+
+    def extent(
+        self,
+        component_id: str,
+        node_type: str,
+    ) -> tuple[str, str | None]: ...
 
 
 @dataclass(frozen=True)
@@ -88,6 +113,12 @@ def _utf16(value: str) -> bytes:
     return value.encode("utf-16be")
 
 
+def _require_string(value: Any, label: str) -> str:
+    if type(value) is not str or not value:
+        raise RuntimeEvaluationError(f"{label} must be a non-empty string")
+    return value
+
+
 def _scalar_key(value: Any) -> tuple[str, Any]:
     if value is None:
         return ("null", None)
@@ -104,37 +135,103 @@ def _scalar_key(value: Any) -> tuple[str, Any]:
     raise RuntimeEvaluationError("value is not a JSON scalar")
 
 
-def _tagged_scalars(values: tuple[Any, ...]) -> tuple[tuple[str, Any], ...]:
-    return tuple(_scalar_key(value) for value in values)
-
-
 def _scalar_projection(values: tuple[tuple[str, Any], ...]) -> list[dict[str, Any]]:
     rows = [{"type": kind, "value": value} for kind, value in values]
     rows.sort(key=canonical_json_bytes)
     return rows
 
 
-def _expect_nonempty_string(value: Any, label: str) -> str:
-    if type(value) is not str or not value:
-        raise RuntimeEvaluationError(f"{label} must be a non-empty string")
+def _validate_variant_key(key: Any) -> BundleVariantKey:
+    if type(key) is not BundleVariantKey:
+        raise RuntimeEvaluationError("variant key has the wrong type")
+    for field in (
+        key.corpus_id,
+        key.authored_profile_id,
+        key.profile_version,
+        key.expected_parent_manifest_digest,
+    ):
+        _require_string(field, "variant key field")
+    if key.ontology_bundle_digest is not None:
+        _require_string(key.ontology_bundle_digest, "variant ontology bundle digest")
+    return key
+
+
+def _validate_release_key(value: Any) -> ProfileReleaseKey:
+    if type(value) is not ProfileReleaseKey:
+        raise RuntimeEvaluationError("variant release key has the wrong type")
+    _require_string(value.corpus_id, "release corpus_id")
+    _require_string(value.authored_profile_id, "release authored_profile_id")
+    _require_string(value.profile_version, "release profile_version")
     return value
 
 
-def _expect_exact_keys(value: dict[str, Any], required: set[str], label: str) -> None:
+def _validate_release_signature(value: Any) -> ProfileReleaseSignature:
+    if type(value) is not ProfileReleaseSignature:
+        raise RuntimeEvaluationError("variant release signature has the wrong type")
+    try:
+        profile_release_fingerprint(value)
+    except (SemanticResolutionError, TypeError, AttributeError, ValueError) as error:
+        raise RuntimeEvaluationError("variant release signature is malformed") from error
+    return value
+
+
+def _validate_variant(variant: BundleVariantIR) -> None:
+    if type(variant) is not BundleVariantIR:
+        raise TypeError("variant must be BundleVariantIR")
+    key = _validate_variant_key(variant.key)
+    release_key = _validate_release_key(variant.release_key)
+    signature = _validate_release_signature(variant.release_signature)
+
+    if (
+        release_key.corpus_id != key.corpus_id
+        or release_key.authored_profile_id != key.authored_profile_id
+        or release_key.profile_version != key.profile_version
+    ):
+        raise RuntimeEvaluationError("variant release key does not match variant key")
+    if signature.dependency_contract_version != 1:
+        raise RuntimeEvaluationError("unsupported dependency contract version")
+    if signature.ontology_bundle_digest != key.ontology_bundle_digest:
+        raise RuntimeEvaluationError("variant ontology bundle identity is incoherent")
+    if variant.mapping_digests != signature.mapping_digests:
+        raise RuntimeEvaluationError("variant mapping authority is incoherent")
+    if variant.ontology_locks != signature.ontology_locks:
+        raise RuntimeEvaluationError("variant ontology authority is incoherent")
+
+    repeated = (
+        (variant.profile_schema_version, signature.profile_schema_version),
+        (variant.profile_catalog_version, signature.profile_catalog_version),
+        (variant.dependency_contract_version, signature.dependency_contract_version),
+        (variant.mapping_schema_version, signature.mapping_schema_version),
+        (variant.mapping_semantic_algorithm, signature.mapping_semantic_algorithm),
+        (variant.projection_semantic_algorithm, signature.projection_semantic_algorithm),
+    )
+    if any(left != right for left, right in repeated):
+        raise RuntimeEvaluationError(
+            "variant repeated contract fields disagree with release signature"
+        )
+
+
+def _expect_exact_keys(
+    value: dict[str, Any],
+    required: set[str],
+    label: str,
+) -> None:
     if set(value) != required:
         raise RuntimeEvaluationError(f"{label} has an invalid shape")
 
 
 def _validate_evidence(value: Any) -> None:
     if type(value) is not list or not value:
-        raise RuntimeEvaluationError("closed-reviewed value-domain requires evidence")
+        raise RuntimeEvaluationError(
+            "closed-reviewed value-domain requires evidence"
+        )
     seen: set[tuple[str, str]] = set()
     for row in value:
         if type(row) is not dict or set(row) != {"evidence_id", "content_digest"}:
             raise RuntimeEvaluationError("dependency evidence has an invalid shape")
         key = (
-            _expect_nonempty_string(row.get("evidence_id"), "evidence_id"),
-            _expect_nonempty_string(row.get("content_digest"), "content_digest"),
+            _require_string(row.get("evidence_id"), "evidence_id"),
+            _require_string(row.get("content_digest"), "content_digest"),
         )
         if key in seen:
             raise RuntimeEvaluationError("dependency evidence contains duplicates")
@@ -152,16 +249,16 @@ def _validate_assertion(record: dict[str, Any]) -> None:
         return
     if kind == "node-type-present":
         _expect_exact_keys(assertion, {"node_type"}, kind)
-        _expect_nonempty_string(assertion["node_type"], "node_type")
+        _require_string(assertion["node_type"], "node_type")
         return
     if kind == "feature-present":
         _expect_exact_keys(assertion, {"node_type", "feature"}, kind)
-        _expect_nonempty_string(assertion["node_type"], "node_type")
-        _expect_nonempty_string(assertion["feature"], "feature")
+        _require_string(assertion["node_type"], "node_type")
+        _require_string(assertion["feature"], "feature")
         return
     if kind == "edge-present":
         _expect_exact_keys(assertion, {"edge", "direction"}, kind)
-        _expect_nonempty_string(assertion["edge"], "edge")
+        _require_string(assertion["edge"], "edge")
         if assertion["direction"] not in _DIRECTIONS:
             raise RuntimeEvaluationError("edge direction is invalid")
         return
@@ -174,7 +271,7 @@ def _validate_assertion(record: dict[str, Any]) -> None:
             if type(step) is not dict:
                 raise RuntimeEvaluationError("path step must be an object")
             _expect_exact_keys(step, {"edge", "direction"}, "path step")
-            _expect_nonempty_string(step["edge"], "path edge")
+            _require_string(step["edge"], "path edge")
             if step["direction"] not in _DIRECTIONS:
                 raise RuntimeEvaluationError("path direction is invalid")
         return
@@ -184,8 +281,8 @@ def _validate_assertion(record: dict[str, Any]) -> None:
             {"node_type", "feature", "value", "value_semantics"},
             kind,
         )
-        _expect_nonempty_string(assertion["node_type"], "node_type")
-        _expect_nonempty_string(assertion["feature"], "feature")
+        _require_string(assertion["node_type"], "node_type")
+        _require_string(assertion["feature"], "feature")
         if assertion["value_semantics"] != "semantic":
             raise RuntimeEvaluationError("native value semantics must be semantic")
         _scalar_key(assertion["value"])
@@ -196,14 +293,22 @@ def _validate_assertion(record: dict[str, Any]) -> None:
             {"node_type", "feature", "values", "domain_semantics"},
             kind,
         )
-        _expect_nonempty_string(assertion["node_type"], "node_type")
-        _expect_nonempty_string(assertion["feature"], "feature")
+        _require_string(assertion["node_type"], "node_type")
+        _require_string(assertion["feature"], "feature")
         values = assertion["values"]
         if type(values) is not list or not values:
-            raise RuntimeEvaluationError("value-domain values must be a non-empty array")
-        tagged = [_scalar_key(value) for value in values]
-        if len({canonical_json_bytes({"type": kind_, "value": value}) for kind_, value in tagged}) != len(tagged):
-            raise RuntimeEvaluationError("value-domain values must be unique by JSON identity")
+            raise RuntimeEvaluationError(
+                "value-domain values must be a non-empty array"
+            )
+        tagged = tuple(_scalar_key(value) for value in values)
+        identities = {
+            canonical_json_bytes({"type": scalar_type, "value": scalar})
+            for scalar_type, scalar in tagged
+        }
+        if len(identities) != len(tagged):
+            raise RuntimeEvaluationError(
+                "value-domain values must be unique by JSON identity"
+            )
         if assertion["domain_semantics"] not in {"observed", "closed-reviewed"}:
             raise RuntimeEvaluationError("value-domain semantics are invalid")
         if assertion["domain_semantics"] == "closed-reviewed":
@@ -211,63 +316,52 @@ def _validate_assertion(record: dict[str, Any]) -> None:
         return
     if kind == "extent-interpretation":
         _expect_exact_keys(assertion, {"node_type", "interpretation"}, kind)
-        _expect_nonempty_string(assertion["node_type"], "node_type")
+        _require_string(assertion["node_type"], "node_type")
         if assertion["interpretation"] not in _EXTENT_INTERPRETATIONS:
             raise RuntimeEvaluationError("extent interpretation is invalid")
         return
     raise RuntimeEvaluationError("dependency kind is not recognized")
 
 
-def _validate_variant(variant: BundleVariantIR) -> None:
-    if type(variant) is not BundleVariantIR:
-        raise TypeError("variant must be BundleVariantIR")
-    key = variant.key
-    release_key = variant.release_key
-    if (
-        release_key.corpus_id != key.corpus_id
-        or release_key.authored_profile_id != key.authored_profile_id
-        or release_key.profile_version != key.profile_version
-    ):
-        raise RuntimeEvaluationError("variant release key does not match variant key")
-    signature = variant.release_signature
-    if signature.dependency_contract_version != 1:
-        raise RuntimeEvaluationError("unsupported dependency contract version")
-    if signature.ontology_bundle_digest != key.ontology_bundle_digest:
-        raise RuntimeEvaluationError("variant ontology bundle identity is incoherent")
-    if variant.mapping_digests != signature.mapping_digests:
-        raise RuntimeEvaluationError("variant mapping authority is incoherent")
-    if variant.ontology_locks != signature.ontology_locks:
-        raise RuntimeEvaluationError("variant ontology authority is incoherent")
-    profile_release_fingerprint(signature)
-
-
-def _dependency_records(variant: BundleVariantIR) -> tuple[tuple[str, dict[str, Any]], ...]:
+def _dependency_records(
+    variant: BundleVariantIR,
+) -> tuple[tuple[str, dict[str, Any]], ...]:
     rows: list[tuple[str, dict[str, Any]]] = []
     seen: set[str] = set()
     for row in variant.release_signature.dependency_records:
         if type(row) is not tuple or len(row) != 2:
             raise RuntimeEvaluationError("invalid dependency record envelope")
         dependency_id, encoded = row
-        _expect_nonempty_string(dependency_id, "dependency_id")
+        _require_string(dependency_id, "dependency_id")
         if dependency_id in seen:
             raise RuntimeEvaluationError("dependency IDs must be unique")
-        _expect_nonempty_string(encoded, "dependency record")
+        _require_string(encoded, "dependency record")
         try:
             record = json.loads(encoded)
         except (TypeError, ValueError) as error:
             raise RuntimeEvaluationError("dependency record is invalid JSON") from error
         if type(record) is not dict:
-            raise RuntimeEvaluationError("dependency record must decode to an object")
+            raise RuntimeEvaluationError(
+                "dependency record must decode to an object"
+            )
         if canonical_json_bytes(record).decode("utf-8") != encoded:
-            raise RuntimeEvaluationError("dependency record must use canonical JSON encoding")
-        allowed_top = {"dependency_id", "component_id", "kind", "assertion", "evidence"}
+            raise RuntimeEvaluationError(
+                "dependency record must use canonical JSON encoding"
+            )
+        allowed_top = {
+            "dependency_id",
+            "component_id",
+            "kind",
+            "assertion",
+            "evidence",
+        }
         required_top = {"dependency_id", "component_id", "kind", "assertion"}
         if not required_top.issubset(record) or not set(record).issubset(allowed_top):
             raise RuntimeEvaluationError("dependency record has an invalid envelope")
         if record["dependency_id"] != dependency_id:
             raise RuntimeEvaluationError("dependency record identity mismatch")
-        _expect_nonempty_string(record["component_id"], "component_id")
-        kind = _expect_nonempty_string(record["kind"], "dependency kind")
+        _require_string(record["component_id"], "component_id")
+        kind = _require_string(record["kind"], "dependency kind")
         if kind not in _KIND_RULES:
             raise RuntimeEvaluationError("dependency kind is not recognized")
         _validate_assertion(record)
@@ -309,9 +403,19 @@ def _status_fact(
     evidence: dict[str, Any],
 ) -> DependencyPrerequisiteResult:
     if state == "present":
-        return _known(dependency_id, kind, "pass", {**evidence, "state": "present"})
+        return _known(
+            dependency_id,
+            kind,
+            "pass",
+            {**evidence, "state": "present"},
+        )
     if state == "absent":
-        return _known(dependency_id, kind, "fail", {**evidence, "state": "absent"})
+        return _known(
+            dependency_id,
+            kind,
+            "fail",
+            {**evidence, "state": "absent"},
+        )
     return _unknown(dependency_id, kind)
 
 
@@ -331,20 +435,25 @@ def _observed_values(
     try:
         result = observation.values(component_id, node_type, feature)
     except Exception:
-        return "unknown", ()
+        return ("unknown", ())
     if type(result) is not tuple or len(result) != 2:
-        return "unknown", ()
+        return ("unknown", ())
     state, values = result
+    if state == "absent":
+        return ("absent", ())
     if state != "complete" or type(values) is not tuple:
-        return "unknown", ()
+        return ("unknown", ())
     try:
-        _tagged_scalars(values)
+        tuple(_scalar_key(value) for value in values)
     except RuntimeEvaluationError:
-        return "unknown", ()
-    return "complete", values
+        return ("unknown", ())
+    return ("complete", values)
 
 
-def _values_evidence(record: dict[str, Any], tagged: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+def _values_evidence(
+    record: dict[str, Any],
+    tagged: tuple[tuple[str, Any], ...],
+) -> dict[str, Any]:
     assertion = record["assertion"]
     return {
         "kind": record["kind"],
@@ -373,27 +482,51 @@ def _evaluate_dependency(
         if type(observed) is not tuple or len(observed) != 2:
             return _unknown(dependency_id, kind)
         state, content_digest = observed
-        if state not in {"present", "absent"}:
+        if state == "absent":
+            return _known(
+                dependency_id,
+                kind,
+                "fail",
+                {
+                    "kind": kind,
+                    "component_id": component_id,
+                    "state": "absent",
+                    "content_digest": None,
+                },
+            )
+        if (
+            state != "present"
+            or type(content_digest) is not str
+            or not content_digest
+        ):
             return _unknown(dependency_id, kind)
         return _known(
             dependency_id,
             kind,
-            "pass" if state == "present" else "fail",
+            "pass",
             {
                 "kind": kind,
                 "component_id": component_id,
-                "state": state,
+                "state": "present",
                 "content_digest": content_digest,
             },
         )
 
     if kind == "node-type-present":
-        state = _call_status(observation.node_type, component_id, assertion["node_type"])
+        state = _call_status(
+            observation.node_type,
+            component_id,
+            assertion["node_type"],
+        )
         return _status_fact(
             dependency_id,
             kind,
             state,
-            {"kind": kind, "component_id": component_id, "node_type": assertion["node_type"]},
+            {
+                "kind": kind,
+                "component_id": component_id,
+                "node_type": assertion["node_type"],
+            },
         )
 
     if kind == "feature-present":
@@ -435,7 +568,10 @@ def _evaluate_dependency(
         )
 
     if kind == "path-present":
-        steps = tuple((step["edge"], step["direction"]) for step in assertion["steps"])
+        steps = tuple(
+            (step["edge"], step["direction"])
+            for step in assertion["steps"]
+        )
         state = _call_status(observation.path, component_id, steps)
         return _status_fact(
             dependency_id,
@@ -444,7 +580,10 @@ def _evaluate_dependency(
             {
                 "kind": kind,
                 "component_id": component_id,
-                "steps": [{"edge": edge, "direction": direction} for edge, direction in steps],
+                "steps": [
+                    {"edge": edge, "direction": direction}
+                    for edge, direction in steps
+                ],
             },
         )
 
@@ -455,9 +594,22 @@ def _evaluate_dependency(
             assertion["node_type"],
             assertion["feature"],
         )
+        if state == "absent":
+            return _known(
+                dependency_id,
+                kind,
+                "fail",
+                {
+                    "kind": kind,
+                    "component_id": component_id,
+                    "node_type": assertion["node_type"],
+                    "feature": assertion["feature"],
+                    "state": "absent",
+                },
+            )
         if state != "complete":
             return _unknown(dependency_id, kind)
-        observed = _tagged_scalars(values)
+        observed = tuple(_scalar_key(value) for value in values)
         evidence = _values_evidence(record, observed)
         observed_keys = {
             canonical_json_bytes({"type": scalar_type, "value": scalar})
@@ -465,7 +617,9 @@ def _evaluate_dependency(
         }
         if kind == "native-value-present":
             scalar_type, scalar = _scalar_key(assertion["value"])
-            wanted = canonical_json_bytes({"type": scalar_type, "value": scalar})
+            wanted = canonical_json_bytes(
+                {"type": scalar_type, "value": scalar}
+            )
             return _known(
                 dependency_id,
                 kind,
@@ -485,7 +639,10 @@ def _evaluate_dependency(
             dependency_id,
             kind,
             "pass" if passed else "fail",
-            {**evidence, "domain_semantics": assertion["domain_semantics"]},
+            {
+                **evidence,
+                "domain_semantics": assertion["domain_semantics"],
+            },
         )
 
     if kind == "extent-interpretation":
@@ -496,6 +653,18 @@ def _evaluate_dependency(
         if type(observed) is not tuple or len(observed) != 2:
             return _unknown(dependency_id, kind)
         state, interpretation = observed
+        if state == "absent":
+            return _known(
+                dependency_id,
+                kind,
+                "fail",
+                {
+                    "kind": kind,
+                    "component_id": component_id,
+                    "node_type": assertion["node_type"],
+                    "state": "absent",
+                },
+            )
         if state != "known" or interpretation not in _EXTENT_INTERPRETATIONS:
             return _unknown(dependency_id, kind)
         return _known(
@@ -520,15 +689,21 @@ def _bundle_state(
     required = variant.key.ontology_bundle_digest
     if required is None:
         if active_ontology_bundle_digest is not None:
-            raise RuntimeEvaluationError("active ontology bundle supplied when none is required")
-        return None, "not-required"
+            raise RuntimeEvaluationError(
+                "active ontology bundle supplied when none is required"
+            )
+        return (None, "not-required")
     if active_ontology_bundle_digest is None:
-        return None, "unavailable"
-    if type(active_ontology_bundle_digest) is not str or not active_ontology_bundle_digest:
-        raise RuntimeEvaluationError("active ontology bundle digest must be non-empty")
+        return (None, "unavailable")
+    _require_string(
+        active_ontology_bundle_digest,
+        "active ontology bundle digest",
+    )
     if active_ontology_bundle_digest != required:
-        raise RuntimeEvaluationError("active ontology bundle does not match selected release")
-    return active_ontology_bundle_digest, "verified"
+        raise RuntimeEvaluationError(
+            "active ontology bundle does not match selected release"
+        )
+    return (active_ontology_bundle_digest, "verified")
 
 
 def _report_projection(report: RuntimeEvaluationReport) -> dict[str, Any]:
@@ -568,11 +743,9 @@ def evaluate_runtime_prerequisites(
     active_ontology_bundle_digest: str | None = None,
 ) -> RuntimeEvaluationReport:
     _validate_variant(variant)
-    if type(source_contract) is not str or not source_contract:
-        raise RuntimeEvaluationError("source_contract must be a non-empty string")
+    _require_string(source_contract, "source_contract")
     parent_digest = getattr(observation, "parent_manifest_digest", None)
-    if type(parent_digest) is not str or not parent_digest:
-        raise RuntimeEvaluationError("observation parent manifest digest must be non-empty")
+    _require_string(parent_digest, "observation parent manifest digest")
 
     results = tuple(
         _evaluate_dependency(dependency_id, record, observation)
@@ -587,16 +760,28 @@ def evaluate_runtime_prerequisites(
     else:
         compatibility_state = "verified-compatible"
 
-    active_digest, bundle_state = _bundle_state(variant, active_ontology_bundle_digest)
+    active_digest, ontology_bundle_state = _bundle_state(
+        variant,
+        active_ontology_bundle_digest,
+    )
+    try:
+        release_fingerprint = profile_release_fingerprint(
+            variant.release_signature
+        )
+    except (SemanticResolutionError, TypeError, AttributeError, ValueError) as error:
+        raise RuntimeEvaluationError(
+            "variant release signature cannot be fingerprinted"
+        ) from error
+
     values = dict(
         contract=RUNTIME_EVALUATION_CONTRACT,
         variant=variant.key,
-        profile_release_fingerprint=profile_release_fingerprint(variant.release_signature),
+        profile_release_fingerprint=release_fingerprint,
         observed_parent_manifest_digest=parent_digest,
         compatibility_state=compatibility_state,
         dependency_results=results,
         active_ontology_bundle_digest=active_digest,
-        ontology_bundle_state=bundle_state,
+        ontology_bundle_state=ontology_bundle_state,
         source_contract=source_contract,
     )
     provisional = RuntimeEvaluationReport(report_fingerprint="", **values)
