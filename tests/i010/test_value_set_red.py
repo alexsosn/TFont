@@ -11,7 +11,13 @@ from tfont.semantic_ir import NativeBindingIR, native_binding_identity
 SCHEMA = json.loads(
     Path("src/tfont/schemas/mapping.schema.json").read_text(encoding="utf-8")
 )
-VALIDATOR = Draft202012Validator(SCHEMA["$defs"]["nativeBinding"])
+VALIDATOR = Draft202012Validator(
+    {
+        "$schema": SCHEMA["$schema"],
+        "$defs": SCHEMA["$defs"],
+        "$ref": "#/$defs/nativeBinding",
+    }
+)
 
 
 def _binding(**overrides):
