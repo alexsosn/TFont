@@ -11,13 +11,22 @@ from tfont.digests import canonical_json_bytes
 RUNTIME = importlib.import_module("tfont.runtime_prerequisites")
 
 
-def _record(dependency_id: str, kind: str, assertion: dict, component_id: str = "bhsa-tf"):
+def _record(
+    dependency_id: str,
+    kind: str,
+    assertion: dict,
+    component_id: str = "bhsa-tf",
+    *,
+    evidence: list[dict] | None = None,
+):
     value = {
         "dependency_id": dependency_id,
         "component_id": component_id,
         "kind": kind,
         "assertion": assertion,
     }
+    if evidence is not None:
+        value["evidence"] = evidence
     return dependency_id, canonical_json_bytes(value).decode("utf-8")
 
 
@@ -134,6 +143,7 @@ class I007DependencyKindsRedTests(unittest.TestCase):
                 "dep:domain",
                 "value-domain",
                 {"node_type": "word", "feature": "sp", "values": ["subs", "adj"], "domain_semantics": "closed-reviewed"},
+                evidence=[{"evidence_id": "evidence:domain", "content_digest": "sha256:" + "e" * 64}],
             )
         )
         obs = self._observation(variant)
