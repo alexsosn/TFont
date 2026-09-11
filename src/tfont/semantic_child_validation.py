@@ -37,7 +37,7 @@ def _scalar_identity(value: Any) -> tuple[str, Any] | None:
     return None
 
 
-def _validate_executable_value_coverage(
+def _validate_value_set_dependency_coverage(
     binding: dict[str, Any],
     *,
     resolved_dependencies: list[dict[str, Any]],
@@ -45,25 +45,16 @@ def _validate_executable_value_coverage(
     related_id: str,
     fail: Fail,
 ) -> None:
-    shape = binding.get("execution_shape")
-    if shape == "value-predicate":
-        if "value" not in binding:
-            return
-        values = [binding.get("value")]
-        value_path = path + ("value",)
-    elif shape == "value-set-predicate":
-        selected = binding.get("values")
-        if type(selected) is not list or not selected:
-            fail(
-                "native_semantics_unproven",
-                "value-set-predicate requires a non-empty selected value set",
-                path + ("values",),
-                related_id,
-            )
-            return
-        values = selected
-        value_path = path + ("values",)
-    else:
+    if binding.get("execution_shape") != "value-set-predicate":
+        return
+    selected = binding.get("values")
+    if type(selected) is not list or not selected:
+        fail(
+            "native_semantics_unproven",
+            "value-set-predicate requires a non-empty selected value set",
+            path + ("values",),
+            related_id,
+        )
         return
 
     authorized: set[tuple[str, str, str, tuple[str, Any]]] = set()
@@ -90,7 +81,7 @@ def _validate_executable_value_coverage(
     component_id = binding.get("component_id")
     node_type = binding.get("node_type")
     feature = binding.get("feature")
-    for value in values:
+    for value in selected:
         identity = _scalar_identity(value)
         required = (component_id, node_type, feature, identity)
         if (
@@ -102,8 +93,8 @@ def _validate_executable_value_coverage(
         ):
             fail(
                 "native_semantics_unproven",
-                "executable value predicate requires a matching semantic native-value-present dependency for every selected value",
-                value_path,
+                "value-set-predicate requires a matching semantic native-value-present dependency for every selected value",
+                path + ("values",),
                 related_id,
             )
 
@@ -219,7 +210,7 @@ def validate_native_semantics(
         dependency_ids.sort(key=_utf16_key)
         resolved = [dependencies[dependency_id] for dependency_id in dependency_ids if dependency_id in dependencies]
 
-        _validate_executable_value_coverage(
+        _validate_value_set_dependency_coverage(
             binding,
             resolved_dependencies=resolved,
             path=("mappings", mapping_id, "native_binding"),
@@ -230,7 +221,7 @@ def validate_native_semantics(
             projection_id = projection.get("projection_id")
             execution = projection.get("native_execution_binding")
             if type(execution) is dict:
-                _validate_executable_value_coverage(
+                _validate_value_set_dependency_coverage(
                     execution,
                     resolved_dependencies=resolved,
                     path=(
@@ -244,18 +235,8 @@ def validate_native_semantics(
                     fail=fail,
                 )
 
-        # Preserve the pre-I-010 semantic claim for legacy bindings that carry
-        # empty/null values without an explicit executable shape.
-        if (
-            binding.get("execution_shape") != "value-predicate"
-            and "value" in binding
-            and binding.get("value") in {"", None}
-        ):
-            required = (
-                binding.get("node_type"),
-                binding.get("feature"),
-                binding.get("value"),
-            )
+        if "value" in binding and binding.get("value") in {"", None}:
+            required = (binding.get("node_type"), binding.get("feature"), binding.get("value"))
             proven = False
             for dependency in resolved:
                 assertion = dependency.get("assertion")
