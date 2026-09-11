@@ -104,6 +104,51 @@ jobs:
             --extrabiblical upstream/extrabiblical/tf/0.2 \
             --olia upstream/olia/owl/core/olia.owl \
             | tee i009-identities.json
+      - name: Verify recorded release identities
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          measured = json.loads(Path('i009-identities.json').read_text(encoding='utf-8'))
+          expected = {
+              'bhsa': (
+                  'sha256:5178414e293a743fc98768abcab5b9cb268e14ad56fd2cfbac544ae2869d2e6f',
+                  'sha256:cc2c65cd79b2cb7faf1a34b94feb3cc2d3291e7064cbec942c53b0e05f1b0837',
+              ),
+              'syriac': (
+                  'sha256:54a2596d5525f3afb34db0a89d5511e6b8471ce4a93fae4825b22f0945ab62ef',
+                  'sha256:afb5a826b9ebe10cdd4ca23d96e00ee7bf677d06496cfcfcee6bb37d2ecff6c4',
+              ),
+              'extrabiblical': (
+                  'sha256:d0ca9bdf90bfdefe19861c2c68e91071650ed511b8a79270490238b30274aee0',
+                  'sha256:d39fe3f4848cadb14ae5ef453a5150ea6281b2874728566198d7de10d72bec4a',
+              ),
+          }
+          rows = {row['corpus_id']: row for row in measured['corpora']}
+          if set(rows) != set(expected):
+              raise SystemExit(f'unexpected measured corpora: {sorted(rows)}')
+          for corpus_id, (content_digest, parent_digest) in expected.items():
+              row = rows[corpus_id]
+              if row['content_digest'] != content_digest:
+                  raise SystemExit(f'{corpus_id} content digest changed: {row["content_digest"]}')
+              if row['parent_manifest_digest'] != parent_digest:
+                  raise SystemExit(f'{corpus_id} parent digest changed: {row["parent_manifest_digest"]}')
+
+          ontology = measured['ontology']
+          if ontology['content_digest'] != 'sha256:5983683f27ba524027ffa12a02aead4a115baf9c8933079eabbb4aa71be4e9fd':
+              raise SystemExit(f'OLiA content digest changed: {ontology["content_digest"]}')
+          if ontology['term'] != 'http://purl.org/olia/olia.owl#Noun':
+              raise SystemExit(f'unexpected OLiA term: {ontology["term"]}')
+          required = {
+              'http://purl.org/olia/olia.owl#CommonNoun',
+              'http://purl.org/olia/olia.owl#ProperNoun',
+          }
+          actual = set(ontology['noun_direct_subclasses'])
+          if not required.issubset(actual):
+              raise SystemExit(f'missing required OLiA Noun subclasses: {sorted(required - actual)}')
+          print('recorded I-009 release identities verified')
+          PY
       - name: Verify deterministic repeat
         shell: bash
         run: |
