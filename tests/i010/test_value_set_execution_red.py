@@ -5,6 +5,7 @@ import copy
 import pytest
 
 from tests.i005._fixtures import noun_sources, source_bundle, validate_structural_sources
+from tests.i006._fixtures import noun_semantic_key
 from tfont.semantic_digest_v2 import mapping_semantic_digest_v2, projection_semantic_digest_v1
 from tfont.semantic_execution import (
     ExactExecutionError,
@@ -14,8 +15,7 @@ from tfont.semantic_execution import (
 )
 from tfont.semantic_ir import compile_semantic_ir
 from tfont.semantic_resolver import SemanticResolveRequest, SemanticResolutionError
-from tfont.semantic_validation import validate_semantic_bundle
-from tests.i006._fixtures import noun_semantic_key
+from tfont.semantic_validation import SemanticValidationError, validate_semantic_bundle
 
 
 def _refresh_mapping(mapping):
@@ -28,17 +28,22 @@ def _refresh_mapping(mapping):
     mapping["review"]["reviewed_mapping_digest"] = mapping["mapping_semantic_digest"]
 
 
-def _value_set_bundle(values=("subs", "nmpr")):
+def _value_set_sources(
+    values=("subs", "nmpr"),
+    dependency_values=("subs", "nmpr"),
+):
     sources = noun_sources("bhsa", parent_char="a")
-    first = sources["profile"]["dependencies"][0]
-    second = copy.deepcopy(first)
-    second["dependency_id"] = "dep:bhsa:word-sp:nmpr"
-    second["assertion"]["value"] = "nmpr"
-    first["dependency_id"] = "dep:bhsa:word-sp:subs"
-    sources["profile"]["dependencies"] = [first, second]
+    original = sources["profile"]["dependencies"][0]
+    dependencies = []
+    for value in dependency_values:
+        dependency = copy.deepcopy(original)
+        dependency["dependency_id"] = f"dep:bhsa:word-sp:{value}"
+        dependency["assertion"]["value"] = value
+        dependencies.append(dependency)
+    sources["profile"]["dependencies"] = dependencies
 
     mapping = sources["mappings"]["mappings"][0]
-    mapping["native_dependencies"] = [first["dependency_id"], second["dependency_id"]]
+    mapping["native_dependencies"] = [row["dependency_id"] for row in dependencies]
     for binding in (
         mapping["native_binding"],
         mapping["projections"][0]["native_execution_binding"],
@@ -47,7 +52,11 @@ def _value_set_bundle(values=("subs", "nmpr")):
         binding["values"] = list(values)
         binding["execution_shape"] = "value-set-predicate"
     _refresh_mapping(mapping)
+    return sources
 
+
+def _value_set_bundle(values=("subs", "nmpr")):
+    sources = _value_set_sources(values)
     validate_structural_sources(sources)
     return validate_semantic_bundle(source_bundle(sources))
 
@@ -124,6 +133,36 @@ def test_mapping_semantic_digest_is_invariant_to_selected_value_order():
     left = _value_set_bundle(("subs", "nmpr"))
     right = _value_set_bundle(("nmpr", "subs"))
     assert left.mapping_semantic_digests == right.mapping_semantic_digests
+
+
+def test_value_set_requires_dependency_for_every_selected_value():
+    sources = _value_set_sources(dependency_values=("subs",))
+    validate_structural_sources(sources)
+    with pytest.raises(SemanticValidationError) as raised:
+        validate_semantic_bundle(source_bundle(sources))
+    assert raised.value.problem.category == "native_semantics_unproven"
+
+
+def test_projection_value_set_cannot_execute_value_outside_authorized_dependencies():
+    sources = _value_set_sources()
+    projection = sources["mappings"]["mappings"][0]["projections"][0]
+    projection["native_execution_binding"]["values"] = ["subs", "verb"]
+    _refresh_mapping(sources["mappings"]["mappings"][0])
+    validate_structural_sources(sources)
+    with pytest.raises(SemanticValidationError) as raised:
+        validate_semantic_bundle(source_bundle(sources))
+    assert raised.value.problem.category == "native_semantics_unproven"
+
+
+def test_scalar_projection_cannot_execute_value_outside_authorized_dependencies():
+    sources = noun_sources("bhsa", parent_char="a")
+    projection = sources["mappings"]["mappings"][0]["projections"][0]
+    projection["native_execution_binding"]["value"] = "verb"
+    _refresh_mapping(sources["mappings"]["mappings"][0])
+    validate_structural_sources(sources)
+    with pytest.raises(SemanticValidationError) as raised:
+        validate_semantic_bundle(source_bundle(sources))
+    assert raised.value.problem.category == "native_semantics_unproven"
 
 
 def test_value_set_resolves_as_one_plan_and_executes_deterministic_union():
