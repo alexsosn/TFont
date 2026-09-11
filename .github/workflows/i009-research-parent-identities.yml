@@ -95,7 +95,9 @@ jobs:
           print('verified ExtraBiblical source: sp:part_of_speech_t, subs=2, nmpr=3')
           PY
       - name: Measure exact parent and ontology identities
+        shell: bash
         run: |
+          set -euo pipefail
           python scripts/research/i009_measure_parent_identities.py \
             --bhsa upstream/bhsa/tf/2021 \
             --syriac upstream/syriac/tf/0.9 \
@@ -103,7 +105,9 @@ jobs:
             --olia upstream/olia/owl/core/olia.owl \
             | tee i009-identities.json
       - name: Verify deterministic repeat
+        shell: bash
         run: |
+          set -euo pipefail
           python scripts/research/i009_measure_parent_identities.py \
             --bhsa upstream/bhsa/tf/2021 \
             --syriac upstream/syriac/tf/0.9 \
