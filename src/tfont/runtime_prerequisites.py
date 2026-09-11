@@ -220,8 +220,14 @@ def _expect_exact_keys(
         raise RuntimeEvaluationError(f"{label} has an invalid shape")
 
 
-def _validate_evidence(value: Any) -> None:
-    if type(value) is not list or not value:
+def _validate_evidence(value: Any, *, require_nonempty: bool = False) -> None:
+    if type(value) is not list:
+        if require_nonempty:
+            raise RuntimeEvaluationError(
+                "closed-reviewed value-domain requires evidence"
+            )
+        raise RuntimeEvaluationError("dependency evidence has an invalid shape")
+    if require_nonempty and not value:
         raise RuntimeEvaluationError(
             "closed-reviewed value-domain requires evidence"
         )
@@ -311,8 +317,6 @@ def _validate_assertion(record: dict[str, Any]) -> None:
             )
         if assertion["domain_semantics"] not in {"observed", "closed-reviewed"}:
             raise RuntimeEvaluationError("value-domain semantics are invalid")
-        if assertion["domain_semantics"] == "closed-reviewed":
-            _validate_evidence(record.get("evidence"))
         return
     if kind == "extent-interpretation":
         _expect_exact_keys(assertion, {"node_type", "interpretation"}, kind)
@@ -365,6 +369,17 @@ def _dependency_records(
         if kind not in _KIND_RULES:
             raise RuntimeEvaluationError("dependency kind is not recognized")
         _validate_assertion(record)
+        requires_evidence = (
+            kind == "value-domain"
+            and record["assertion"]["domain_semantics"] == "closed-reviewed"
+        )
+        if "evidence" in record:
+            _validate_evidence(
+                record["evidence"],
+                require_nonempty=requires_evidence,
+            )
+        elif requires_evidence:
+            _validate_evidence(None, require_nonempty=True)
         seen.add(dependency_id)
         rows.append((dependency_id, record))
     rows.sort(key=lambda item: _utf16(item[0]))
