@@ -28,6 +28,7 @@ OLIA_NS = "http://purl.org/olia/olia.owl#"
 OLIA_NOUN = f"{OLIA_NS}Noun"
 OLIA_COMMON_NOUN = f"{OLIA_NS}CommonNoun"
 OLIA_PROPER_NOUN = f"{OLIA_NS}ProperNoun"
+OWL_NS = "http://www.w3.org/2002/07/owl#"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 RDFS_NS = "http://www.w3.org/2000/01/rdf-schema#"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
@@ -67,14 +68,28 @@ def _class_iri(element: ET.Element, base: str) -> str | None:
     return None
 
 
+def _direct_subclass_parent_iri(relation: ET.Element, base: str) -> str | None:
+    """Resolve only the two direct RDF/XML forms used by the pinned OLiA payload."""
+    resource = relation.attrib.get(f"{{{RDF_NS}}}resource")
+    if resource is not None:
+        return urljoin(base, resource)
+
+    children = list(relation)
+    if len(children) != 1 or children[0].tag != f"{{{OWL_NS}}}Class":
+        return None
+    return _class_iri(children[0], base)
+
+
 def measure_olia(path: Path) -> dict[str, object]:
     tree = ET.parse(path)
     root = tree.getroot()
     base = root.attrib.get(f"{{{XML_NS}}}base", "")
+
+    # Only direct rdf:RDF children are class declarations. Nested owl:Class
+    # elements in this exact payload are reference nodes inside relations and
+    # must not overwrite the top-level class declarations.
     classes: dict[str, ET.Element] = {}
-    for element in root.iter():
-        if not element.tag.endswith("Class"):
-            continue
+    for element in root.findall(f"{{{OWL_NS}}}Class"):
         iri = _class_iri(element, base)
         if iri is not None:
             classes[iri] = element
@@ -85,8 +100,7 @@ def measure_olia(path: Path) -> dict[str, object]:
     noun_subclasses: list[str] = []
     for child_iri, element in classes.items():
         for relation in element.findall(f"{{{RDFS_NS}}}subClassOf"):
-            parent = relation.attrib.get(f"{{{RDF_NS}}}resource")
-            if parent is not None and urljoin(base, parent) == OLIA_NOUN:
+            if _direct_subclass_parent_iri(relation, base) == OLIA_NOUN:
                 noun_subclasses.append(child_iri)
                 break
     noun_subclasses.sort()
