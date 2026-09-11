@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -264,7 +264,16 @@ def _loaded_feature_api(
 ) -> tuple[Any, Any]:
     try:
         loaded_value = api.Fall()
+        if isinstance(loaded_value, (str, bytes, bytearray, Mapping)):
+            _fail(
+                "loaded_api_unavailable",
+                "loaded feature inventory is malformed",
+                corpus_id=corpus_id,
+                component_id=binding.component_id,
+            )
         loaded = tuple(loaded_value)
+    except ExactExecutionError:
+        raise
     except Exception as error:
         raise ExactExecutionError(
             ExactExecutionProblem(
@@ -342,11 +351,11 @@ def _normalize_result_nodes(
             )
         try:
             value = operator.index(node)
-        except TypeError as error:
+        except Exception as error:
             raise ExactExecutionError(
                 ExactExecutionProblem(
                     "invalid_result_nodes",
-                    "result node does not implement the integer index protocol",
+                    "result node does not implement a usable integer index protocol",
                     corpus_id=corpus_id,
                     component_id=component_id,
                 )
