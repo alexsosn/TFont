@@ -43,6 +43,8 @@ def test_mapping_schema_accepts_finite_value_set_predicate():
 def test_mapping_schema_rejects_empty_or_duplicate_selected_values():
     assert _errors(_binding(values=[]))
     assert _errors(_binding(values=["subs", "subs"]))
+    # JSON Schema equality treats numerically equal JSON numbers as duplicates.
+    assert _errors(_binding(values=[1, 1.0]))
 
 
 def test_mapping_schema_rejects_mixed_scalar_closed_and_selected_values():
