@@ -5,6 +5,7 @@ import unittest
 from dataclasses import replace
 
 from tests.i006._fixtures import compiled_noun_ir, with_bundle_digest
+from tfont.digests import canonical_json_bytes
 import tfont.runtime_prerequisites as runtime
 
 
@@ -61,6 +62,21 @@ class I007InputAndFingerprintRedTests(unittest.TestCase):
             release_signature=replace(
                 variant.release_signature,
                 dependency_records=(("dep:forged", encoded),),
+            ),
+        )
+        with self.assertRaises(runtime.RuntimeEvaluationError):
+            evaluate(forged, Observation(variant.key.expected_parent_manifest_digest))
+
+    def test_optional_dependency_evidence_still_matches_the_profile_schema(self):
+        variant = compiled_noun_ir(("bhsa",)).variants[0]
+        dependency_id, encoded = variant.release_signature.dependency_records[0]
+        record = json.loads(encoded)
+        record["evidence"] = [{"evidence_id": "evidence:broken"}]
+        forged = replace(
+            variant,
+            release_signature=replace(
+                variant.release_signature,
+                dependency_records=((dependency_id, canonical_json_bytes(record).decode("utf-8")),),
             ),
         )
         with self.assertRaises(runtime.RuntimeEvaluationError):
