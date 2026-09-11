@@ -134,6 +134,29 @@ class I010ValueSetExecutionTests(unittest.TestCase):
         right = _value_set_bundle(("nmpr", "subs"))
         self.assertEqual(left.mapping_semantic_digests, right.mapping_semantic_digests)
 
+    def test_selected_value_order_does_not_change_plan_or_resolution_identity(self):
+        left_ir = _compiled(("subs", "nmpr"))
+        right_ir = _compiled(("nmpr", "subs"))
+        left = execute_exact_semantic(
+            left_ir,
+            _request(),
+            (_context(left_ir, _API()),),
+        )
+        right = execute_exact_semantic(
+            right_ir,
+            _request(),
+            (_context(right_ir, _API()),),
+        )
+        self.assertEqual(
+            left.resolution.plans[0].plan_fingerprint,
+            right.resolution.plans[0].plan_fingerprint,
+        )
+        self.assertEqual(
+            left.resolution.resolution_fingerprint,
+            right.resolution.resolution_fingerprint,
+        )
+        self.assertEqual(left.corpora[0].nodes, right.corpora[0].nodes)
+
     def test_value_set_requires_dependency_for_every_selected_value(self):
         sources = _value_set_sources(dependency_values=("subs",))
         validate_structural_sources(sources)
