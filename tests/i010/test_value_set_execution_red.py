@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import copy
-
-import pytest
+import unittest
 
 from tests.i005._fixtures import noun_sources, source_bundle, validate_structural_sources
 from tests.i006._fixtures import noun_semantic_key
@@ -129,60 +128,56 @@ def _request():
     return SemanticResolveRequest(key=noun_semantic_key(), corpora=("bhsa",))
 
 
-def test_mapping_semantic_digest_is_invariant_to_selected_value_order():
-    left = _value_set_bundle(("subs", "nmpr"))
-    right = _value_set_bundle(("nmpr", "subs"))
-    assert left.mapping_semantic_digests == right.mapping_semantic_digests
+class I010ValueSetExecutionTests(unittest.TestCase):
+    def test_mapping_semantic_digest_is_invariant_to_selected_value_order(self):
+        left = _value_set_bundle(("subs", "nmpr"))
+        right = _value_set_bundle(("nmpr", "subs"))
+        self.assertEqual(left.mapping_semantic_digests, right.mapping_semantic_digests)
 
+    def test_value_set_requires_dependency_for_every_selected_value(self):
+        sources = _value_set_sources(dependency_values=("subs",))
+        validate_structural_sources(sources)
+        with self.assertRaises(SemanticValidationError) as raised:
+            validate_semantic_bundle(source_bundle(sources))
+        self.assertEqual(raised.exception.problem.category, "native_semantics_unproven")
 
-def test_value_set_requires_dependency_for_every_selected_value():
-    sources = _value_set_sources(dependency_values=("subs",))
-    validate_structural_sources(sources)
-    with pytest.raises(SemanticValidationError) as raised:
-        validate_semantic_bundle(source_bundle(sources))
-    assert raised.value.problem.category == "native_semantics_unproven"
+    def test_projection_value_set_cannot_execute_value_outside_authorized_dependencies(self):
+        sources = _value_set_sources()
+        projection = sources["mappings"]["mappings"][0]["projections"][0]
+        projection["native_execution_binding"]["values"] = ["subs", "verb"]
+        _refresh_mapping(sources["mappings"]["mappings"][0])
+        validate_structural_sources(sources)
+        with self.assertRaises(SemanticValidationError) as raised:
+            validate_semantic_bundle(source_bundle(sources))
+        self.assertEqual(raised.exception.problem.category, "native_semantics_unproven")
 
+    def test_value_set_resolves_as_one_plan_and_executes_deterministic_union(self):
+        ir = _compiled()
+        result = execute_exact_semantic(ir, _request(), (_context(ir, _API()),))
+        self.assertEqual(len(result.resolution.plans), 1)
+        binding = result.resolution.plans[0].native_execution_binding
+        self.assertEqual(binding.values, ("nmpr", "subs"))
+        self.assertEqual(result.corpora[0].nodes, (1, 2, 3))
 
-def test_projection_value_set_cannot_execute_value_outside_authorized_dependencies():
-    sources = _value_set_sources()
-    projection = sources["mappings"]["mappings"][0]["projections"][0]
-    projection["native_execution_binding"]["values"] = ["subs", "verb"]
-    _refresh_mapping(sources["mappings"]["mappings"][0])
-    validate_structural_sources(sources)
-    with pytest.raises(SemanticValidationError) as raised:
-        validate_semantic_bundle(source_bundle(sources))
-    assert raised.value.problem.category == "native_semantics_unproven"
+    def test_missing_selected_native_value_fails_runtime_authorization(self):
+        ir = _compiled()
+        with self.assertRaises(SemanticResolutionError) as raised:
+            execute_exact_semantic(
+                ir,
+                _request(),
+                (_context(ir, _API(missing_nmpr=True)),),
+            )
+        # I-007 treats any failed declared dependency as an incompatible loaded
+        # parent before I-006 can authorize a plan. Preserve that fail-closed
+        # precedence rather than weakening runtime state for this new predicate.
+        self.assertEqual(raised.exception.problem.category, "parent_incompatible")
 
-
-def test_value_set_resolves_as_one_plan_and_executes_deterministic_union():
-    ir = _compiled()
-    result = execute_exact_semantic(ir, _request(), (_context(ir, _API()),))
-    assert len(result.resolution.plans) == 1
-    binding = result.resolution.plans[0].native_execution_binding
-    assert binding.values == ("nmpr", "subs")
-    assert result.corpora[0].nodes == (1, 2, 3)
-
-
-def test_missing_selected_native_value_fails_runtime_authorization():
-    ir = _compiled()
-    with pytest.raises(SemanticResolutionError) as raised:
-        execute_exact_semantic(
-            ir,
-            _request(),
-            (_context(ir, _API(missing_nmpr=True)),),
-        )
-    # I-007 treats any failed declared dependency as an incompatible loaded
-    # parent before I-006 can authorize a plan. Preserve that fail-closed
-    # precedence rather than weakening runtime state for this new predicate.
-    assert raised.value.problem.category == "parent_incompatible"
-
-
-def test_duplicate_inside_one_selector_still_fails_before_union():
-    ir = _compiled()
-    with pytest.raises(ExactExecutionError) as raised:
-        execute_exact_semantic(
-            ir,
-            _request(),
-            (_context(ir, _API(duplicate_single_selector=True)),),
-        )
-    assert raised.value.problem.category == "invalid_result_nodes"
+    def test_duplicate_inside_one_selector_still_fails_before_union(self):
+        ir = _compiled()
+        with self.assertRaises(ExactExecutionError) as raised:
+            execute_exact_semantic(
+                ir,
+                _request(),
+                (_context(ir, _API(duplicate_single_selector=True)),),
+            )
+        self.assertEqual(raised.exception.problem.category, "invalid_result_nodes")
