@@ -84,7 +84,7 @@ print(json.dumps({"corpora": [row.key.corpus_id for row in ir.variants]}))
                 text=True,
             )
             payload = json.loads(result.stdout.strip())
-            self.assertEqual(payload["corpora"], ["bhsa", "syriac", "extrabiblical"])
+            self.assertEqual(payload["corpora"], ["bhsa", "extrabiblical", "syriac"])
 
 
 if __name__ == "__main__":
