@@ -57,6 +57,10 @@ class I009WheelInstallTests(unittest.TestCase):
             )
             script = r'''
 import json
+import os
+import sys
+
+sys.path.insert(0, os.environ["I009_INSTALLED_TARGET"])
 import tfont
 from tfont.semantic_ir import compile_semantic_ir
 from tfont.semantic_validation import validate_semantic_bundle
@@ -69,7 +73,8 @@ ir = compile_semantic_ir(validated)
 print(json.dumps({"corpora": [row.key.corpus_id for row in ir.variants]}))
 '''
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(target)
+            env.pop("PYTHONPATH", None)
+            env["I009_INSTALLED_TARGET"] = str(target)
             result = subprocess.run(
                 [sys.executable, "-I", "-c", script],
                 cwd=outside,
