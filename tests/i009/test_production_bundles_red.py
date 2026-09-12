@@ -47,9 +47,16 @@ class I009ProductionBundleTests(unittest.TestCase):
     def test_all_three_package_bundles_validate_and_compile_together(self):
         module, bundles = self._bundles()
         self.assertEqual(module.PRODUCTION_NOUN_CORPORA, ("bhsa", "syriac", "extrabiblical"))
+        self.assertEqual(
+            tuple(bundle.profile.data["profile_id"] for bundle in bundles),
+            ("tfont-bhsa", "tfont-syriac", "tfont-extrabiblical"),
+        )
         validated = tuple(validate_semantic_bundle(bundle) for bundle in bundles)
         ir = compile_semantic_ir(validated)
-        self.assertEqual(tuple(row.key.corpus_id for row in ir.variants), module.PRODUCTION_NOUN_CORPORA)
+        self.assertEqual(
+            tuple(row.key.corpus_id for row in ir.variants),
+            tuple(sorted(module.PRODUCTION_NOUN_CORPORA)),
+        )
 
     def test_profiles_use_real_parent_identities_and_mit_license(self):
         module, bundles = self._bundles()
